@@ -1,0 +1,6 @@
+{
+  "name": "니편내편",
+  "description": "억눌린 감정을 표출하고 1초 투표 및 AI 1:1 대화를 통해 즉각적인 공감을 얻는 익명 감정 배출 커뮤니티",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
