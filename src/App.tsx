@@ -13,6 +13,8 @@ import { MyPageView } from './components/MyPageView';
 import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
+import { AdultVerificationModal } from './components/AdultVerificationModal';
+import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -95,6 +97,9 @@ export default function App() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
@@ -136,9 +141,14 @@ export default function App() {
       ...user,
       nickname,
       socialProvider: provider,
+      isAdultVerified: user.isAdultVerified,
     };
     setUser(updatedUser);
     setShowWelcomeModal(false);
+  };
+
+  const handleVerifyAdult = () => {
+    setUser(prev => ({ ...prev, isAdultVerified: true }));
   };
 
   const handleUpdateNickname = (newNickname: string) => {
@@ -160,7 +170,32 @@ export default function App() {
   const handleVote = (storyId: string, option: 'A' | 'B') => {
     setStories(prev => prev.map(story => {
       if (story.id === storyId) {
-        if (story.userVoted) return story;
+        // 이미 같은 옵션에 투표했다면 무시
+        if (story.userVoted === option) return story;
+
+        // 이미 다른 옵션에 투표한 적이 있다면 (투표 변경 시도)
+        if (story.userVoted) {
+          if (story.voteChanged) {
+            setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
+            setTimeout(() => setToastMessage(null), 3000);
+            return story;
+          }
+          // 변경 허용 (기존표 -1, 새 표 +1, 변경 상태 true)
+          const updated = {
+            ...story,
+            userVoted: option,
+            votesA: option === 'A' ? story.votesA + 1 : story.votesA - 1,
+            votesB: option === 'B' ? story.votesB + 1 : story.votesB - 1,
+            voteChanged: true,
+          };
+          if (selectedStory?.id === storyId) setSelectedStory(updated);
+          
+          setToastMessage('투표가 변경되었습니다.');
+          setTimeout(() => setToastMessage(null), 3000);
+          return updated;
+        }
+
+        // 최초 투표
         const updated = {
           ...story,
           userVoted: option,
@@ -225,6 +260,7 @@ export default function App() {
     body: string;
     opponentPersonality?: string;
     createAIPersona: boolean;
+    isAdult: boolean;
   }) => {
     const cardColors: ('pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream')[] = ['pink', 'teal', 'lavender', 'peach', 'ochre'];
     const randomColor = cardColors[Math.floor(Math.random() * cardColors.length)];
@@ -237,17 +273,21 @@ export default function App() {
       body: storyData.body,
       category: storyData.category,
       createdAt: new Date().toISOString(),
-      votesA: 1, // initial author vote
+      votesA: 0,
       votesB: 0,
-      userVoted: 'A',
+      userVoted: undefined,
       commentCount: 0,
       viewCount: 1,
       reportsCount: 0,
       isBlind: false,
+      isAdult: storyData.isAdult,
       cardColor: randomColor,
     };
 
     setStories(prev => [newStory, ...prev]);
+    
+    setToastMessage('사연 등록이 완료되었습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
 
     // If auto persona creation requested
     if (storyData.createAIPersona) {
@@ -271,30 +311,8 @@ export default function App() {
   };
 
   const handleStartAIChatWithStory = (story: Story) => {
-    // Find matching persona or create temporary session
-    let persona = personas.find(p => p.category === story.category) || personas[0];
-    
-    const newSession: ChatSession = {
-      id: `session-${Date.now()}`,
-      personaId: persona.id,
-      personaName: persona.name,
-      personaRole: persona.role,
-      storyId: story.id,
-      messages: [
-        {
-          id: `msg-1`,
-          sender: 'ai',
-          text: `[${persona.name}] 네가 커뮤니티에 올린 사연 봤는데... 진짜 내가 그렇게 이상해? 나한테 직접 말해봐.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ],
-      empathyScore: 30,
-      createdAt: new Date().toISOString(),
-      status: 'active'
-    };
-
-    setActiveChatSession(newSession);
-    setActiveTab('ai-chat');
+    // 요구사항: AI 대화로 가지 않고 프리미엄 안내 모달을 띄움
+    setIsPremiumModalOpen(true);
   };
 
   const handleReport = (targetId: string) => {
@@ -428,6 +446,9 @@ export default function App() {
                   <StoryCard
                     key={story.id}
                     story={story}
+                    currentUser={user}
+                    isUserAdultVerified={user.isAdultVerified}
+                    onRequireAdultVerification={() => setIsAdultVerificationOpen(true)}
                     onSelect={(s) => setSelectedStory(s)}
                     onVote={handleVote}
                     onStartAIChatWithStory={handleStartAIChatWithStory}
@@ -558,6 +579,25 @@ export default function App() {
         onClose={() => setIsApiKeyModalOpen(false)}
         onSaveKey={(key) => setPotensApiKey(key)}
       />
+
+      <AdultVerificationModal
+        isOpen={isAdultVerificationOpen}
+        onClose={() => setIsAdultVerificationOpen(false)}
+        onVerify={handleVerifyAdult}
+      />
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+      />
+
+      {/* Global Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-[#1C1C1C] text-white px-6 py-3 rounded-full shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2 text-sm font-bold">
+          <MessageSquareHeart className="w-4 h-4 text-[#3ECF8E]" />
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

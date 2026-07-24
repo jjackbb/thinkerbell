@@ -38,14 +38,15 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setTimeout(() => setToastMessage(null), 2500);
   };
 
+  const isMyStory = currentUser.id === story.authorId;
+
   const handleVote = (option: 'A' | 'B') => {
-    if (votedOption) {
-      showToast('이미 투표에 참여하셨습니다.');
+    if (votedOption && story.voteChanged) {
+      showToast('투표는 최대 1번만 변경할 수 있습니다.');
       return;
     }
     setVotedOption(option);
     onVote(story.id, option);
-    showToast(option === 'A' ? '내편 투표완료!' : '니편 투표완료!');
   };
 
   const handleCommentSubmit = (e: React.FormEvent) => {
@@ -57,8 +58,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   };
 
   const totalVotes = story.votesA + story.votesB;
-  const percentA = totalVotes > 0 ? Math.round((story.votesA / totalVotes) * 100) : 50;
-  const percentB = 100 - percentA;
+  const percentA = totalVotes > 0 ? Math.round((story.votesA / totalVotes) * 100) : 0;
+  const percentB = totalVotes > 0 ? 100 - percentA : 0;
+  const isZeroVotes = totalVotes === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
@@ -128,11 +130,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   {/* My Side (내편) */}
                   <button
                     onClick={() => handleVote('A')}
+                    disabled={!!votedOption && !!story.voteChanged}
                     className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#3ECF8E] cursor-pointer ${
                       votedOption === 'A' ? 'ring-4 ring-[#3ECF8E]/30' : ''
                     }`}
                   >
-                    <ThumbsUp className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
+                    <ThumbsUp className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform`} />
                     <span className="font-headline-lg text-lg font-black mb-1">내편</span>
                     <span className="font-mono text-[10px] uppercase font-bold opacity-80">Team Author</span>
                     <span className="absolute top-3 right-3 font-mono text-xs font-bold">{percentA}%</span>
@@ -141,11 +144,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   {/* Opposite Side (니편) */}
                   <button
                     onClick={() => handleVote('B')}
+                    disabled={!!votedOption && !!story.voteChanged}
                     className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#f3f4f5] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#E5E7EB] cursor-pointer ${
                       votedOption === 'B' ? 'ring-4 ring-[#1C1C1C]/20' : ''
                     }`}
                   >
-                    <ThumbsDown className="w-8 h-8 mb-2 text-[#5f5e5e] group-hover:scale-110 transition-transform" />
+                    <ThumbsDown className={`w-8 h-8 mb-2 text-[#5f5e5e] group-hover:scale-110 transition-transform`} />
                     <span className="font-headline-lg text-lg font-black mb-1">니편</span>
                     <span className="font-mono text-[10px] text-[#5f5e5e] uppercase font-bold">Team Opponent</span>
                     <span className="absolute top-3 right-3 font-mono text-xs font-bold text-[#5f5e5e]">{percentB}%</span>
@@ -156,7 +160,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               {/* AI Chat CTA */}
               <div className="p-4 bg-[#1C1C1C] text-white rounded-lg flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-[#3ECF8E]">갈등 상대방과 1:1 디베이트</h4>
+                  <h4 className="font-bold text-xs sm:text-sm text-[#3ECF8E]">Ai 시뮬레이션</h4>
                   <p className="text-[11px] text-[#5f5e5e] font-mono mt-0.5">AI 시뮬레이션으로 입장 차이를 확인하세요.</p>
                 </div>
                 <button
@@ -182,8 +186,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <span className="text-[#5f5e5e]">Sentiment Logic</span>
                     <span className="text-[#3ECF8E] font-bold">Stable</span>
                   </div>
-                  <div className="h-1.5 w-full bg-[#f3f4f5] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#3ECF8E]" style={{ width: `${percentA}%` }}></div>
+                  <div className="h-1.5 w-full bg-[#E5E7EB] rounded-full overflow-hidden">
+                    {!isZeroVotes && (
+                      <div className="h-full bg-[#3ECF8E]" style={{ width: `${percentA}%` }}></div>
+                    )}
                   </div>
                 </div>
               </div>

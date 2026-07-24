@@ -5,6 +5,7 @@ export interface UserProfile {
   nickname: string;
   socialProvider?: 'kakao' | 'apple' | 'google' | 'guest';
   createdAt: string;
+  isAdultVerified?: boolean;
 }
 
 export interface Story {
@@ -27,6 +28,8 @@ export interface Story {
   personaInstruction?: string;
   reportsCount: number;
   isBlind: boolean;
+  isAdult?: boolean;
+  voteChanged?: boolean;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
 

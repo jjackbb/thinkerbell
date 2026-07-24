@@ -11,6 +11,7 @@ interface CreateStoryModalProps {
     body: string;
     opponentPersonality?: string;
     createAIPersona: boolean;
+    isAdult: boolean;
   }) => void;
 }
 
@@ -80,13 +81,13 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         return;
       }
 
-      // 등록 진행
       onSubmit({
         title: title.trim(),
         category,
         body: body.trim(),
         opponentPersonality: opponentPersonality.trim(),
         createAIPersona: true,
+        isAdult: isAdultCheck,
       });
 
       // Reset Form
