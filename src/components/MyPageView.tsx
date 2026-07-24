@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, Story, Comment } from '../types';
-import { ShieldCheck, RefreshCw, Check, LogOut, ChevronRight } from 'lucide-react';
+import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User } from 'lucide-react';
 
 interface MyPageViewProps {
   user: UserProfile;
@@ -31,143 +31,147 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     if (!nicknameInput.trim()) return;
     onUpdateNickname(nicknameInput.trim());
     setIsEditingNickname(false);
-    setSuccessMessage('닉네임 변경 완료!');
+    setSuccessMessage('닉네임이 성공적으로 변경되었습니다!');
     setTimeout(() => setSuccessMessage(null), 2500);
   };
 
   return (
-    <div className="max-w-[420px] mx-auto space-y-6 pb-28">
-      {/* Profile Section */}
-      <section className="pt-2 pb-4">
-        <div className="relative group">
-          <div className="w-24 h-24 bg-black flex items-center justify-center mb-3 border-4 border-[#e21500] elevated-tile overflow-hidden">
-            <span className="material-symbols-outlined text-white text-[48px]">person</span>
-          </div>
-          
-          {isEditingNickname ? (
-            <form onSubmit={handleSaveNickname} className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={nicknameInput}
-                onChange={(e) => setNicknameInput(e.target.value)}
-                maxLength={12}
-                className="p-2 border-2 border-black font-mono text-sm font-black bg-white focus:outline-none focus:border-[#e21500]"
-              />
-              <button
-                type="submit"
-                className="p-2 bg-[#e21500] text-white border-2 border-black font-mono text-xs font-black"
-              >
-                저장
-              </button>
-              <button
-                type="button"
-                onClick={onGenerateRandomNickname}
-                className="p-2 bg-black text-white border-2 border-black"
-                title="랜덤 닉네임"
-              >
-                <RefreshCw className="w-4 h-4 text-[#fffa82]" />
-              </button>
-            </form>
-          ) : (
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="font-black text-2xl tracking-tighter text-black">{user.nickname}</h2>
-              <button
-                onClick={() => {
-                  setNicknameInput(user.nickname);
-                  setIsEditingNickname(true);
-                }}
-                className="font-mono text-xs text-[#e21500] font-black underline cursor-pointer"
-              >
-                EDIT
-              </button>
+    <div className="max-w-3xl mx-auto space-y-8 pb-28">
+      {/* Profile Banner */}
+      <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-full bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center font-bold text-2xl">
+              <User className="w-8 h-8" />
             </div>
-          )}
 
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] bg-[#e21500] px-2 py-0.5 text-white uppercase tracking-widest font-black border border-black">
-              Verified Renegade
-            </span>
-            <span className="font-mono text-[10px] text-[#5e5e5e] font-bold">
-              Joined 2024.03
-            </span>
-          </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1 font-mono text-xs">
+                <span className="px-2 py-0.5 rounded bg-[#3ECF8E]/20 text-[#3ECF8E] font-bold border border-[#3ECF8E]/30 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED LOGICIAN
+                </span>
+                <span className="text-[#5f5e5e]">Joined 2024.03</span>
+              </div>
 
-          {successMessage && (
-            <div className="mt-3 p-2 bg-black text-[#fffa82] font-mono text-xs font-black border-2 border-black flex items-center gap-1">
-              <Check className="w-4 h-4 text-[#e21500]" /> {successMessage}
+              {isEditingNickname ? (
+                <form onSubmit={handleSaveNickname} className="flex items-center gap-2 mt-2 font-mono">
+                  <input
+                    type="text"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    maxLength={12}
+                    className="p-1.5 bg-[#f8f9fa] border border-[#E5E7EB] text-[#1C1C1C] rounded text-xs font-bold focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="p-1.5 bg-[#3ECF8E] text-[#1C1C1C] rounded text-xs font-bold cursor-pointer"
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onGenerateRandomNickname}
+                    className="p-1.5 bg-white/10 text-white rounded cursor-pointer"
+                    title="랜덤 닉네임"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold font-headline-lg">{user.nickname}</h2>
+                  <button
+                    onClick={() => {
+                      setNicknameInput(user.nickname);
+                      setIsEditingNickname(true);
+                    }}
+                    className="font-mono text-xs text-[#3ECF8E] underline cursor-pointer"
+                  >
+                    EDIT
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+
+        {successMessage && (
+          <div className="mt-4 p-2 bg-[#3ECF8E]/20 text-[#3ECF8E] font-mono text-xs font-bold rounded border border-[#3ECF8E]/30 flex items-center gap-2">
+            <Check className="w-4 h-4" /> {successMessage}
+          </div>
+        )}
+      </section>
+
+      {/* Stats Cards */}
+      <section className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-[#E5E7EB] p-5 rounded-lg flex flex-col justify-between">
+          <span className="font-mono text-xs text-[#3ECF8E] font-bold">MY STORIES</span>
+          <div>
+            <p className="font-mono text-3xl font-bold text-[#1C1C1C] mt-2">{myStories.length}</p>
+            <p className="text-xs text-[#5f5e5e] font-medium">내가 작성한 사연</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#E5E7EB] p-5 rounded-lg flex flex-col justify-between">
+          <span className="font-mono text-xs text-[#3ECF8E] font-bold">VOTES PARTICIPATED</span>
+          <div>
+            <p className="font-mono text-3xl font-bold text-[#1C1C1C] mt-2">{myVotes.length}</p>
+            <p className="text-xs text-[#5f5e5e] font-medium">참여한 투표 수</p>
+          </div>
         </div>
       </section>
 
-      {/* Stats Bento Grid */}
-      <section className="grid grid-cols-2 gap-3">
-        <div className="bg-white border-2 border-black p-4 flex flex-col justify-between aspect-square elevated-tile">
-          <span className="font-mono text-[10px] text-[#e21500] uppercase font-black">Level 02</span>
-          <div>
-            <p className="font-mono text-4xl text-[#e21500] font-black">{myStories.length}</p>
-            <p className="text-sm text-black font-black leading-tight">내가 쓴 글</p>
-          </div>
-        </div>
-
-        <div className="bg-black p-4 flex flex-col justify-between aspect-square border-2 border-black elevated-tile">
-          <span className="font-mono text-[10px] text-[#7f7f7f] uppercase opacity-80 font-bold">Active Task</span>
-          <div>
-            <p className="font-mono text-4xl text-[#fffa82] font-black">{myVotes.length}</p>
-            <p className="text-sm text-white font-black leading-tight">참여한 투표</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Activity List Tabs */}
-      <section className="space-y-4">
-        <div className="flex border-b-4 border-black pb-2 gap-2 font-mono text-xs">
+      {/* Activity Tabs */}
+      <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4">
+        <div className="flex border-b border-[#E5E7EB] pb-3 gap-3 font-mono text-xs">
           <button
             onClick={() => setActiveTab('stories')}
-            className={`px-3 py-1.5 border-2 border-black font-black uppercase transition-all cursor-pointer ${
-              activeTab === 'stories' ? 'bg-[#e21500] text-white shadow-[2px_2px_0px_#000]' : 'bg-white text-black'
+            className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+              activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            내 사연 ({myStories.length})
+            작성 사연 ({myStories.length})
           </button>
           <button
             onClick={() => setActiveTab('votes')}
-            className={`px-3 py-1.5 border-2 border-black font-black uppercase transition-all cursor-pointer ${
-              activeTab === 'votes' ? 'bg-[#e21500] text-white shadow-[2px_2px_0px_#000]' : 'bg-white text-black'
+            className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+              activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            내 투표 ({myVotes.length})
+            참여 투표 ({myVotes.length})
           </button>
           <button
             onClick={() => setActiveTab('comments')}
-            className={`px-3 py-1.5 border-2 border-black font-black uppercase transition-all cursor-pointer ${
-              activeTab === 'comments' ? 'bg-[#e21500] text-white shadow-[2px_2px_0px_#000]' : 'bg-white text-black'
+            className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+              activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            내 댓글 ({myComments.length})
+            작성 댓글 ({myComments.length})
           </button>
         </div>
 
+        {/* Tab Items */}
         <div className="space-y-3">
           {activeTab === 'stories' && (
             myStories.length === 0 ? (
-              <p className="text-center py-8 font-mono text-xs text-[#5e5e5e] font-bold">작성한 익명 사연이 없습니다.</p>
+              <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">작성한 사연이 없습니다.</p>
             ) : (
               myStories.map((s) => (
                 <div
                   key={s.id}
                   onClick={() => onSelectStory(s)}
-                  className="bg-white border-2 border-black p-4 group hover:border-[#e21500] transition-colors cursor-pointer elevated-tile"
+                  className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg cursor-pointer transition-colors flex justify-between items-center"
                 >
-                  <div className="flex justify-between items-start mb-1 font-mono text-[10px]">
-                    <span className="bg-[#cdbbff] px-2 py-0.5 text-black font-bold border border-black">{s.category}</span>
-                    <span className="text-[#5e5e5e] font-bold">{new Date(s.createdAt).toLocaleDateString()}</span>
+                  <div>
+                    <span className="font-mono text-[10px] px-2 py-0.5 bg-[#3ECF8E]/20 text-[#006c45] font-bold rounded mr-2">
+                      {s.category}
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-bold text-[#1C1C1C] inline">{s.title}</h4>
+                    <p className="text-xs text-[#5f5e5e] mt-1 line-clamp-1">{s.body}</p>
                   </div>
-                  <p className="font-black text-sm text-black mb-2">{s.title}</p>
-                  <div className="flex items-center gap-3 font-mono text-[11px] text-[#e21500] font-bold">
-                    <span>VOTES: {s.votesA + s.votesB}</span>
-                    <span>COMMENTS: {s.commentCount}</span>
-                  </div>
+                  <span className="font-mono text-xs text-[#3ECF8E] font-bold whitespace-nowrap ml-3">
+                    {s.votesA + s.votesB}표
+                  </span>
                 </div>
               ))
             )
@@ -175,18 +179,18 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
           {activeTab === 'votes' && (
             myVotes.length === 0 ? (
-              <p className="text-center py-8 font-mono text-xs text-[#5e5e5e] font-bold">참여한 투표가 없습니다.</p>
+              <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">참여한 투표가 없습니다.</p>
             ) : (
               myVotes.map((v, i) => (
                 <div
                   key={i}
-                  className="bg-white border-2 border-black p-3.5 flex justify-between items-center elevated-tile"
+                  className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg flex justify-between items-center"
                 >
-                  <p className="font-bold text-xs text-black line-clamp-1 flex-1 pr-2">{v.title}</p>
-                  <span className={`font-mono text-[10px] font-black px-2.5 py-1 border border-black uppercase ${
-                    v.option === 'A' ? 'bg-[#e21500] text-white' : 'bg-black text-white'
+                  <p className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-1 flex-1 pr-2">{v.title}</p>
+                  <span className={`font-mono text-xs font-bold px-3 py-1 rounded ${
+                    v.option === 'A' ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
                   }`}>
-                    {v.option === 'A' ? '내편' : '상대편'}
+                    {v.option === 'A' ? '내편 선택' : '상대편 선택'}
                   </span>
                 </div>
               ))
@@ -195,15 +199,15 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
           {activeTab === 'comments' && (
             myComments.length === 0 ? (
-              <p className="text-center py-8 font-mono text-xs text-[#5e5e5e] font-bold">작성한 댓글이 없습니다.</p>
+              <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">작성한 댓글이 없습니다.</p>
             ) : (
               myComments.map((c) => (
                 <div
                   key={c.id}
-                  className="bg-white border-2 border-black p-3.5 space-y-1 elevated-tile"
+                  className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg space-y-1"
                 >
-                  <span className="font-mono text-[10px] text-[#e21500] font-black">{c.anonymousId}</span>
-                  <p className="text-xs text-black font-bold leading-relaxed">{c.content}</p>
+                  <span className="font-mono text-[10px] text-[#3ECF8E] font-bold">{c.anonymousId}</span>
+                  <p className="text-xs text-[#1C1C1C] font-medium leading-relaxed">{c.content}</p>
                 </div>
               ))
             )
@@ -211,32 +215,30 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         </div>
       </section>
 
-      {/* Settings Options */}
-      <section className="space-y-3 pt-4 border-t-4 border-black">
-        <button className="w-full flex items-center justify-between p-4 bg-white border-2 border-black elevated-tile font-black text-sm">
-          <span>계정 설정</span>
-          <ChevronRight className="w-5 h-5 text-[#e21500]" />
+      {/* Settings List */}
+      <section className="space-y-3">
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C]">
+          <span>계정 설정 및 정보</span>
+          <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button className="w-full flex items-center justify-between p-4 bg-white border-2 border-black elevated-tile font-black text-sm">
-          <span>알림 관리</span>
-          <ChevronRight className="w-5 h-5 text-[#e21500]" />
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C]">
+          <span>알림 설정</span>
+          <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button className="w-full flex items-center justify-between p-4 bg-white border-2 border-black elevated-tile font-black text-sm">
-          <span>공지사항 및 도움말</span>
-          <ChevronRight className="w-5 h-5 text-[#e21500]" />
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C]">
+          <span>도움말 및 문의</span>
+          <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        
+
         <div className="pt-4">
-          <button className="w-full py-3 bg-[#e21500] text-white font-mono rounded-none border-2 border-black elevated-tile hover:bg-[#440a07] transition-colors flex items-center justify-center gap-2">
-            <LogOut className="w-4 h-4 text-white" />
-            <span className="font-black text-sm uppercase">로그아웃</span>
+          <button className="w-full py-3.5 bg-[#1C1C1C] hover:bg-black text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+            <LogOut className="w-4 h-4 text-[#3ECF8E]" />
+            <span>로그아웃</span>
           </button>
-          <p className="text-center font-mono text-[10px] text-[#5e5e5e] mt-3 uppercase tracking-widest font-black">
-            System Version 4.0.2 - Security Protocol Active
-          </p>
         </div>
       </section>
     </div>
   );
 };
+
 

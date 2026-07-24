@@ -302,7 +302,7 @@ export default function App() {
   const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
 
   return (
-    <div className="min-h-screen bg-white text-[#151515] flex flex-col font-sans selection:bg-[#e21500] selection:text-white">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#3ECF8E] selection:text-[#1C1C1C]">
       
       {/* Header */}
       <Header
@@ -313,34 +313,33 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-2xl w-full mx-auto px-3 sm:px-4 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
         
         {/* TAB 1: FEED VIEW */}
         {activeTab === 'feed' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-8 pb-24">
             
+            {/* Today's Balance Game (Hot Logic Hero) */}
+            <BalanceGameSection />
+
             {/* Weekly Top Banner */}
             <WeeklyTopBanner
               weeklyTopStories={weeklyTopStories}
               onSelectStory={(story) => setSelectedStory(story)}
             />
 
-            {/* Today's Balance Game */}
-            <BalanceGameSection />
-
-            {/* Category Filter & Sorting Bar */}
-            <div className="bg-white border-2 border-black p-3 flex flex-col sm:flex-row items-center justify-between gap-3 elevated-tile">
-              
+            {/* Feed Category & Search Controls */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               {/* Category Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scroll-hide">
+              <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scroll-hide">
                 {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-1.5 text-xs font-mono font-black transition-all cursor-pointer whitespace-nowrap border-2 ${
+                    className={`whitespace-nowrap px-5 py-2 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
                       selectedCategory === cat
-                        ? 'bg-[#e21500] text-white border-black shadow-[2px_2px_0px_#000]'
-                        : 'bg-white text-black border-black hover:bg-[#e21500] hover:text-white'
+                        ? 'bg-[#3ECF8E] text-[#1C1C1C] shadow-xs'
+                        : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:border-[#3ECF8E] hover:text-[#3ECF8E]'
                     }`}
                   >
                     {cat}
@@ -349,42 +348,42 @@ export default function App() {
               </div>
 
               {/* Sort Switch */}
-              <div className="flex items-center gap-1 bg-[#f0f0f0] p-1 border-2 border-black shrink-0 font-mono">
+              <div className="flex items-center gap-2 font-mono text-xs shrink-0">
                 <button
                   onClick={() => setSortBy('latest')}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-black transition-all cursor-pointer ${
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'latest'
-                      ? 'bg-[#e21500] text-white shadow-[2px_2px_0px_#000]'
-                      : 'text-black hover:text-[#e21500]'
+                      ? 'bg-[#1C1C1C] text-[#3ECF8E]'
+                      : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:text-[#1C1C1C]'
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5" /> LATEST
                 </button>
                 <button
                   onClick={() => setSortBy('votes')}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-black transition-all cursor-pointer ${
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'votes'
-                      ? 'bg-black text-white shadow-[2px_2px_0px_#e21500]'
-                      : 'text-black hover:text-[#e21500]'
+                      ? 'bg-[#1C1C1C] text-[#3ECF8E]'
+                      : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:text-[#1C1C1C]'
                   }`}
                 >
-                  <Flame className="w-3.5 h-3.5 text-[#fffa82]" /> HOT
+                  <Flame className="w-3.5 h-3.5 text-[#3ECF8E]" /> HOT
                 </button>
               </div>
             </div>
 
-            {/* Feed Story Cards List */}
-            <div className="space-y-4">
+            {/* Story Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredStories.length === 0 ? (
-                <div className="text-center py-16 bg-white border-4 border-black p-6 space-y-3 elevated-tile">
-                  <MessageSquareHeart className="w-10 h-10 text-[#e21500] mx-auto" />
-                  <h3 className="text-base font-black text-black">
+                <div className="col-span-full text-center py-16 bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-3">
+                  <MessageSquareHeart className="w-10 h-10 text-[#3ECF8E] mx-auto opacity-80" />
+                  <h3 className="text-base font-bold text-[#1C1C1C]">
                     등록된 사연이 없습니다.
                   </h3>
-                  <p className="font-mono text-xs text-[#5e5e5e] font-bold">첫 번째 사연을 등록해 내편을 만들어보세요!</p>
+                  <p className="font-mono text-xs text-[#5f5e5e]">첫 번째 사연을 등록해 논리 대결을 시작해보세요!</p>
                   <button
                     onClick={() => setIsCreateStoryOpen(true)}
-                    className="mt-2 px-4 py-2 bg-[#e21500] text-white font-mono font-black text-xs border-2 border-black uppercase shadow-[2px_2px_0px_#000] cursor-pointer"
+                    className="mt-2 px-6 py-2.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#3ECF8E]/90 cursor-pointer"
                   >
                     CREATE STORY
                   </button>
@@ -401,6 +400,25 @@ export default function App() {
                   />
                 ))
               )}
+            </div>
+
+            {/* Create Story Prompt Section */}
+            <div className="mt-16 p-8 border border-[#3ECF8E] bg-[#3ECF8E]/5 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 rounded-full bg-[#3ECF8E] flex items-center justify-center text-[#1C1C1C]">
+                  <MessageSquareHeart className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="font-headline-md text-base sm:text-lg font-bold text-[#1C1C1C] mb-1">당신의 고민을 나눠보세요</h3>
+                  <p className="text-[#5f5e5e] font-body-md text-xs sm:text-sm">세상의 모든 갈등과 고민은 명확한 논리로 해답을 찾을 수 있습니다.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateStoryOpen(true)}
+                className="w-full md:w-auto bg-[#1C1C1C] text-white hover:bg-black px-8 py-3.5 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
+              >
+                사연 올리기
+              </button>
             </div>
           </div>
         )}
@@ -424,7 +442,7 @@ export default function App() {
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   }
                 ],
-                empathyScore: 30,
+                empathyScore: 64,
                 createdAt: new Date().toISOString(),
                 status: 'active'
               };
@@ -449,10 +467,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Write Button (Mobile Quick Access) */}
+      {/* Floating Write Button (Mobile) */}
       <button
         onClick={() => setIsCreateStoryOpen(true)}
-        className="fixed bottom-24 right-5 z-30 w-14 h-14 bg-[#e21500] text-white flex items-center justify-center border-2 border-black shadow-[4px_4px_0px_#000] active:translate-y-1 transition-all cursor-pointer md:hidden"
+        className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#3ECF8E]/90 active:scale-95 transition-all cursor-pointer md:hidden"
         title="익명 사연 쓰기"
       >
         <MessageSquareHeart className="w-7 h-7" />
@@ -508,4 +526,3 @@ export default function App() {
     </div>
   );
 }
-

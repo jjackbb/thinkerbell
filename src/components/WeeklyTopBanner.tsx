@@ -14,20 +14,20 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
   if (!weeklyTopStories || weeklyTopStories.length === 0) return null;
 
   return (
-    <div className="bg-white border-2 border-black p-4 mb-6 elevated-tile">
-      <div className="flex items-center justify-between mb-3 border-b-2 border-black pb-2">
+    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 mb-8 shadow-xs">
+      <div className="flex items-center justify-between mb-4 border-b border-[#E5E7EB] pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-[#e21500] border border-black flex items-center justify-center text-white font-black">
-            <Trophy className="w-4 h-4 text-white" />
+          <div className="w-7 h-7 bg-[#3ECF8E]/10 rounded flex items-center justify-center text-[#3ECF8E] font-bold">
+            <Trophy className="w-4 h-4" />
           </div>
-          <h2 className="text-base font-black text-black flex items-center gap-1.5 uppercase tracking-tight">
-            WEEKLY TOP 3 <span className="text-[#e21500]">RANKING</span>
+          <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md">
+            주간 랭킹 TOP 3 <span className="text-xs px-2 py-0.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono rounded font-bold">WEEKLY</span>
           </h2>
         </div>
-        <span className="font-mono text-xs text-[#5e5e5e] font-black uppercase">MOST SUPPORTED</span>
+        <span className="font-mono text-xs text-[#5f5e5e]">MOST VOTED LOGIC</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {weeklyTopStories.slice(0, 3).map((story, idx) => {
           const total = story.votesA + story.votesB;
           const percentageA = total > 0 ? Math.round((story.votesA / total) * 100) : 50;
@@ -36,41 +36,39 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
             <div
               key={story.id}
               onClick={() => onSelectStory(story)}
-              className="bg-white hover:bg-[#f5f5f5] border-2 border-black p-3 cursor-pointer transition-colors flex flex-col justify-between"
+              className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] hover:border-[#3ECF8E] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-center justify-between mb-1.5 font-mono">
-                  <span className={`text-[10px] font-black px-2 py-0.5 text-white border border-black ${
-                    idx === 0 ? 'bg-[#e21500]' : idx === 1 ? 'bg-black' : 'bg-[#5e5e5e]'
+                <div className="flex items-center justify-between mb-2 font-mono text-xs">
+                  <span className={`px-2 py-0.5 rounded font-bold ${
+                    idx === 0 ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
                   }`}>
-                    RANK #{idx + 1}
+                    #{idx + 1}
                   </span>
-                  <span className="text-[10px] font-bold text-[#5e5e5e] uppercase">
-                    {story.category}
-                  </span>
+                  <span className="text-[#5f5e5e] font-semibold">{story.category}</span>
                 </div>
 
-                <h3 className="text-xs font-black text-black line-clamp-2 leading-snug mb-2">
+                <h3 className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-2 leading-snug mb-3">
                   {story.title}
                 </h3>
               </div>
 
               <div>
                 {/* Vote Percentage Gauge */}
-                <div className="w-full bg-white border border-black h-2.5 flex overflow-hidden mb-1.5">
+                <div className="w-full bg-[#E5E7EB] h-2 rounded-full overflow-hidden flex mb-2">
                   <div
-                    className="bg-[#e21500] h-full transition-all duration-500"
+                    className="bg-[#3ECF8E] h-full transition-all duration-500"
                     style={{ width: `${percentageA}%` }}
                   />
                   <div
-                    className="bg-black h-full transition-all duration-500"
+                    className="bg-[#5f5e5e]/20 h-full transition-all duration-500"
                     style={{ width: `${100 - percentageA}%` }}
                   />
                 </div>
 
-                <div className="flex items-center justify-between font-mono text-[10px] font-black">
-                  <span className="text-[#e21500]">내편 {percentageA}%</span>
-                  <span className="text-black">{total} VOTES</span>
+                <div className="flex items-center justify-between font-mono text-[11px] text-[#5f5e5e]">
+                  <span className="text-[#3ECF8E] font-bold">내편 {percentageA}%</span>
+                  <span>{total}표</span>
                 </div>
               </div>
             </div>
@@ -80,4 +78,5 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
     </div>
   );
 };
+
 

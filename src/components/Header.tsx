@@ -16,51 +16,47 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCreateStory,
 }) => {
   return (
-    <header className="sticky top-0 z-50 bg-[#e21500] text-white px-4 py-3 flex items-center justify-between border-b-4 border-black">
+    <header className="w-full top-0 sticky z-50 bg-[#1C1C1C] flex items-center justify-between px-4 sm:px-8 h-16 border-b border-[#1C1C1C] shadow-sm">
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-        <div className="w-9 h-9 bg-black flex items-center justify-center border-2 border-white shadow-[2px_2px_0px_#000]">
-          <span className="material-symbols-outlined text-[#e21500] text-[20px] font-extrabold" style={{ fontVariationSettings: "'FILL' 1" }}>flame</span>
-        </div>
+        <span className="material-symbols-outlined text-[#3ECF8E] text-2xl font-bold">terminal</span>
         <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tighter italic uppercase text-white flex items-center gap-2">
-            니편내편 <span className="text-[10px] not-italic px-2 py-0.5 bg-black text-white font-mono border border-white uppercase tracking-widest font-bold">RENEGADE RED</span>
+          <h1 className="font-headline-lg text-xl sm:text-2xl font-black tracking-tighter text-[#3ECF8E] flex items-center gap-2">
+            니편내편 <span className="text-[10px] px-2 py-0.5 bg-[#3ECF8E]/10 border border-[#3ECF8E]/30 rounded text-[#3ECF8E] font-mono tracking-widest uppercase font-bold">EMERALD LOGIC</span>
           </h1>
-          <p className="text-[10px] text-white/90 font-mono tracking-widest uppercase hidden sm:block">
-            100% ANONYMOUS VERDICT • AI SIMULATION
-          </p>
         </div>
       </div>
 
       {/* Action Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {/* Write Button */}
         <button
           onClick={onOpenCreateStory}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-black hover:bg-black/80 text-white font-mono text-xs font-black border-2 border-black active:translate-y-0.5 shadow-[2px_2px_0px_#fff] transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#3ECF8E] hover:bg-[#3ECF8E]/90 text-[#1C1C1C] font-mono text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer"
         >
-          <PlusCircle className="w-4 h-4 text-[#e21500]" />
-          <span className="hidden sm:inline">글쓰기</span>
+          <PlusCircle className="w-4 h-4" />
+          <span className="hidden sm:inline">사연 등록</span>
         </button>
 
         {/* API Key Modal Button */}
         <button
           onClick={onOpenApiKeyModal}
-          className="p-1.5 bg-white text-black border-2 border-black active:translate-y-0.5 shadow-[2px_2px_0px_#000] transition-colors cursor-pointer"
+          className="p-2 bg-white/5 border border-white/10 hover:border-[#3ECF8E] text-[#3ECF8E] rounded-lg transition-colors cursor-pointer"
           title="Potens AI API Key 설정"
         >
-          <Key className="w-4 h-4 text-[#e21500]" />
+          <Key className="w-4 h-4" />
         </button>
 
         {/* User Nickname Button */}
         <button
           onClick={onOpenProfile}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black border-2 border-black font-mono text-xs font-black active:translate-y-0.5 shadow-[2px_2px_0px_#000] transition-all cursor-pointer"
+          className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 hover:border-[#3ECF8E] rounded-lg font-mono text-xs font-medium text-white transition-all cursor-pointer"
         >
-          <User className="w-4 h-4 text-[#e21500]" />
+          <User className="w-4 h-4 text-[#3ECF8E]" />
           <span className="max-w-[100px] truncate">{user.nickname}</span>
         </button>
       </div>
     </header>
   );
 };
+
 

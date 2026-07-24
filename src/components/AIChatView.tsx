@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
-import { Bot, ArrowLeft, RefreshCw, Send, Shield, Sparkles } from 'lucide-react';
 
 interface AIChatViewProps {
   personas: AIPersona[];
@@ -20,7 +19,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [empathyScore, setEmpathyScore] = useState(70); // Tension/Empathy meter
+  const [empathyScore, setEmpathyScore] = useState(64); // 0 ~ 100%
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null);
 
@@ -29,7 +28,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   useEffect(() => {
     if (activeSession) {
       setMessages(activeSession.messages || []);
-      setEmpathyScore(activeSession.empathyScore || 70);
+      setEmpathyScore(activeSession.empathyScore || 64);
       const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
       setSelectedPersona(persona);
     }
@@ -112,7 +111,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       }
 
       if (!aiResponseText) {
-        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 변명이 빠르시네요. 숫자나 이치에 맞게 다시 말해보세요.` } : m));
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 논리적으로 다시 설명해 보세요.` } : m));
       }
 
     } catch (err) {
@@ -121,7 +120,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         {
           id: `ai-${Date.now()}`,
           sender: 'ai',
-          text: `[${selectedPersona?.name || '김팀장 (AI)'}] 데이터 검증이 제대로 안 된 것 같은데... 회의실로 바로 오시죠.`,
+          text: `[${selectedPersona?.name || '상대방'}] 그 논리가 정말 맞다고 생각하시나요? 제 입장도 들어보세요.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -141,30 +140,29 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setShowSummaryModal(false);
   };
 
-  // Selection view if no active session
+  // Persona Selection View
   if (!activeSession || !selectedPersona) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 pb-24">
-        {/* Renegade Banner */}
-        <div className="bg-[#e21500] text-white p-6 border-4 border-black elevated-tile">
-          <div className="flex items-center gap-2 mb-2 font-mono">
-            <span className="bg-black text-white px-2.5 py-0.5 text-xs font-black uppercase tracking-widest border border-white">
-              POTENS AI TERMINAL
+      <div className="max-w-4xl mx-auto space-y-8 pb-24">
+        {/* Banner */}
+        <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
+          <div className="flex items-center gap-2 mb-3 font-mono text-xs">
+            <span className="bg-[#3ECF8E]/20 text-[#3ECF8E] px-2.5 py-0.5 rounded font-bold border border-[#3ECF8E]/30">
+              AI SIMULATION ENGINE
             </span>
-            <span className="text-xs text-[#fffa82] font-bold">SECURE TERMINAL</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tight mb-2">
-            AI SIMULATION: HIGH-PRESSURE TERMINAL
+          <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
+            1:1 AI 대화 시뮬레이션
           </h2>
-          <p className="text-xs sm:text-sm text-white/90 font-bold leading-relaxed">
-            현실에서 억눌렸던 분노와 서러움을 100% 안전한 AI 시뮬레이터로 마음껏 분출하세요.
+          <p className="text-[#5f5e5e] font-body-sm text-xs sm:text-sm max-w-xl">
+            갈등 상대방의 페르소나와 안전하고 이성적인 1:1 디베이트를 진행하세요.
           </p>
         </div>
 
         {/* Persona Cards */}
         <div>
-          <h3 className="font-mono text-sm font-black text-black uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[#e21500]">smart_toy</span> SELECT TARGET PERSONA
+          <h3 className="font-label-md text-xs font-bold text-[#5f5e5e] uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span> SELECT PERSONA
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -172,25 +170,25 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <div
                 key={persona.id}
                 onClick={() => onStartSession(persona)}
-                className="bg-white border-2 border-black p-5 flex flex-col justify-between cursor-pointer elevated-tile group hover:border-[#e21500]"
+                className="bg-white border border-[#E5E7EB] hover:border-[#3ECF8E] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-2 font-mono text-xs">
-                    <span className="bg-[#cdbbff] text-black font-black px-2 py-0.5 border border-black uppercase">
+                  <div className="flex items-center justify-between mb-3 font-mono text-xs">
+                    <span className="px-2.5 py-0.5 bg-[#f3f4f5] text-[#1C1C1C] font-semibold rounded">
                       {persona.category}
                     </span>
-                    <span className="font-bold text-[#5e5e5e]">{persona.role}</span>
+                    <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
                   </div>
 
-                  <h4 className="font-black text-lg text-black mb-1 group-hover:text-[#e21500] transition-colors">{persona.name}</h4>
-                  <p className="text-xs text-black font-medium line-clamp-2 leading-relaxed mb-4">
+                  <h4 className="font-bold text-base text-[#1C1C1C] mb-2 group-hover:text-[#3ECF8E] transition-colors">{persona.name}</h4>
+                  <p className="text-xs text-[#5f5e5e] line-clamp-2 leading-relaxed mb-6">
                     {persona.description}
                   </p>
                 </div>
 
-                <button className="w-full py-2.5 bg-black text-white font-mono font-black text-xs border-2 border-black group-hover:bg-[#e21500] transition-colors flex items-center justify-center gap-1 uppercase">
-                  <span className="material-symbols-outlined text-[16px] text-[#fffa82]">terminal</span>
-                  <span>INITIATE CHAT</span>
+                <button className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#3ECF8E] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">memory</span>
+                  <span>SIMULATION START</span>
                 </button>
               </div>
             ))}
@@ -200,134 +198,99 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     );
   }
 
-  // Active Chatroom View (Red Intensity Specification)
+  // Active Chatroom View
   return (
-    <div className="max-w-[420px] mx-auto flex flex-col h-[82vh] bg-white border-4 border-black elevated-tile overflow-hidden mb-24 relative grid-bg">
-      {/* Header Section */}
-      <header className="bg-[#e21500] text-white px-4 py-3 flex items-center justify-between z-50 border-b-4 border-black">
+    <div className="max-w-2xl mx-auto flex flex-col h-[82vh] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden mb-24 relative shadow-sm">
+      {/* Header */}
+      <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button onClick={handleEndChat} className="material-symbols-outlined text-white font-bold active:scale-95">
+          <button onClick={handleEndChat} className="material-symbols-outlined text-[#3ECF8E] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
-            <h1 className="font-headline-md-mobile text-sm font-black uppercase tracking-tight italic">
-              AI SIMULATION: {selectedPersona.name}
+            <h1 className="font-headline-md text-base font-bold text-white flex items-center gap-2">
+              AI SIM: {selectedPersona.name}
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#3ECF8E]/20 text-[#3ECF8E] rounded border border-[#3ECF8E]/30 font-semibold">
+                {selectedPersona.role}
+              </span>
             </h1>
-            <p className="font-mono text-[10px] text-white opacity-90 uppercase tracking-widest">
-              ACTIVE SESSION • SECURE TERMINAL
-            </p>
           </div>
         </div>
-        <button onClick={handleEndChat} className="material-symbols-outlined text-white font-bold active:scale-95">
+        <button onClick={handleEndChat} className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer">
           close
         </button>
       </header>
 
-      {/* Chat Canvas */}
-      <main className="flex-1 overflow-y-auto chat-container p-4 space-y-4 relative">
-        {/* System Message */}
-        <div className="flex justify-center">
-          <div className="bg-black text-white px-3 py-1 border-2 border-black">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
-              Persona: {selectedPersona.role}
-            </span>
-          </div>
+      {/* Messages */}
+      <main className="flex-1 overflow-y-auto chat-container p-6 space-y-4 bg-[#f8f9fa]">
+        <div className="text-center py-2">
+          <span className="font-mono text-[11px] px-3 py-1 bg-white border border-[#E5E7EB] rounded text-[#5f5e5e]">
+            🔒 SECURE TERMINAL • EXPLICIT LOGIC ENGINE ACTIVE
+          </span>
         </div>
 
         {messages.map((msg) => {
           if (msg.sender === 'user') {
             return (
-              <div key={msg.id} className="flex flex-col items-end max-w-[90%] ml-auto space-y-1">
-                <div className="user-bubble bg-[#fff1f0] text-black p-3 border-2 border-[#e21500]">
-                  <p className="font-body-base text-xs sm:text-sm font-bold leading-relaxed">{msg.text}</p>
+              <div key={msg.id} className="flex flex-col items-end max-w-[85%] ml-auto space-y-1">
+                <div className="bg-[#1C1C1C] text-white p-4 rounded-lg shadow-2xs">
+                  <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">{msg.text}</p>
                 </div>
-                <div className="flex items-center space-x-1 font-mono text-[10px] text-[#e21500] font-black uppercase">
-                  <span>SENT {msg.timestamp}</span>
-                  <span className="material-symbols-outlined text-[14px]">done_all</span>
-                </div>
+                <span className="font-mono text-[10px] text-[#5f5e5e] px-1">{msg.timestamp}</span>
               </div>
             );
           } else {
             return (
-              <div key={msg.id} className="flex flex-col items-start max-w-[90%] space-y-1">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-7 h-7 bg-black flex items-center justify-center border border-black">
-                    <span className="material-symbols-outlined text-[#e21500] text-[16px] font-bold">smart_toy</span>
-                  </div>
-                  <span className="font-mono text-xs font-black text-black uppercase">{selectedPersona.name}</span>
+              <div key={msg.id} className="flex flex-col items-start max-w-[85%] space-y-1">
+                <div className="flex items-center space-x-2 mb-1 font-mono text-xs">
+                  <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span>
+                  <span className="font-bold text-[#1C1C1C]">{selectedPersona.name}</span>
                 </div>
-                <div className="ai-bubble bg-white text-black p-3 border-2 border-black">
-                  <p className="font-body-base text-xs sm:text-sm font-bold leading-relaxed">{msg.text || '...'}</p>
+                <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
+                  <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">{msg.text || '...'}</p>
                 </div>
-                <span className="font-mono text-[10px] text-black font-black uppercase">
-                  {msg.timestamp} READ BY SYSTEM
-                </span>
+                <span className="font-mono text-[10px] text-[#5f5e5e] px-1">{msg.timestamp}</span>
               </div>
             );
           }
         })}
         <div ref={messagesEndRef} />
-
-        {/* Tension Level Visualizer */}
-        <div className="py-3 border-t-2 border-b-2 border-black bg-white my-4">
-          <div className="flex justify-between items-end mb-1 font-mono text-[11px] font-black">
-            <span className="text-black uppercase tracking-widest">Tension Level</span>
-            <span className="text-[#e21500] uppercase tracking-widest animate-pulse">Critical Zone</span>
-          </div>
-          <div className="h-5 w-full bg-[#e0e0e0] border-2 border-black flex overflow-hidden">
-            <div className="h-full bg-black" style={{ width: `${100 - empathyScore}%` }}></div>
-            <div className="h-full bg-[#e21500]" style={{ width: `${empathyScore}%` }}></div>
-          </div>
-          <div className="flex justify-between mt-1 font-mono text-[10px] font-black uppercase">
-            <span className="text-black">Opponent</span>
-            <span className="text-[#e21500]">Me</span>
-          </div>
-        </div>
       </main>
 
-      {/* Input Footer Section */}
-      <footer className="bg-white border-t-4 border-black p-3 pb-safe">
+      {/* Input */}
+      <footer className="bg-white border-t border-[#E5E7EB] p-4">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <textarea
+          <input
+            type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="ENTER COMMAND..."
-            rows={1}
-            maxLength={150}
-            className="flex-1 bg-white border-2 border-black px-3 py-2 font-mono text-xs font-bold focus:border-[#e21500] outline-none resize-none"
+            placeholder="Share your logic..."
+            disabled={isLoading}
+            className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
           />
           <button
             type="submit"
             disabled={!inputText.trim() || isLoading}
-            className="bg-[#e21500] text-white w-11 h-11 border-2 border-black flex items-center justify-center active:translate-y-0.5 shadow-[2px_2px_0px_#000] cursor-pointer"
+            className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined font-black text-[22px]">send</span>
+            EXECUTE
           </button>
         </form>
-
-        <div className="flex justify-center mt-2 gap-6">
-          <button onClick={() => setMessages([])} className="flex items-center gap-1 text-black hover:text-[#e21500] font-mono text-[10px] font-black uppercase">
-            <span className="material-symbols-outlined text-[16px]">replay</span> Reset System
-          </button>
-          <button onClick={handleEndChat} className="flex items-center gap-1 text-black hover:text-[#e21500] font-mono text-[10px] font-black uppercase">
-            <span className="material-symbols-outlined text-[16px]">analytics</span> Run Analysis
-          </button>
-        </div>
       </footer>
 
       {/* End Modal */}
       {showSummaryModal && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-white border-4 border-black p-6 w-full max-w-xs text-center elevated-tile space-y-4">
-            <div className="w-12 h-12 bg-[#e21500] text-white border-2 border-black flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-[28px]">verified</span>
-            </div>
-            <h3 className="font-mono text-base font-black text-black uppercase">SESSION TERMINATED</h3>
-            <p className="font-mono text-xs text-black font-bold">
-              억울한 심정이 조금은 풀리셨나요? 당신의 주장과 분노는 100% 정당했습니다.
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-[#E5E7EB] rounded-lg p-6 w-full max-w-sm text-center shadow-lg space-y-4">
+            <h3 className="font-mono text-base font-bold text-[#1C1C1C] uppercase">SIMULATION CONCLUDED</h3>
+            <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed">
+              서로의 입장을 논리적으로 전달하고 대화를 마쳤습니다.
             </p>
-            <button onClick={confirmEndChat} className="w-full py-3 bg-[#e21500] text-white font-mono font-black border-2 border-black uppercase shadow-[2px_2px_0px_#000]">
-              TERMINATE NOW
+            <button
+              onClick={confirmEndChat}
+              className="w-full py-3 bg-[#1C1C1C] text-[#3ECF8E] font-mono font-bold text-xs rounded hover:bg-black transition-colors"
+            >
+              CLOSE TERMINAL
             </button>
           </div>
         </div>
@@ -335,4 +298,5 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     </div>
   );
 };
+
 
