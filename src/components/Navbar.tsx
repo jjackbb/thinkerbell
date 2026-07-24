@@ -1,5 +1,4 @@
 import React from 'react';
-import { Home, Bot, User } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: 'feed' | 'ai-chat' | 'mypage';
@@ -12,53 +11,43 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#fffaf0]/95 backdrop-blur-md border-t border-[#ebe6d6] px-4 py-2">
-      <div className="max-w-md mx-auto flex items-center justify-around">
-        {/* Feed Tab */}
-        <button
-          onClick={() => onTabChange('feed')}
-          className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-all cursor-pointer ${
-            activeTab === 'feed'
-              ? 'text-[#0a0a0a] bg-[#f5f0e0] font-bold shadow-xs'
-              : 'text-[#6a6a6a] hover:text-[#0a0a0a] font-medium'
-          }`}
-        >
-          <Home className={`w-5 h-5 ${activeTab === 'feed' ? 'text-[#ff4d8b]' : ''}`} />
-          <span className="text-xs">사연 피드</span>
-        </button>
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-white border-t-4 border-black pb-safe pt-1 h-20 shadow-[0px_-4px_0px_#000]">
+      <button
+        onClick={() => onTabChange('feed')}
+        className={`flex flex-col items-center justify-center h-full px-6 py-1 transition-all cursor-pointer active:scale-95 ${
+          activeTab === 'feed'
+            ? 'bg-[#e21500] text-white border-2 border-black -translate-y-1 shadow-[2px_2px_0px_#000]'
+            : 'text-black hover:text-[#e21500]'
+        }`}
+      >
+        <span className="material-symbols-outlined text-[24px]">home</span>
+        <span className="font-mono text-[10px] mt-0.5 font-black uppercase">FEED</span>
+      </button>
 
-        {/* AI Simulation Tab */}
-        <button
-          onClick={() => onTabChange('ai-chat')}
-          className={`relative flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-all cursor-pointer ${
-            activeTab === 'ai-chat'
-              ? 'text-[#0a0a0a] bg-[#f5f0e0] font-bold shadow-xs'
-              : 'text-[#6a6a6a] hover:text-[#0a0a0a] font-medium'
-          }`}
-        >
-          <div className="relative">
-            <Bot className={`w-5 h-5 ${activeTab === 'ai-chat' ? 'text-[#b8a4ed]' : ''}`} />
-            <span className="absolute -top-1 -right-2 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ff4d8b] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ff4d8b]"></span>
-            </span>
-          </div>
-          <span className="text-xs">AI 시뮬레이션</span>
-        </button>
+      <button
+        onClick={() => onTabChange('ai-chat')}
+        className={`flex flex-col items-center justify-center h-full px-6 py-1 transition-all cursor-pointer active:scale-95 ${
+          activeTab === 'ai-chat'
+            ? 'bg-[#e21500] text-white border-2 border-black -translate-y-1 shadow-[2px_2px_0px_#000]'
+            : 'text-black hover:text-[#e21500]'
+        }`}
+      >
+        <span className="material-symbols-outlined text-[24px]">smart_toy</span>
+        <span className="font-mono text-[10px] mt-0.5 font-black uppercase">AI SIM</span>
+      </button>
 
-        {/* MyPage Tab */}
-        <button
-          onClick={() => onTabChange('mypage')}
-          className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-all cursor-pointer ${
-            activeTab === 'mypage'
-              ? 'text-[#0a0a0a] bg-[#f5f0e0] font-bold shadow-xs'
-              : 'text-[#6a6a6a] hover:text-[#0a0a0a] font-medium'
-          }`}
-        >
-          <User className={`w-5 h-5 ${activeTab === 'mypage' ? 'text-[#1a3a3a]' : ''}`} />
-          <span className="text-xs">마이페이지</span>
-        </button>
-      </div>
+      <button
+        onClick={() => onTabChange('mypage')}
+        className={`flex flex-col items-center justify-center h-full px-6 py-1 transition-all cursor-pointer active:scale-95 ${
+          activeTab === 'mypage'
+            ? 'bg-[#e21500] text-white border-2 border-black -translate-y-1 shadow-[2px_2px_0px_#000]'
+            : 'text-black hover:text-[#e21500]'
+        }`}
+      >
+        <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+        <span className="font-mono text-[10px] mt-0.5 font-black uppercase">MY PAGE</span>
+      </button>
     </nav>
   );
 };
+

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
-import { Bot, Send, ArrowLeft, RefreshCw, Sparkles, HeartHandshake, Shield, MessageCircle, AlertCircle } from 'lucide-react';
+import { Bot, ArrowLeft, RefreshCw, Send, Shield, Sparkles } from 'lucide-react';
 
 interface AIChatViewProps {
   personas: AIPersona[];
@@ -20,7 +20,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [empathyScore, setEmpathyScore] = useState(30); // 0 ~ 100%
+  const [empathyScore, setEmpathyScore] = useState(70); // Tension/Empathy meter
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null);
 
@@ -29,7 +29,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   useEffect(() => {
     if (activeSession) {
       setMessages(activeSession.messages || []);
-      setEmpathyScore(activeSession.empathyScore || 35);
+      setEmpathyScore(activeSession.empathyScore || 70);
       const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
       setSelectedPersona(persona);
     }
@@ -57,11 +57,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setMessages(updatedMessages);
     setIsLoading(true);
 
-    // Increase empathy meter gradually as conversation progresses
-    setEmpathyScore(prev => Math.min(100, prev + Math.floor(Math.random() * 12) + 8));
-
     try {
-      // Call streaming backend endpoint `/api/chat-stream`
       const response = await fetch('/api/chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,25 +105,23 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: aiResponseText } : m));
               }
             } catch (err) {
-              // ignore parse errors for partial json
+              // ignore parse error
             }
           }
         }
       }
 
       if (!aiResponseText) {
-        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 야, 내 말 아직 안 끝났다. 네 말도 일리가 있긴 한데...` } : m));
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 변명이 빠르시네요. 숫자나 이치에 맞게 다시 말해보세요.` } : m));
       }
 
     } catch (err) {
-      console.error('Chat error:', err);
-      // Fallback message
       setMessages(prev => [
         ...prev,
         {
           id: `ai-${Date.now()}`,
           sender: 'ai',
-          text: `[${selectedPersona?.name || '상대방'}] 너 진짜 말 다 했어? 내 입장에서도 변명할 기회는 줘야지! 내가 뭐 처음부터 작정하고 괴롭혔냐?`,
+          text: `[${selectedPersona?.name || '김팀장 (AI)'}] 데이터 검증이 제대로 안 된 것 같은데... 회의실로 바로 오시죠.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -147,40 +141,30 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setShowSummaryModal(false);
   };
 
-  // Clay styling
-  const cardBgClasses: Record<string, string> = {
-    pink: 'bg-[#ff4d8b] text-white',
-    teal: 'bg-[#1a3a3a] text-white',
-    lavender: 'bg-[#b8a4ed] text-[#0a0a0a]',
-    peach: 'bg-[#ffb084] text-[#0a0a0a]',
-    ochre: 'bg-[#e8b94a] text-[#0a0a0a]',
-    cream: 'bg-[#f5f0e0] text-[#0a0a0a]',
-  };
-
-  // If no active session, show Persona Selection View
+  // Selection view if no active session
   if (!activeSession || !selectedPersona) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-24">
-        {/* Banner Header */}
-        <div className="bg-[#1a3a3a] text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 rounded-full bg-[#ff4d8b] text-white text-xs font-bold flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> AI 1:1 대화 시뮬레이터
+        {/* Renegade Banner */}
+        <div className="bg-[#e21500] text-white p-6 border-4 border-black elevated-tile">
+          <div className="flex items-center gap-2 mb-2 font-mono">
+            <span className="bg-black text-white px-2.5 py-0.5 text-xs font-black uppercase tracking-widest border border-white">
+              POTENS AI TERMINAL
             </span>
-            <span className="text-xs text-[#a4d4c5]">Potens AI (claude-4-6-sonnet) 탑재</span>
+            <span className="text-xs text-[#fffa82] font-bold">SECURE TERMINAL</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black mb-2 font-display">
-            갈등 상대방과 안전하게 1:1로 한판 붙으세요!
+          <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tight mb-2">
+            AI SIMULATION: HIGH-PRESSURE TERMINAL
           </h2>
-          <p className="text-xs sm:text-sm text-gray-200 leading-relaxed max-w-xl">
-            현실에서 억눌렸던 분노와 서러움을 100% 안전한 AI 시뮬레이션으로 마음껏 분출하세요. 상대방 페르소나가 실제처럼 응대합니다.
+          <p className="text-xs sm:text-sm text-white/90 font-bold leading-relaxed">
+            현실에서 억눌렸던 분노와 서러움을 100% 안전한 AI 시뮬레이터로 마음껏 분출하세요.
           </p>
         </div>
 
-        {/* Persona Grid */}
+        {/* Persona Cards */}
         <div>
-          <h3 className="text-base font-bold text-[#0a0a0a] mb-3 flex items-center gap-1.5 font-display">
-            <Bot className="w-5 h-5 text-[#ff4d8b]" /> 대화 상대 페르소나 선택
+          <h3 className="font-mono text-sm font-black text-black uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[#e21500]">smart_toy</span> SELECT TARGET PERSONA
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -188,27 +172,25 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <div
                 key={persona.id}
                 onClick={() => onStartSession(persona)}
-                className={`p-5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-1 flex flex-col justify-between ${
-                  cardBgClasses[persona.cardColor] || cardBgClasses.cream
-                }`}
+                className="bg-white border-2 border-black p-5 flex flex-col justify-between cursor-pointer elevated-tile group hover:border-[#e21500]"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-black/20 text-white">
+                  <div className="flex items-center justify-between mb-2 font-mono text-xs">
+                    <span className="bg-[#cdbbff] text-black font-black px-2 py-0.5 border border-black uppercase">
                       {persona.category}
                     </span>
-                    <span className="text-xs font-bold opacity-80">{persona.role}</span>
+                    <span className="font-bold text-[#5e5e5e]">{persona.role}</span>
                   </div>
 
-                  <h4 className="text-base font-bold mb-1 font-display">{persona.name}</h4>
-                  <p className="text-xs opacity-90 line-clamp-2 leading-relaxed mb-4">
+                  <h4 className="font-black text-lg text-black mb-1 group-hover:text-[#e21500] transition-colors">{persona.name}</h4>
+                  <p className="text-xs text-black font-medium line-clamp-2 leading-relaxed mb-4">
                     {persona.description}
                   </p>
                 </div>
 
-                <button className="w-full py-2.5 px-3 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
-                  <MessageCircle className="w-4 h-4 text-[#ff4d8b]" />
-                  <span>1:1 대화 시작하기</span>
+                <button className="w-full py-2.5 bg-black text-white font-mono font-black text-xs border-2 border-black group-hover:bg-[#e21500] transition-colors flex items-center justify-center gap-1 uppercase">
+                  <span className="material-symbols-outlined text-[16px] text-[#fffa82]">terminal</span>
+                  <span>INITIATE CHAT</span>
                 </button>
               </div>
             ))}
@@ -218,158 +200,139 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     );
   }
 
-  // Active Chatroom View
+  // Active Chatroom View (Red Intensity Specification)
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[82vh] bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl shadow-xl overflow-hidden mb-20 relative">
-      
-      {/* Chat Top Header */}
-      <div className="px-4 py-3 bg-[#1a3a3a] text-white flex items-center justify-between border-b border-[#2a4a4a]">
+    <div className="max-w-[420px] mx-auto flex flex-col h-[82vh] bg-white border-4 border-black elevated-tile overflow-hidden mb-24 relative grid-bg">
+      {/* Header Section */}
+      <header className="bg-[#e21500] text-white px-4 py-3 flex items-center justify-between z-50 border-b-4 border-black">
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleEndChat}
-            className="p-1.5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-            title="대화 나가기"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
+          <button onClick={handleEndChat} className="material-symbols-outlined text-white font-bold active:scale-95">
+            arrow_back
           </button>
           <div>
-            <h3 className="text-sm font-bold flex items-center gap-1.5">
-              <span>{selectedPersona.name}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ff4d8b] text-white">
-                {selectedPersona.role}
-              </span>
-            </h3>
-            <p className="text-[11px] text-[#a4d4c5] font-medium">100% 익명 안전 대화 시뮬레이션</p>
+            <h1 className="font-headline-md-mobile text-sm font-black uppercase tracking-tight italic">
+              AI SIMULATION: {selectedPersona.name}
+            </h1>
+            <p className="font-mono text-[10px] text-white opacity-90 uppercase tracking-widest">
+              ACTIVE SESSION • SECURE TERMINAL
+            </p>
           </div>
         </div>
+        <button onClick={handleEndChat} className="material-symbols-outlined text-white font-bold active:scale-95">
+          close
+        </button>
+      </header>
 
-        {/* Empathy Meter (내편지수) */}
-        <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-2xl border border-white/10">
-          <HeartHandshake className="w-4 h-4 text-[#ff4d8b]" />
-          <div className="text-right">
-            <div className="text-[10px] text-gray-300 font-bold">내편 지수</div>
-            <div className="text-xs font-black text-[#ff4d8b]">{empathyScore}%</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Empathy Progress Bar */}
-      <div className="w-full bg-[#ebe6d6] h-1.5 overflow-hidden">
-        <div
-          className="bg-gradient-to-r from-[#ff4d8b] to-[#b8a4ed] h-full transition-all duration-500"
-          style={{ width: `${empathyScore}%` }}
-        />
-      </div>
-
-      {/* Chat Messages Body */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-[#faf5e8]">
-        <div className="text-center py-2">
-          <span className="text-[11px] px-3 py-1 bg-[#f5f0e0] border border-[#e8e2d0] rounded-full text-[#6a6a6a] font-medium">
-            🔒 본 대화는 세션 종료 시 휘발성으로 안전하게 삭제됩니다.
-          </span>
-        </div>
-
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-          >
-            <span className="text-[10px] text-[#6a6a6a] mb-1 font-medium px-1">
-              {msg.sender === 'user' ? '나 (익명)' : selectedPersona.name}
+      {/* Chat Canvas */}
+      <main className="flex-1 overflow-y-auto chat-container p-4 space-y-4 relative">
+        {/* System Message */}
+        <div className="flex justify-center">
+          <div className="bg-black text-white px-3 py-1 border-2 border-black">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
+              Persona: {selectedPersona.role}
             </span>
+          </div>
+        </div>
 
-            <div
-              className={`max-w-[85%] p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs whitespace-pre-line ${
-                msg.sender === 'user'
-                  ? 'bg-[#0a0a0a] text-white rounded-tr-none'
-                  : 'bg-[#fffaf0] border border-[#e8e2d0] text-[#0a0a0a] rounded-tl-none font-medium'
-              }`}
-            >
-              {msg.text || (
-                <span className="inline-flex items-center gap-1.5 text-gray-400">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 생각 중...
+        {messages.map((msg) => {
+          if (msg.sender === 'user') {
+            return (
+              <div key={msg.id} className="flex flex-col items-end max-w-[90%] ml-auto space-y-1">
+                <div className="user-bubble bg-[#fff1f0] text-black p-3 border-2 border-[#e21500]">
+                  <p className="font-body-base text-xs sm:text-sm font-bold leading-relaxed">{msg.text}</p>
+                </div>
+                <div className="flex items-center space-x-1 font-mono text-[10px] text-[#e21500] font-black uppercase">
+                  <span>SENT {msg.timestamp}</span>
+                  <span className="material-symbols-outlined text-[14px]">done_all</span>
+                </div>
+              </div>
+            );
+          } else {
+            return (
+              <div key={msg.id} className="flex flex-col items-start max-w-[90%] space-y-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <div className="w-7 h-7 bg-black flex items-center justify-center border border-black">
+                    <span className="material-symbols-outlined text-[#e21500] text-[16px] font-bold">smart_toy</span>
+                  </div>
+                  <span className="font-mono text-xs font-black text-black uppercase">{selectedPersona.name}</span>
+                </div>
+                <div className="ai-bubble bg-white text-black p-3 border-2 border-black">
+                  <p className="font-body-base text-xs sm:text-sm font-bold leading-relaxed">{msg.text || '...'}</p>
+                </div>
+                <span className="font-mono text-[10px] text-black font-black uppercase">
+                  {msg.timestamp} READ BY SYSTEM
                 </span>
-              )}
-            </div>
-
-            <span className="text-[10px] text-gray-400 mt-0.5 px-1 font-mono">
-              {msg.timestamp}
-            </span>
-          </div>
-        ))}
+              </div>
+            );
+          }
+        })}
         <div ref={messagesEndRef} />
-      </div>
 
-      {/* Chat Input Bar */}
-      <form onSubmit={handleSendMessage} className="p-3 bg-[#fffaf0] border-t border-[#ebe6d6] flex items-center gap-2">
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="속마음을 거침없이 털어놓으세요 (최대 150자)"
-          maxLength={150}
-          disabled={isLoading}
-          className="flex-1 p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
-        />
-        <button
-          type="submit"
-          disabled={!inputText.trim() || isLoading}
-          className="p-3 bg-[#0a0a0a] disabled:bg-gray-300 text-white rounded-2xl transition-all hover:bg-[#1f1f1f] active:scale-95 cursor-pointer"
-        >
-          <Send className="w-4 h-4 text-[#ff4d8b]" />
-        </button>
-        <button
-          type="button"
-          onClick={handleEndChat}
-          className="px-3 py-3 bg-[#ff4d8b] text-white font-bold text-xs rounded-2xl hover:bg-[#e03d78] cursor-pointer whitespace-nowrap"
-        >
-          종료
-        </button>
-      </form>
+        {/* Tension Level Visualizer */}
+        <div className="py-3 border-t-2 border-b-2 border-black bg-white my-4">
+          <div className="flex justify-between items-end mb-1 font-mono text-[11px] font-black">
+            <span className="text-black uppercase tracking-widest">Tension Level</span>
+            <span className="text-[#e21500] uppercase tracking-widest animate-pulse">Critical Zone</span>
+          </div>
+          <div className="h-5 w-full bg-[#e0e0e0] border-2 border-black flex overflow-hidden">
+            <div className="h-full bg-black" style={{ width: `${100 - empathyScore}%` }}></div>
+            <div className="h-full bg-[#e21500]" style={{ width: `${empathyScore}%` }}></div>
+          </div>
+          <div className="flex justify-between mt-1 font-mono text-[10px] font-black uppercase">
+            <span className="text-black">Opponent</span>
+            <span className="text-[#e21500]">Me</span>
+          </div>
+        </div>
+      </main>
 
-      {/* Session End / Emotional Release Summary Modal */}
+      {/* Input Footer Section */}
+      <footer className="bg-white border-t-4 border-black p-3 pb-safe">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="ENTER COMMAND..."
+            rows={1}
+            maxLength={150}
+            className="flex-1 bg-white border-2 border-black px-3 py-2 font-mono text-xs font-bold focus:border-[#e21500] outline-none resize-none"
+          />
+          <button
+            type="submit"
+            disabled={!inputText.trim() || isLoading}
+            className="bg-[#e21500] text-white w-11 h-11 border-2 border-black flex items-center justify-center active:translate-y-0.5 shadow-[2px_2px_0px_#000] cursor-pointer"
+          >
+            <span className="material-symbols-outlined font-black text-[22px]">send</span>
+          </button>
+        </form>
+
+        <div className="flex justify-center mt-2 gap-6">
+          <button onClick={() => setMessages([])} className="flex items-center gap-1 text-black hover:text-[#e21500] font-mono text-[10px] font-black uppercase">
+            <span className="material-symbols-outlined text-[16px]">replay</span> Reset System
+          </button>
+          <button onClick={handleEndChat} className="flex items-center gap-1 text-black hover:text-[#e21500] font-mono text-[10px] font-black uppercase">
+            <span className="material-symbols-outlined text-[16px]">analytics</span> Run Analysis
+          </button>
+        </div>
+      </footer>
+
+      {/* End Modal */}
       {showSummaryModal && (
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#ff4d8b] text-white flex items-center justify-center mx-auto text-xl font-bold">
-              <Sparkles className="w-6 h-6" />
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-4 border-black p-6 w-full max-w-xs text-center elevated-tile space-y-4">
+            <div className="w-12 h-12 bg-[#e21500] text-white border-2 border-black flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-[28px]">verified</span>
             </div>
-
-            <h3 className="text-lg font-bold text-[#0a0a0a] font-display">
-              오늘의 감정 해소 완료! 🎉
-            </h3>
-
-            <div className="bg-[#f5f0e0] border border-[#e8e2d0] p-4 rounded-2xl text-left space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold">
-                <span>최종 내편 지수:</span>
-                <span className="text-base text-[#ff4d8b] font-black">{empathyScore}%</span>
-              </div>
-              <div className="flex justify-between items-center text-xs text-[#6a6a6a]">
-                <span>대화한 메시지:</span>
-                <span className="font-bold text-[#0a0a0a]">{messages.length}개</span>
-              </div>
-              <p className="text-xs text-[#3a3a3a] pt-2 border-t border-[#e8e2d0] leading-relaxed">
-                속상했던 마음이 한결 가벼워지셨나요? 현실에서는 참았지만 당신의 판단과 서러움은 100% 정당했습니다!
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowSummaryModal(false)}
-                className="flex-1 py-2.5 bg-[#f5f0e0] hover:bg-[#ebe6d6] text-[#0a0a0a] font-bold text-xs rounded-xl border border-[#e8e2d0] cursor-pointer"
-              >
-                대화 계속하기
-              </button>
-              <button
-                onClick={confirmEndChat}
-                className="flex-1 py-2.5 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
-              >
-                대화 완전히 끝내기
-              </button>
-            </div>
+            <h3 className="font-mono text-base font-black text-black uppercase">SESSION TERMINATED</h3>
+            <p className="font-mono text-xs text-black font-bold">
+              억울한 심정이 조금은 풀리셨나요? 당신의 주장과 분노는 100% 정당했습니다.
+            </p>
+            <button onClick={confirmEndChat} className="w-full py-3 bg-[#e21500] text-white font-mono font-black border-2 border-black uppercase shadow-[2px_2px_0px_#000]">
+              TERMINATE NOW
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 };
+

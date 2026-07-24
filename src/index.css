@@ -2,105 +2,89 @@
 
 @layer base {
   :root {
-    --color-canvas: #fffaf0;
-    --color-surface-soft: #faf5e8;
-    --color-surface-card: #f5f0e0;
-    --color-surface-strong: #ebe6d6;
-    --color-ink: #0a0a0a;
-    --color-body: #3a3a3a;
-    --color-body-strong: #1a1a1a;
-    --color-muted: #6a6a6a;
-    --color-muted-soft: #9a9a9a;
-    --color-hairline: #e5e5e5;
-    
-    --color-brand-pink: #ff4d8b;
-    --color-brand-teal: #1a3a3a;
-    --color-brand-lavender: #b8a4ed;
-    --color-brand-peach: #ffb084;
-    --color-brand-ochre: #e8b94a;
-    --color-brand-mint: #a4d4c5;
-    --color-brand-coral: #ff6b5a;
+    --color-renegade-red: #e21500;
+    --color-ink: #151515;
+    --color-maroon: #440a07;
+    --color-yellow: #fffa82;
+    --color-lavender: #cdbbff;
+    --color-mint: #70e697;
+    --color-grey-light: #e0e0e0;
+    --color-grey: #7f7f7f;
+    --color-surface-high: #f5f5f5;
   }
 
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-ink);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #ffffff;
+    color: #151515;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     margin: 0;
     padding: 0;
   }
 }
 
-/* Custom Typography & Utility Classes matching Clay Specification */
-.font-display {
-  font-family: 'Plain Black', 'Inter', system-ui, sans-serif;
-  letter-spacing: -0.03em;
-  font-weight: 700;
+.mono-text {
+  font-family: 'JetBrains Mono', monospace;
 }
 
-/* Clay Card Styles */
-.clay-card-pink {
-  background-color: #ff4d8b;
-  color: #ffffff;
+.renegade-border {
+  box-shadow: 4px 4px 0px 0px #e21500;
 }
 
-.clay-card-teal {
-  background-color: #1a3a3a;
-  color: #ffffff;
+.industrial-border {
+  border: 2px solid #151515;
 }
 
-.clay-card-lavender {
-  background-color: #b8a4ed;
-  color: #0a0a0a;
+.elevated-tile {
+  box-shadow: 6px 6px 0px 0px #151515;
+  transition: all 0.1s ease;
 }
 
-.clay-card-peach {
-  background-color: #ffb084;
-  color: #0a0a0a;
+.elevated-tile:hover {
+  border-color: #e21500;
 }
 
-.clay-card-ochre {
-  background-color: #e8b94a;
-  color: #0a0a0a;
+.elevated-tile:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #151515;
 }
 
-.clay-card-cream {
-  background-color: #f5f0e0;
-  color: #0a0a0a;
-  border: 1px solid #e8e2d0;
+.vote-btn-shadow {
+  box-shadow: 6px 6px 0px rgba(0,0,0,1);
 }
 
-/* Clay Soft Shadows & 3D Clay Effects */
-.clay-button-primary {
-  background-color: #0a0a0a;
-  color: #ffffff;
-  border-radius: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(10, 10, 10, 0.12);
+.vote-btn-shadow:active {
+  box-shadow: 2px 2px 0px rgba(0,0,0,1);
+  transform: translate(3px, 3px);
 }
 
-.clay-button-primary:hover {
-  background-color: #1f1f1f;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(10, 10, 10, 0.18);
+.chat-container::-webkit-scrollbar {
+  width: 6px;
 }
 
-.clay-button-primary:active {
-  transform: translateY(0);
+.chat-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
 }
 
-.clay-badge {
-  background-color: #f5f0e0;
-  color: #0a0a0a;
-  border-radius: 9999px;
-  padding: 4px 12px;
-  font-size: 13px;
-  font-weight: 600;
+.chat-container::-webkit-scrollbar-thumb {
+  background: #e21500;
+  border-radius: 0px;
 }
 
-/* Custom Scrollbar for chat and feeds */
+.ai-bubble {
+  box-shadow: 4px 4px 0px #000000;
+}
+
+.user-bubble {
+  box-shadow: 4px 4px 0px #e21500;
+}
+
+.grid-bg {
+  background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -111,10 +95,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e5e0d0;
-  border-radius: 9999px;
+  background: #151515;
+  border-radius: 0px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d5d0c0;
+  background: #e21500;
 }
+

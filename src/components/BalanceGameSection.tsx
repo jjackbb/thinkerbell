@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scale, CheckCircle2, Sparkles } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 export const BalanceGameSection: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState<'A' | 'B' | null>(null);
@@ -19,20 +19,17 @@ export const BalanceGameSection: React.FC = () => {
   const percentB = 100 - percentA;
 
   return (
-    <div className="bg-[#1a3a3a] text-white rounded-2xl p-4 sm:p-5 mb-6 shadow-md relative overflow-hidden">
-      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-[#ff4d8b]/20 rounded-full blur-xl pointer-events-none"></div>
-
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-[#151515] text-white p-4 sm:p-5 mb-6 border-4 border-black elevated-tile relative">
+      <div className="flex items-center justify-between mb-3 border-b-2 border-white/20 pb-2">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full bg-[#ff4d8b] text-white text-xs font-bold flex items-center gap-1">
-            <Scale className="w-3.5 h-3.5" /> 오늘의 밸런스 게임
+          <span className="px-2.5 py-0.5 bg-[#e21500] text-white text-xs font-mono font-black border border-white uppercase tracking-wider">
+            DAILY BALANCE GAME
           </span>
-          <span className="text-xs text-[#a4d4c5] font-medium hidden sm:inline">1초 만에 여론 결정!</span>
         </div>
-        <span className="text-xs text-gray-300 font-mono">{total.toLocaleString()}명 참여 중</span>
+        <span className="text-xs text-white/80 font-mono font-bold">{total.toLocaleString()} VOTES</span>
       </div>
 
-      <h3 className="text-sm sm:text-base font-extrabold text-white mb-4 leading-snug">
+      <h3 className="text-sm sm:text-base font-black text-white mb-4 leading-snug tracking-tight">
         Q. 현실에서 더 피꺼솥(피가 역류)나는 직장 진상 타입은?
       </h3>
 
@@ -41,22 +38,22 @@ export const BalanceGameSection: React.FC = () => {
         <button
           onClick={() => handleVote('A')}
           disabled={selectedOption !== null}
-          className={`relative p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`relative p-3.5 border-2 text-left transition-all cursor-pointer ${
             selectedOption === 'A'
-              ? 'bg-[#ff4d8b] border-[#ff4d8b] text-white shadow-lg font-bold scale-[1.01]'
-              : 'bg-[#2a4a4a] border-[#3a5a5a] text-white hover:border-[#ff4d8b]'
+              ? 'bg-[#e21500] border-white text-white font-black shadow-[4px_4px_0px_#fff]'
+              : 'bg-white text-black border-black hover:border-[#e21500]'
           }`}
         >
           <div className="flex justify-between items-start mb-1">
-            <span className="text-xs font-black px-2 py-0.5 bg-black/30 rounded-md">A안 (내편)</span>
+            <span className="text-xs font-mono font-black px-2 py-0.5 bg-black text-white border border-black uppercase">A. 내편</span>
             {selectedOption === 'A' && <CheckCircle2 className="w-4 h-4 text-white" />}
           </div>
-          <p className="text-xs font-semibold leading-relaxed">
+          <p className="text-xs font-bold leading-relaxed">
             퇴근 5분 전에 "이거 오늘까지 정리해" 던지고 튀는 부장님
           </p>
 
           {selectedOption && (
-            <div className="mt-2.5 pt-2 border-t border-white/20 flex justify-between items-center text-xs font-bold">
+            <div className="mt-2.5 pt-2 border-t border-black/20 flex justify-between items-center text-xs font-black font-mono">
               <span>지지율</span>
               <span className="text-base">{percentA}%</span>
             </div>
@@ -67,22 +64,22 @@ export const BalanceGameSection: React.FC = () => {
         <button
           onClick={() => handleVote('B')}
           disabled={selectedOption !== null}
-          className={`relative p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`relative p-3.5 border-2 text-left transition-all cursor-pointer ${
             selectedOption === 'B'
-              ? 'bg-[#b8a4ed] border-[#b8a4ed] text-[#0a0a0a] shadow-lg font-bold scale-[1.01]'
-              : 'bg-[#2a4a4a] border-[#3a5a5a] text-white hover:border-[#b8a4ed]'
+              ? 'bg-[#fffa82] border-black text-black font-black shadow-[4px_4px_0px_#000]'
+              : 'bg-white text-black border-black hover:border-[#fffa82]'
           }`}
         >
           <div className="flex justify-between items-start mb-1">
-            <span className="text-xs font-black px-2 py-0.5 bg-black/30 text-white rounded-md">B안 (상대편)</span>
-            {selectedOption === 'B' && <CheckCircle2 className="w-4 h-4 text-[#0a0a0a]" />}
+            <span className="text-xs font-mono font-black px-2 py-0.5 bg-black text-white border border-black uppercase">B. 상대편</span>
+            {selectedOption === 'B' && <CheckCircle2 className="w-4 h-4 text-black" />}
           </div>
-          <p className="text-xs font-semibold leading-relaxed">
+          <p className="text-xs font-bold leading-relaxed">
             자기가 한 척 숟가락 얹고 칭찬만 쏙 빼먹는 동기
           </p>
 
           {selectedOption && (
-            <div className="mt-2.5 pt-2 border-t border-black/20 flex justify-between items-center text-xs font-bold">
+            <div className="mt-2.5 pt-2 border-t border-black/20 flex justify-between items-center text-xs font-black font-mono">
               <span>지지율</span>
               <span className="text-base">{percentB}%</span>
             </div>
@@ -91,10 +88,11 @@ export const BalanceGameSection: React.FC = () => {
       </div>
 
       {selectedOption && (
-        <div className="text-center text-xs text-[#a4d4c5] font-semibold mt-1 flex items-center justify-center gap-1">
-          <Sparkles className="w-3.5 h-3.5 text-[#ff4d8b]" /> 투표 완료! {percentA > percentB ? 'A안이 유력한 피꺼솥 승리!' : 'B안이 압도적 격분 승리!'}
+        <div className="text-center text-xs text-[#fffa82] font-mono font-black mt-2 uppercase tracking-widest flex items-center justify-center gap-1">
+          <span className="material-symbols-outlined text-[16px]">verified</span> VOTED! {percentA > percentB ? 'A안 피꺼솥 승리!' : 'B안 격분 승리!'}
         </div>
       )}
     </div>
   );
 };
+
