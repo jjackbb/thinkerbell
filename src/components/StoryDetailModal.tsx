@@ -41,6 +41,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isMyStory = currentUser.id === story.authorId;
 
   const handleVote = (option: 'A' | 'B') => {
+    if (isMyStory) {
+      showToast('사연 작성자는 투표할 수 없으며, 여론 확인만 가능합니다.');
+      return;
+    }
     if (votedOption && story.voteChanged) {
       showToast('투표는 최대 1번만 변경할 수 있습니다.');
       return;
@@ -130,8 +134,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   {/* My Side (내편) */}
                   <button
                     onClick={() => handleVote('A')}
-                    disabled={!!votedOption && !!story.voteChanged}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#3ECF8E] cursor-pointer ${
+                    disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#3ECF8E] ${
+                      isMyStory ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    } ${
                       votedOption === 'A' ? 'ring-4 ring-[#3ECF8E]/30' : ''
                     }`}
                   >
@@ -144,8 +150,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   {/* Opposite Side (니편) */}
                   <button
                     onClick={() => handleVote('B')}
-                    disabled={!!votedOption && !!story.voteChanged}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#f3f4f5] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#E5E7EB] cursor-pointer ${
+                    disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#f3f4f5] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#E5E7EB] ${
+                      isMyStory ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    } ${
                       votedOption === 'B' ? 'ring-4 ring-[#1C1C1C]/20' : ''
                     }`}
                   >
@@ -155,6 +163,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <span className="absolute top-3 right-3 font-mono text-xs font-bold text-[#5f5e5e]">{percentB}%</span>
                   </button>
                 </div>
+                {isMyStory && (
+                  <p className="text-xs text-[#5f5e5e] text-center font-medium bg-[#f3f4f5] py-2 px-3 rounded border border-[#E5E7EB]">
+                    💡 사연 작성자는 본인 사연에 투표할 수 없으며, 여론(투표 비율 및 댓글) 확인만 가능합니다.
+                  </p>
+                )}
               </div>
 
               {/* AI Chat CTA */}

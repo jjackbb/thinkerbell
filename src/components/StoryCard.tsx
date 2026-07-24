@@ -27,6 +27,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
 
   const handleVoteClick = (e: React.MouseEvent, option: 'A' | 'B') => {
     e.stopPropagation();
+    if (isMyStory) return;
     if (votedOption && story.voteChanged) return; // Prevent if already changed
     setVotedOption(option);
     onVote(story.id, option);
@@ -118,13 +119,15 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           </div>
 
           {/* Quick Vote Buttons */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <button
               onClick={(e) => handleVoteClick(e, 'A')}
-              disabled={!!votedOption && !!story.voteChanged}
+              disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                 votedOption === 'A'
                   ? 'bg-[#3ECF8E] text-[#1C1C1C] cursor-default'
+                  : isMyStory
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#3ECF8E]/20 cursor-pointer'
               }`}
             >
@@ -132,16 +135,23 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             </button>
             <button
               onClick={(e) => handleVoteClick(e, 'B')}
-              disabled={!!votedOption && !!story.voteChanged}
+              disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                 votedOption === 'B'
                   ? 'bg-[#1C1C1C] text-white cursor-default'
+                  : isMyStory
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
               }`}
             >
               상대편 투표
             </button>
           </div>
+          {isMyStory && (
+            <p className="text-[11px] text-[#5f5e5e] text-center mb-3 font-semibold">
+              ※ 내가 작성한 사연은 여론 확인만 가능합니다.
+            </p>
+          )}
         </div>
       </div>
 
