@@ -1,47 +1,80 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
-import { Sparkles, ShieldCheck, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface WelcomeModalProps {
   isOpen: boolean;
   onComplete: (nickname: string, provider: 'kakao' | 'apple' | 'google') => void;
 }
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({
-  isOpen,
-  onComplete,
-}) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }) => {
   if (!isOpen) return null;
 
-  const [provider, setProvider] = useState<'kakao' | 'apple' | 'google'>('kakao');
-  const [nickname, setNickname] = useState('속뚫리는고구마');
-  const [isLoadingNickname, setIsLoadingNickname] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchRandomNickname = async () => {
-    setIsLoadingNickname(true);
-    try {
-      const res = await fetch('/api/nickname/random');
-      if (res.ok) {
-        const data = await res.json();
-        setNickname(data.nickname);
-      }
-    } catch (err) {
-      // fallback
-      setNickname('사이다마신곰99');
-    } finally {
-      setIsLoadingNickname(false);
+  const getKoreanErrorMessage = (error: any) => {
+    const msg = error.message || '';
+    if (msg.includes('Password should be at least 6 characters')) {
+      return '비밀번호는 최소 6자 이상이어야 합니다.';
     }
+    if (msg.includes('Unable to validate email address') || msg.includes('invalid format')) {
+      return '이메일 형식이 올바르지 않습니다.';
+    }
+    if (msg.includes('User already registered') || msg.includes('already exists')) {
+      return '이미 가입된 이메일입니다.';
+    }
+    if (msg.includes('Invalid login credentials')) {
+      return '이메일 또는 비밀번호가 일치하지 않습니다.';
+    }
+    return '오류가 발생했습니다. 다시 시도해주세요.';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nickname.trim()) return;
-    onComplete(nickname.trim(), provider);
+    setErrorMsg('');
+    setIsLoading(true);
+
+    try {
+      if (isLoginMode) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (error) throw error;
+      } else {
+        if (!nickname.trim()) {
+          throw new Error('닉네임을 입력해주세요.');
+        }
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              nickname: nickname.trim()
+            }
+          }
+        });
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      if (error.message === '닉네임을 입력해주세요.') {
+        setErrorMsg(error.message);
+      } else {
+        setErrorMsg(getKoreanErrorMessage(error));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center">
+      <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
         
         {/* Header Branding */}
         <div className="space-y-2">
@@ -52,92 +85,85 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
             니편내편에 오신 것을 환영합니다!
           </h2>
           <p className="text-xs sm:text-sm text-[#6a6a6a]">
-            현실 부담 0%! 완전한 익명성으로 감정을 마음껏 분출하세요.
+            {isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입하고 완전한 익명성으로 활동하세요.'}
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5 text-left">
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
           
-          {/* Social Provider Choice */}
           <div>
-            <label className="block text-xs font-bold text-[#0a0a0a] mb-2">
-              1초 간편 인증 선택
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setProvider('kakao')}
-                className={`py-2.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
-                  provider === 'kakao'
-                    ? 'bg-[#fee500] text-[#0a0a0a] border-[#fee500] shadow-sm font-extrabold ring-2 ring-[#0a0a0a]'
-                    : 'bg-[#f5f0e0] border-[#e8e2d0] text-[#6a6a6a]'
-                }`}
-              >
-                카카오
-              </button>
-              <button
-                type="button"
-                onClick={() => setProvider('apple')}
-                className={`py-2.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
-                  provider === 'apple'
-                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a] shadow-sm font-extrabold ring-2 ring-[#ff4d8b]'
-                    : 'bg-[#f5f0e0] border-[#e8e2d0] text-[#6a6a6a]'
-                }`}
-              >
-                Apple
-              </button>
-              <button
-                type="button"
-                onClick={() => setProvider('google')}
-                className={`py-2.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
-                  provider === 'google'
-                    ? 'bg-white text-[#0a0a0a] border-gray-300 shadow-sm font-extrabold ring-2 ring-[#0a0a0a]'
-                    : 'bg-[#f5f0e0] border-[#e8e2d0] text-[#6a6a6a]'
-                }`}
-              >
-                Google
-              </button>
-            </div>
+            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              placeholder="example@email.com"
+              required
+            />
           </div>
 
-          {/* Random Anonymous Nickname */}
           <div>
-            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">
-              100% 익명 닉네임 설정
-            </label>
-            <div className="flex gap-2">
+            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">비밀번호 (6자 이상)</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {!isLoginMode && (
+            <div>
+              <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">닉네임</label>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 maxLength={12}
-                className="flex-1 p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+                className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+                placeholder="익명 닉네임"
+                required={!isLoginMode}
               />
-              <button
-                type="button"
-                onClick={fetchRandomNickname}
-                disabled={isLoadingNickname}
-                className="px-3.5 bg-[#b8a4ed] hover:bg-[#a591e0] text-[#0a0a0a] font-bold rounded-2xl text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                title="랜덤 닉네임 추천"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingNickname ? 'animate-spin' : ''}`} />
-                <span>추천</span>
-              </button>
+              <p className="text-[11px] text-[#6a6a6a] mt-1.5 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#ff4d8b]" /> 언제든 변경 가능합니다.
+              </p>
             </div>
-            <p className="text-[11px] text-[#6a6a6a] mt-1.5 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#ff4d8b]" /> 개인정보는 전혀 노출되지 않으며 닉네임은 언제든 변경 가능합니다.
-            </p>
-          </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              {errorMsg}
+            </div>
+          )}
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="w-full py-3.5 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <span>니편내편 시작하기</span>
-            <CheckCircle2 className="w-4 h-4 text-[#ff4d8b]" />
+            <span>{isLoginMode ? '로그인하기' : '니편내편 시작하기'}</span>
+            {!isLoading && <CheckCircle2 className="w-4 h-4 text-[#ff4d8b]" />}
           </button>
         </form>
+
+        <div className="pt-2 border-t border-[#e8e2d0] text-xs font-bold text-[#6a6a6a]">
+          {isLoginMode ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
+          <button 
+            type="button" 
+            onClick={() => {
+              setIsLoginMode(!isLoginMode);
+              setErrorMsg('');
+            }} 
+            className="text-[#ff4d8b] hover:underline cursor-pointer"
+          >
+            {isLoginMode ? '회원가입' : '로그인'}
+          </button>
+        </div>
       </div>
     </div>
   );

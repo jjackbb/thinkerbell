@@ -14,6 +14,7 @@ import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -29,9 +30,38 @@ export default function App() {
     };
   });
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(() => {
-    return !localStorage.getItem('nipyeon_user');
-  });
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(true);
+
+  // Initialize Supabase Auth
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setShowWelcomeModal(false);
+        setUser(prev => ({
+          ...prev,
+          id: session.user.id,
+          nickname: session.user.user_metadata?.nickname || prev.nickname,
+        }));
+      } else {
+        setShowWelcomeModal(true);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        setShowWelcomeModal(false);
+        setUser(prev => ({
+          ...prev,
+          id: session.user.id,
+          nickname: session.user.user_metadata?.nickname || prev.nickname,
+        }));
+      } else if (event === 'SIGNED_OUT') {
+        setShowWelcomeModal(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Potens API Key
   const [potensApiKey, setPotensApiKey] = useState<string>(() => {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, Story, Comment } from '../types';
 import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface MyPageViewProps {
   user: UserProfile;
@@ -231,7 +232,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         </button>
 
         <div className="pt-4">
-          <button className="w-full py-3.5 bg-[#1C1C1C] hover:bg-black text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+          <button 
+            onClick={() => supabase.auth.signOut()}
+            className="w-full py-3.5 bg-[#1C1C1C] hover:bg-black text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
             <LogOut className="w-4 h-4 text-[#3ECF8E]" />
             <span>로그아웃</span>
           </button>
