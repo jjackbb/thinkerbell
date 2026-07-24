@@ -223,6 +223,7 @@ export default function App() {
     title: string;
     category: Exclude<StoryCategory, '전체'>;
     body: string;
+    opponentPersonality?: string;
     createAIPersona: boolean;
   }) => {
     const cardColors: ('pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream')[] = ['pink', 'teal', 'lavender', 'peach', 'ochre'];
@@ -250,14 +251,18 @@ export default function App() {
 
     // If auto persona creation requested
     if (storyData.createAIPersona) {
+      const personalityText = storyData.opponentPersonality 
+        ? `너의 성격 및 특징: "${storyData.opponentPersonality}". 이 성격과 태도를 철저하게 유지해라.` 
+        : `뻔뻔하게 본인의 입장을 변명하거나 도리어 서운해하며 대화해라.`;
+
       const newPersona: AIPersona = {
         id: `persona-${Date.now()}`,
         name: `사연 상대방 (${storyData.title.slice(0, 10)}...)`,
         role: `${storyData.category} 갈등 상대`,
         category: storyData.category,
         avatarIcon: 'Bot',
-        description: `사연: "${storyData.title}" 의 상대방 AI 페르소나입니다.`,
-        systemInstruction: `너는 사용자가 올린 다음 사연의 갈등 상대방이다: "${storyData.body}". 뻔뻔하게 본인의 입장을 변명하거나 도리어 서운해하며 대화해라.`,
+        description: `사연: "${storyData.title}" 의 상대방 AI 페르소나입니다.${storyData.opponentPersonality ? ` (성격: ${storyData.opponentPersonality})` : ''}`,
+        systemInstruction: `너는 사용자가 올린 다음 사연의 갈등 상대방이다: "${storyData.body}". ${personalityText}`,
         cardColor: randomColor,
         sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
       };

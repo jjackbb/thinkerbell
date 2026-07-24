@@ -209,6 +209,62 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
   }
 });
 
+// AI Adult Content Checking
+app.post("/api/check-adult-content", async (req: Request, res: Response) => {
+  try {
+    const { body, apiKey } = req.body;
+    if (!body) return res.status(400).json({ error: "Story body is required" });
+
+    const effectiveApiKey = apiKey || process.env.POTENS_API_KEY;
+    const prompt = `다음 텍스트가 성적인 내용, 지나친 폭력성 등 청소년에게 부적절한 19금(Adult Content)에 해당하는지 판단하여, 오직 'true' 또는 'false' 문자열만 응답해라. 부가 설명은 절대 하지 마라.\n\n텍스트: "${body}"`;
+
+    let isAdultStr = "false";
+
+    if (effectiveApiKey) {
+      try {
+        const response = await fetch("https://ai.potens.ai/api/chat", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${effectiveApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt,
+            model: "claude-4-6-sonnet",
+            temperature: 0.1
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.message || data.text || "";
+          isAdultStr = text.trim().toLowerCase();
+        }
+      } catch (e) {
+        console.warn("Potens API check failed, fallback to Gemini:", e);
+      }
+    }
+
+    if ((isAdultStr !== "true" && isAdultStr !== "false") && process.env.GEMINI_API_KEY) {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const geminiRes = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+      isAdultStr = (geminiRes.text || "false").trim().toLowerCase();
+    }
+
+    // fallback 
+    const isAdult = isAdultStr.includes("true");
+
+    res.json({ isAdult });
+  } catch (error: any) {
+    console.error("Check adult content error:", error);
+    // On error, default to false so we don't block users arbitrarily
+    res.json({ isAdult: false });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
