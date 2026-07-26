@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession } from './types';
 import { INITIAL_STORIES, INITIAL_PERSONAS, INITIAL_COMMENTS } from './data/mockData';
 import { Header } from './components/Header';
@@ -9,6 +9,9 @@ import { StoryCard } from './components/StoryCard';
 import { StoryDetailModal } from './components/StoryDetailModal';
 import { CreateStoryModal } from './components/CreateStoryModal';
 import { AIChatView } from './components/AIChatView';
+import { AIChatModeSelectionModal } from './components/AIChatModeSelectionModal';
+import { AIExplainSettingsModal, ExplainRatio } from './components/AIExplainSettingsModal';
+import { AIErrorReportModal } from './components/AIErrorReportModal';
 import { MyPageView } from './components/MyPageView';
 import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
@@ -33,12 +36,14 @@ export default function App() {
   });
 
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(true);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
 
   // Initialize Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setShowWelcomeModal(false);
+        setShowLandingPage(false);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -52,6 +57,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setShowWelcomeModal(false);
+        setShowLandingPage(false);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -100,6 +106,11 @@ export default function App() {
   const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
+  const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
+  const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
+  const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
 
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
@@ -145,6 +156,7 @@ export default function App() {
     };
     setUser(updatedUser);
     setShowWelcomeModal(false);
+        setShowLandingPage(false);
   };
 
   const handleVerifyAdult = () => {
@@ -211,14 +223,14 @@ export default function App() {
     }));
   };
 
-  const handleAddComment = (storyId: string, content: string) => {
+  const handleAddComment = (storyId: string, content: string, isAnonymous: boolean) => {
     const storyComments = commentsMap[storyId] || [];
     const anonNumber = storyComments.length + 1;
     const newComment: Comment = {
       id: `comment-${Date.now()}`,
       storyId,
       authorId: user.id,
-      anonymousId: `익명 ${anonNumber}`,
+      anonymousId: isAnonymous ? `익명 ${anonNumber}` : user.nickname,
       content,
       createdAt: new Date().toISOString(),
       likeCount: 0,
@@ -254,6 +266,56 @@ export default function App() {
     });
   };
 
+  const handleEditStory = (storyId: string) => {
+    const story = stories.find(s => s.id === storyId);
+    if (story) {
+      setEditingStory(story);
+      setIsCreateStoryOpen(true);
+    }
+  };
+
+  const handleHideStory = (storyId: string) => {
+    setStories(prev => prev.map(s => s.id === storyId ? { ...s, isHidden: true } : s));
+    if (selectedStory?.id === storyId) {
+      setSelectedStory(null);
+    }
+    setToastMessage('해당 사연을 숨겼습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleDeleteStory = (storyId: string) => {
+    setStories(prev => prev.filter(s => s.id !== storyId));
+    if (selectedStory?.id === storyId) {
+      setSelectedStory(null);
+    }
+    setToastMessage('사연이 삭제되었습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleTogglePinPersona = (personaId: string) => {
+    setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: !p.isPinned } : p));
+  };
+
+  const handleDeletePersona = (personaId: string) => {
+    setPersonas(prev => prev.filter(p => p.id !== personaId));
+    setToastMessage('AI 대화가 삭제되었습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleReportErrorPersona = (personaId: string) => {
+    const persona = personas.find(p => p.id === personaId);
+    if (persona) {
+      setErrorReportPersona(persona);
+    }
+  };
+
+  const handleSubmitAIError = (personaId: string, errorContent: string) => {
+    console.log('Reported AI Error for Persona ID:', personaId, errorContent);
+    setErrorReportPersona(null);
+    setToastMessage('오류 신고가 접수되었습니다. 신속히 확인하겠습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleCreateStory = (storyData: {
     title: string;
     category: Exclude<StoryCategory, '전체'>;
@@ -281,10 +343,17 @@ export default function App() {
       reportsCount: 0,
       isBlind: false,
       isAdult: storyData.isAdult,
-      cardColor: randomColor,
+      cardColor: editingStory ? editingStory.cardColor : randomColor,
     };
 
-    setStories(prev => [newStory, ...prev]);
+    if (editingStory) {
+      setStories(prev => prev.map(s => s.id === editingStory.id ? { ...newStory, id: editingStory.id, createdAt: editingStory.createdAt, votesA: editingStory.votesA, votesB: editingStory.votesB, userVoted: editingStory.userVoted, commentCount: editingStory.commentCount, viewCount: editingStory.viewCount } : s));
+      setEditingStory(null);
+      setToastMessage('사연이 성공적으로 수정되었습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+    } else {
+      setStories(prev => [newStory, ...prev]);
+    }
     
     setToastMessage('사연 등록이 완료되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
@@ -310,9 +379,133 @@ export default function App() {
     }
   };
 
+  const handleUpdateSession = useCallback((sessionId: string, personaId: string, updates: Partial<ChatSession>) => {
+    setActiveChatSession(prev => {
+      if (prev && prev.id === sessionId) {
+        return { ...prev, ...updates };
+      }
+      return prev;
+    });
+
+    setPersonas(prev => prev.map(p => {
+      if (p.id === personaId) {
+        return {
+          ...p,
+          chatHistory: updates.messages !== undefined ? updates.messages : p.chatHistory,
+          empathyScore: updates.empathyScore !== undefined ? updates.empathyScore : p.empathyScore
+        };
+      }
+      return p;
+    }));
+  }, []);
+
   const handleStartAIChatWithStory = (story: Story) => {
-    // 요구사항: AI 대화로 가지 않고 프리미엄 안내 모달을 띄움
-    setIsPremiumModalOpen(true);
+    if (story.authorId === user.id) {
+      setAiChatModeStory(story);
+      setSelectedStory(null);
+    } else {
+      setIsPremiumModalOpen(true);
+    }
+  };
+
+  const handleSelectAiChatMode = (mode: 'simulation' | 'explanation') => {
+    if (!aiChatModeStory) return;
+    
+    if (mode === 'simulation') {
+      const newPersona: AIPersona = {
+        id: `persona-${Date.now()}`,
+        name: aiChatModeStory.title,
+        role: '상황',
+        category: aiChatModeStory.category,
+        avatarIcon: 'Bot',
+        description: `사연: "${aiChatModeStory.title}" 의 상대방 AI 페르소나입니다.`,
+        systemInstruction: `너는 사용자가 올린 다음 사연의 갈등 상대방이다: "${aiChatModeStory.body}". 뻔뻔하게 본인의 입장을 변명하거나 도리어 서운해하며 대화해라.`,
+        createdAt: new Date().toISOString(),
+        cardColor: 'pink',
+        sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
+      };
+      setPersonas(prev => [newPersona, ...prev]);
+      setActiveChatSession({
+        id: `session-${Date.now()}`,
+        personaId: newPersona.id,
+        personaName: newPersona.name,
+        personaRole: newPersona.role,
+        storyId: aiChatModeStory.id,
+        storyTitle: aiChatModeStory.title,
+        messages: [],
+        empathyScore: 50,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        chatMode: 'simulation'
+      });
+      setActiveTab('ai-chat');
+      setAiChatModeStory(null);
+    } else if (mode === 'explanation') {
+      setAiExplainSettingsStory(aiChatModeStory);
+      setIsExplainSettingsModalOpen(true);
+      setAiChatModeStory(null);
+    }
+  };
+
+  const handleConfirmExplainSettings = (ratio: ExplainRatio) => {
+    let ratioInstruction = '';
+    if (ratio === 'High') {
+      ratioInstruction = '사용자의 입장에 100% 공감하고 철저히 옹호하며 위로해주는 답변을 제공하세요. 상대방의 잘못을 논리적으로 짚어주되 사용자의 기분을 가장 우선적으로 맞춰주세요.';
+    } else if (ratio === 'Middle') {
+      ratioInstruction = '사용자의 심정에 적절히 공감하면서도, 제3자 입장에서 객관적으로 양쪽의 잘못이나 오해를 균형 있게 분석해 주세요.';
+    } else {
+      ratioInstruction = '냉정하고 객관적으로 팩트만을 기반으로 상황을 분석하세요. 감정적인 공감보다는 사용자가 잘못한 부분이나 놓치고 있는 부분을 날카롭고 극사실주의적으로 비판하고 조언해 주세요.';
+    }
+
+    if (activeChatSession && activeChatSession.chatMode === 'explanation') {
+      setActiveChatSession(prev => prev ? {
+        ...prev,
+        explanationRatio: ratio
+      } : null);
+      
+      setPersonas(prev => prev.map(p => {
+        if (p.id === activeChatSession.personaId) {
+          return {
+            ...p,
+            role: ratio === 'High' ? '무조건 내 편' : ratio === 'Middle' ? '공감 반 / 사실 반' : '극사실주의',
+            description: `사연에 대해 ${ratio === 'High' ? '무조건 내 편으로' : ratio === 'Middle' ? '공감 반 / 사실 반으로' : '극사실주의로'} 분석하는 AI입니다.`,
+            systemInstruction: `너는 다음 사연을 객관적으로 분석하는 제3자 AI이다: "${aiExplainSettingsStory?.body || ''}". ${ratioInstruction}`
+          };
+        }
+        return p;
+      }));
+    } else if (aiExplainSettingsStory) {
+      const newPersona: AIPersona = {
+        id: `persona-${Date.now()}`,
+        name: aiExplainSettingsStory.title,
+        role: ratio === 'High' ? '무조건 내 편' : ratio === 'Middle' ? '공감 반 / 사실 반' : '극사실주의',
+        category: aiExplainSettingsStory.category,
+        avatarIcon: 'ListTree',
+        description: `사연에 대해 ${ratio === 'High' ? '무조건 내 편으로' : ratio === 'Middle' ? '공감 반 / 사실 반으로' : '극사실주의로'} 분석하는 AI입니다.`,
+        systemInstruction: `너는 다음 사연을 객관적으로 분석하는 제3자 AI이다: "${aiExplainSettingsStory.body}". ${ratioInstruction}`,
+        createdAt: new Date().toISOString(),
+        cardColor: 'teal',
+        sampleFirstMessage: `사연을 분석해드릴 준비가 되었습니다. 궁금한 점을 편하게 말씀해주세요.`
+      };
+      setPersonas(prev => [newPersona, ...prev]);
+      setActiveChatSession({
+        id: `session-${Date.now()}`,
+        personaId: newPersona.id,
+        personaName: newPersona.name,
+        personaRole: newPersona.role,
+        storyId: aiExplainSettingsStory.id,
+        storyTitle: aiExplainSettingsStory.title,
+        messages: [],
+        empathyScore: ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        chatMode: 'explanation',
+        explanationRatio: ratio
+      });
+      setActiveTab('ai-chat');
+    }
+    
+    setIsExplainSettingsModalOpen(false);
   };
 
   const handleReport = (targetId: string) => {
@@ -334,9 +527,9 @@ export default function App() {
     }));
   };
 
-  // Filtered & Sorted stories
   const filteredStories = stories.filter(s => {
     if (s.isBlind) return false;
+    if (s.isHidden) return false;
     if (selectedCategory === '전체') return true;
     return s.category === selectedCategory;
   }).sort((a, b) => {
@@ -350,9 +543,14 @@ export default function App() {
     .filter(s => !s.isBlind)
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
+  const realtimeTopStories = [...stories]
+    .filter(s => !s.isBlind)
+    .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
+
   // My Written Stories & Comments
   const myStories = stories.filter(s => s.authorId === user.id);
   const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
+
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#3ECF8E] selection:text-[#1C1C1C]">
@@ -363,6 +561,7 @@ export default function App() {
         onOpenProfile={() => setActiveTab('mypage')}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         onOpenCreateStory={() => setIsCreateStoryOpen(true)}
+        onGoHome={() => setActiveTab('feed')}
       />
 
       {/* Main Container */}
@@ -378,6 +577,7 @@ export default function App() {
             {/* Weekly Top Banner */}
             <WeeklyTopBanner
               weeklyTopStories={weeklyTopStories}
+              realtimeTopStories={realtimeTopStories}
               onSelectStory={(story) => setSelectedStory(story)}
             />
 
@@ -410,7 +610,7 @@ export default function App() {
                       : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:text-[#1C1C1C]'
                   }`}
                 >
-                  <Clock className="w-3.5 h-3.5" /> LATEST
+                  <Clock className="w-3.5 h-3.5" /> 최신순
                 </button>
                 <button
                   onClick={() => setSortBy('votes')}
@@ -453,6 +653,10 @@ export default function App() {
                     onVote={handleVote}
                     onStartAIChatWithStory={handleStartAIChatWithStory}
                     onReport={handleReport}
+                    onEdit={handleEditStory}
+                    onDelete={handleDeleteStory}
+                    onHide={handleHideStory}
+                    comments={commentsMap[story.id] || []}
                   />
                 ))
               )}
@@ -482,7 +686,12 @@ export default function App() {
         {/* TAB 2: AI SIMULATION CHAT VIEW */}
         {activeTab === 'ai-chat' && (
           <AIChatView
-            personas={personas}
+            personas={[...personas].sort((a, b) => {
+              if (b.isPinned !== a.isPinned) return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
+              const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return timeB - timeA;
+            })}
             activeSession={activeChatSession}
             onStartSession={(persona) => {
               const newSession: ChatSession = {
@@ -490,22 +699,29 @@ export default function App() {
                 personaId: persona.id,
                 personaName: persona.name,
                 personaRole: persona.role,
-                messages: [
-                  {
-                    id: `msg-0`,
-                    sender: 'ai',
-                    text: persona.sampleFirstMessage,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  }
-                ],
-                empathyScore: 64,
+                messages: persona.chatHistory && persona.chatHistory.length > 0 
+                  ? persona.chatHistory 
+                  : [
+                      {
+                        id: `msg-0`,
+                        sender: 'ai',
+                        text: persona.sampleFirstMessage,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      }
+                    ],
+                empathyScore: persona.empathyScore !== undefined ? persona.empathyScore : 64,
                 createdAt: new Date().toISOString(),
                 status: 'active'
               };
               setActiveChatSession(newSession);
             }}
             onEndSession={() => setActiveChatSession(null)}
+            onUpdateSession={handleUpdateSession}
             potensApiKey={potensApiKey}
+            onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
+            onTogglePinPersona={handleTogglePinPersona}
+            onDeletePersona={handleDeletePersona}
+            onReportErrorPersona={handleReportErrorPersona}
           />
         )}
 
@@ -535,7 +751,12 @@ export default function App() {
       {/* Bottom Navigation */}
       <Navbar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'ai-chat') {
+            setActiveChatSession(null);
+          }
+        }}
       />
 
       {/* Modals */}
@@ -544,26 +765,31 @@ export default function App() {
         onComplete={handleCompleteWelcome}
       />
 
-      <StoryDetailModal
-        story={selectedStory}
+      <StoryDetailModal 
+        story={selectedStory} 
         comments={selectedStory ? (commentsMap[selectedStory.id] || []) : []}
         currentUser={user}
-        onClose={() => setSelectedStory(null)}
+        onClose={() => setSelectedStory(null)} 
         onVote={handleVote}
         onAddComment={handleAddComment}
         onLikeComment={handleLikeComment}
-        onStartAIChat={(story) => {
-          setSelectedStory(null);
-          handleStartAIChatWithStory(story);
-        }}
+        onStartAIChat={handleStartAIChatWithStory}
         onReportStory={handleReport}
+        onEditStory={handleEditStory}
+        onDeleteStory={handleDeleteStory}
+        onHideStory={handleHideStory}
         onReportComment={handleReport}
       />
 
-      <CreateStoryModal
-        isOpen={isCreateStoryOpen}
-        onClose={() => setIsCreateStoryOpen(false)}
-        onSubmit={handleCreateStory}
+      {/* Create Story Modal */}
+      <CreateStoryModal 
+        isOpen={isCreateStoryOpen} 
+        onClose={() => {
+          setIsCreateStoryOpen(false);
+          setEditingStory(null);
+        }} 
+        onSubmit={handleCreateStory} 
+        initialData={editingStory}
       />
 
       <ReportModal
@@ -590,6 +816,37 @@ export default function App() {
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
       />
+
+      {/* AI Chat Mode Selection Modal */}
+      {aiChatModeStory && (
+        <AIChatModeSelectionModal
+          onClose={() => setAiChatModeStory(null)}
+          onSelectMode={handleSelectAiChatMode}
+        />
+      )}
+
+      {/* AI Explain Settings Modal */}
+      {isExplainSettingsModalOpen && (
+        <AIExplainSettingsModal
+          initialRatio={activeChatSession?.chatMode === 'explanation' ? activeChatSession.explanationRatio : 'Middle'}
+          onClose={() => {
+            setIsExplainSettingsModalOpen(false);
+            if (!activeChatSession && aiExplainSettingsStory) {
+              setAiExplainSettingsStory(null);
+            }
+          }}
+          onConfirm={handleConfirmExplainSettings}
+        />
+      )}
+
+      {/* AI Error Report Modal */}
+      {errorReportPersona && (
+        <AIErrorReportModal
+          persona={errorReportPersona}
+          onClose={() => setErrorReportPersona(null)}
+          onSubmit={handleSubmitAIError}
+        />
+      )}
 
       {/* Global Toast */}
       {toastMessage && (

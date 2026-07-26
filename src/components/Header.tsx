@@ -7,6 +7,7 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onOpenApiKeyModal: () => void;
   onOpenCreateStory: () => void;
+  onGoHome: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,14 +15,15 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onOpenApiKeyModal,
   onOpenCreateStory,
+  onGoHome,
 }) => {
   return (
     <header className="w-full top-0 sticky z-50 bg-[#1C1C1C] flex items-center justify-between px-4 sm:px-8 h-16 border-b border-[#1C1C1C] shadow-sm">
-      <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+      <div className="flex items-center gap-3 cursor-pointer" onClick={() => { onGoHome(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
         <span className="material-symbols-outlined text-[#3ECF8E] text-2xl font-bold">terminal</span>
         <div>
           <h1 className="font-headline-lg text-xl sm:text-2xl font-black tracking-tighter text-[#3ECF8E] flex items-center gap-2">
-            니편내편 <span className="text-[10px] px-2 py-0.5 bg-[#3ECF8E]/10 border border-[#3ECF8E]/30 rounded text-[#3ECF8E] font-mono tracking-widest uppercase font-bold">EMERALD LOGIC</span>
+            니편내편
           </h1>
         </div>
       </div>
@@ -37,14 +39,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">사연 등록</span>
         </button>
 
-        {/* API Key Modal Button */}
-        <button
-          onClick={onOpenApiKeyModal}
-          className="p-2 bg-white/5 border border-white/10 hover:border-[#3ECF8E] text-[#3ECF8E] rounded-lg transition-colors cursor-pointer"
-          title="Potens AI API Key 설정"
-        >
-          <Key className="w-4 h-4" />
-        </button>
 
         {/* User Nickname Button */}
         <button

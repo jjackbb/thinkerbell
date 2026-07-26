@@ -13,6 +13,7 @@ interface CreateStoryModalProps {
     createAIPersona: boolean;
     isAdult: boolean;
   }) => void;
+  initialData?: Story | null;
 }
 
 const CATEGORIES: Exclude<StoryCategory, '전체'>[] = ['연애', '직장', '친구', '가족', '기타'];
@@ -21,14 +22,15 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   if (!isOpen) return null;
 
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<Exclude<StoryCategory, '전체'>>('직장');
-  const [body, setBody] = useState('');
-  const [opponentPersonality, setOpponentPersonality] = useState('');
-  const [isAdultCheck, setIsAdultCheck] = useState(false);
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [category, setCategory] = useState<Exclude<StoryCategory, '전체'>>(initialData?.category || '직장');
+  const [body, setBody] = useState(initialData?.body || '');
+  const [opponentPersonality, setOpponentPersonality] = useState(initialData?.personaInstruction || '');
+  const [isAdultCheck, setIsAdultCheck] = useState(initialData?.isAdult || false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Adult content validation state
@@ -112,18 +114,18 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
+      <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
         
         {/* Warning Modal Overlay (19금 미체크 시 팝업) */}
         {showAdultWarning && (
-          <div className="absolute inset-0 z-10 bg-[#fffaf0]/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute inset-0 z-10 bg-[white]/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-white border border-red-200 shadow-2xl rounded-3xl p-8 max-w-sm w-full text-center space-y-5">
               <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2">
                 <AlertOctagon className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-[#0a0a0a] mb-2">19금 콘텐츠 감지됨</h3>
-                <p className="text-sm text-[#6a6a6a] leading-relaxed font-medium">
+                <h3 className="text-lg font-black text-[#1C1C1C] mb-2">19금 콘텐츠 감지됨</h3>
+                <p className="text-sm text-[#5f5e5e] leading-relaxed font-medium">
                   사연 내용이 성적 내용 또는 부적절한 내용을 포함하고 있는 것으로 판단됩니다.<br/>
                   등록하시려면 창을 닫고 <span className="font-bold text-red-500">'19금'</span> 체크를 해주세요.
                 </p>
@@ -131,7 +133,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               <div className="pt-2 flex justify-center">
                 <button
                   onClick={() => setShowAdultWarning(false)}
-                  className="px-8 py-3 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md"
+                  className="px-8 py-3 bg-[#1C1C1C] hover:bg-[#333333] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md"
                 >
                   확인
                 </button>
@@ -141,14 +143,11 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         )}
 
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-[#ebe6d6] flex items-center justify-between bg-[#faf5e8]">
-          <h2 className="text-base sm:text-lg font-bold text-[#0a0a0a] flex items-center gap-2 font-display">
-            <MessageSquareHeart className="w-5 h-5 text-[#ff4d8b]" /> 익명 사연 등록하기
+        <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
+          <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
+            <span className="material-symbols-outlined text-[#3ECF8E] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-[#e8e2d0] text-[#0a0a0a] transition-colors cursor-pointer"
-          >
+          <button onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -164,8 +163,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
           {/* Category Select & 19+ Checkbox */}
           <div>
-            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">
-              카테고리 선택 <span className="text-[#ff4d8b]">*</span>
+            <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
+              카테고리 선택 <span className="text-[#3ECF8E]">*</span>
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
@@ -176,8 +175,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                     onClick={() => setCategory(cat)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       category === cat
-                        ? 'bg-[#0a0a0a] text-white shadow-xs'
-                        : 'bg-[#f5f0e0] text-[#6a6a6a] hover:text-[#0a0a0a] border border-[#e8e2d0]'
+                        ? 'bg-[#1C1C1C] text-white shadow-xs'
+                        : 'bg-[#f8f9fa] text-[#5f5e5e] hover:text-[#1C1C1C] border border-[#E5E7EB]'
                     }`}
                   >
                     {cat}
@@ -187,7 +186,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               
               {/* 19+ Checkbox at the far right */}
               <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
-                isAdultCheck ? 'bg-red-50 border-red-300 text-red-600' : 'bg-[#f5f0e0] border-[#e8e2d0] text-[#6a6a6a] hover:bg-[#ebe6d6]'
+                isAdultCheck ? 'bg-red-50 border-red-300 text-red-600' : 'bg-[#f8f9fa] border-[#E5E7EB] text-[#5f5e5e] hover:bg-[#E5E7EB]'
               }`}>
                 <input
                   type="checkbox"
@@ -203,10 +202,10 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           {/* Title */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-[#0a0a0a]">
-                사연 제목 <span className="text-[#ff4d8b]">*</span>
+              <label className="text-xs font-bold text-[#1C1C1C]">
+                사연 제목 <span className="text-[#3ECF8E]">*</span>
               </label>
-              <span className="text-[11px] text-[#6a6a6a]">{title.length}/30자</span>
+              <span className="text-[11px] text-[#5f5e5e]">{title.length}/30자</span>
             </div>
             <input
               type="text"
@@ -214,17 +213,17 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="예: 칼퇴 5분 전 일 던지고 나간 팀장님 진짜 이상하지 않나요?"
               maxLength={30}
-              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
             />
           </div>
 
           {/* Story Body */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-[#0a0a0a]">
-                사연 내용 <span className="text-[#ff4d8b]">*</span>
+              <label className="text-xs font-bold text-[#1C1C1C]">
+                사연 내용 <span className="text-[#3ECF8E]">*</span>
               </label>
-              <span className="text-[11px] text-[#6a6a6a]">{body.length}/1000자 (최소 20자)</span>
+              <span className="text-[11px] text-[#5f5e5e]">{body.length}/1000자 (최소 20자)</span>
             </div>
             <textarea
               value={body}
@@ -235,17 +234,17 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 작성한 사연은 100% 완전한 익명으로 노출됩니다."
               rows={5}
               maxLength={1000}
-              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#ff4d8b] resize-none"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E] resize-none"
             />
           </div>
 
           {/* Opponent Personality (Optional) */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-[#0a0a0a]">
-                상대방 성격 <span className="text-[#6a6a6a] font-normal">(선택사항)</span>
+              <label className="text-xs font-bold text-[#1C1C1C]">
+                상대방 성격 <span className="text-[#5f5e5e] font-normal">(선택사항)</span>
               </label>
-              <span className="text-[11px] text-[#6a6a6a]">{opponentPersonality.length}/100자</span>
+              <span className="text-[11px] text-[#5f5e5e]">{opponentPersonality.length}/100자</span>
             </div>
             <input
               type="text"
@@ -253,21 +252,21 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               onChange={(e) => setOpponentPersonality(e.target.value)}
               placeholder="예: 뻔뻔하고 자기위주인 성격, 적반하장 스타일, 소심하고 돌려까는 성격 등"
               maxLength={100}
-              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
             />
           </div>
 
           {/* AI Persona Auto Generation Policy Notice */}
-          <div className="p-3.5 bg-[#f5f0e0] border border-[#e8e2d0] rounded-2xl flex items-center justify-between">
+          <div className="p-3.5 bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#b8a4ed] text-[#0a0a0a] flex items-center justify-center font-bold shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center font-bold shrink-0">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#0a0a0a]">
+                <p className="text-xs font-bold text-[#1C1C1C]">
                   사연의 내용과 상대방 성격을 토대로, AI와 대화하실 수 있습니다.
                 </p>
-                <p className="text-[11px] text-[#6a6a6a]">
+                <p className="text-[11px] text-[#5f5e5e]">
                   사연 등록 후 곧바로 내 상대방 AI 페르소나와 1:1 대화를 나눌 수 있습니다.
                 </p>
               </div>
@@ -279,7 +278,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-[#e8e2d0] text-xs font-bold text-[#6a6a6a] hover:bg-[#f5f0e0] cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-xs font-bold text-[#5f5e5e] hover:bg-[#f8f9fa] cursor-pointer"
             >
               취소
             </button>
@@ -289,7 +288,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 ${
                 isSubmitDisabled 
                   ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-[#0a0a0a] hover:bg-[#1f1f1f] active:scale-95 cursor-pointer'
+                  : 'bg-[#1C1C1C] hover:bg-[#333333] active:scale-95 cursor-pointer'
               }`}
             >
               {isCheckingAdult ? (

@@ -30,6 +30,7 @@ export interface Story {
   isBlind: boolean;
   isAdult?: boolean;
   voteChanged?: boolean;
+  isHidden?: boolean;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
 
@@ -44,6 +45,7 @@ export interface Comment {
   userLiked?: boolean;
   reportsCount: number;
   isBlind?: boolean;
+  authorVoted?: 'A' | 'B';
 }
 
 export interface AIPersona {
@@ -54,8 +56,12 @@ export interface AIPersona {
   avatarIcon: string; // Lucide icon identifier or emoji
   description: string;
   systemInstruction: string;
+  isPinned?: boolean;
+  createdAt?: string;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
   sampleFirstMessage: string;
+  chatHistory?: ChatMessage[];
+  empathyScore?: number;
 }
 
 export interface ChatMessage {
@@ -71,10 +77,13 @@ export interface ChatSession {
   personaName: string;
   personaRole: string;
   storyId?: string;
+  storyTitle?: string;
   messages: ChatMessage[];
   empathyScore: number; // 내편지수 0~100%
   createdAt: string;
   status: 'active' | 'ended';
+  chatMode?: 'simulation' | 'explanation';
+  explanationRatio?: 'High' | 'Middle' | 'Low';
 }
 
 export interface ReportItem {

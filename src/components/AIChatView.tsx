@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 
 interface AIChatViewProps {
@@ -6,7 +7,12 @@ interface AIChatViewProps {
   activeSession: ChatSession | null;
   onStartSession: (persona: AIPersona) => void;
   onEndSession: (sessionId: string) => void;
-  potensApiKey: string;
+  onUpdateSession?: (sessionId: string, personaId: string, updates: Partial<ChatSession>) => void;
+  potensApiKey?: string;
+  onOpenSettings?: () => void;
+  onTogglePinPersona?: (personaId: string) => void;
+  onDeletePersona?: (personaId: string) => void;
+  onReportErrorPersona?: (personaId: string) => void;
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
@@ -14,25 +20,55 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   activeSession,
   onStartSession,
   onEndSession,
+  onUpdateSession,
   potensApiKey,
+  onOpenSettings,
+  onTogglePinPersona,
+  onDeletePersona,
+  onReportErrorPersona,
 }) => {
-  const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [empathyScore, setEmpathyScore] = useState(64); // 0 ~ 100%
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showChat, setShowChat] = useState<boolean>(false);
   const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [empathyScore, setEmpathyScore] = useState(64);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openMenuId && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuId]);
 
   useEffect(() => {
     if (activeSession) {
-      setMessages(activeSession.messages || []);
-      setEmpathyScore(activeSession.empathyScore || 64);
       const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
       setSelectedPersona(persona);
     }
-  }, [activeSession, personas]);
+  }, [activeSession?.personaId, personas]);
+
+  useEffect(() => {
+    if (activeSession) {
+      setShowChat(true);
+      setMessages(activeSession.messages || []);
+      setEmpathyScore(activeSession.empathyScore || 64);
+    }
+  }, [activeSession?.id]);
+
+  useEffect(() => {
+    if (activeSession && onUpdateSession) {
+      onUpdateSession(activeSession.id, activeSession.personaId, { messages, empathyScore });
+    }
+  }, [messages, empathyScore, activeSession?.id, activeSession?.personaId, onUpdateSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,18 +166,21 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   };
 
   const handleEndChat = () => {
-    setShowSummaryModal(true);
+    setShowDeleteModal(true);
   };
 
   const confirmEndChat = () => {
     if (activeSession) {
+      if (onDeletePersona && selectedPersona) {
+        onDeletePersona(selectedPersona.id);
+      }
       onEndSession(activeSession.id);
     }
-    setShowSummaryModal(false);
+    setShowDeleteModal(false);
   };
 
   // Persona Selection View
-  if (!activeSession || !selectedPersona) {
+  if (!activeSession || !selectedPersona || !showChat) {
     return (
       <div className="max-w-4xl mx-auto space-y-8 pb-24">
         {/* Banner */}
@@ -169,15 +208,62 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             {personas.map((persona) => (
               <div
                 key={persona.id}
-                onClick={() => onStartSession(persona)}
+                onClick={() => {
+                  if (activeSession && activeSession.personaId === persona.id) {
+                    setShowChat(true);
+                  } else {
+                    onStartSession(persona);
+                  }
+                }}
                 className="bg-white border border-[#E5E7EB] hover:border-[#3ECF8E] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3 font-mono text-xs">
-                    <span className="px-2.5 py-0.5 bg-[#f3f4f5] text-[#1C1C1C] font-semibold rounded">
-                      {persona.category}
-                    </span>
-                    <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 bg-[#f3f4f5] text-[#1C1C1C] font-semibold rounded">
+                        {persona.category}
+                      </span>
+                      {persona.isPinned && (
+                        <span className="px-2.5 py-0.5 bg-[#3ECF8E] text-white font-semibold rounded flex items-center gap-1">
+                          <Pin className="w-3 h-3" /> 고정
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 relative">
+                      <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
+                      <div ref={openMenuId === persona.id ? menuRef : null}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === persona.id ? null : persona.id);
+                          }}
+                          className="text-[#5f5e5e] hover:text-[#1C1C1C] cursor-pointer p-0.5"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        
+                        {openMenuId === persona.id && (
+                          <div className="absolute right-0 top-6 w-32 bg-white rounded-md shadow-lg border border-[#E5E7EB] z-50 py-1 font-body-sm text-xs">
+                            {onTogglePinPersona && (
+                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
+                                <Pin className="w-3.5 h-3.5" /> {persona.isPinned ? '고정 해제' : '고정'}
+                              </button>
+                            )}
+                            {onReportErrorPersona && (
+                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                                <ShieldAlert className="w-3.5 h-3.5" /> 오류 신고
+                              </button>
+                            )}
+                            {onDeletePersona && (
+                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                                <Trash2 className="w-3.5 h-3.5" /> 삭제
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <h4 className="font-bold text-base text-[#1C1C1C] mb-2 group-hover:text-[#3ECF8E] transition-colors">{persona.name}</h4>
@@ -187,8 +273,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 </div>
 
                 <button className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#3ECF8E] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">memory</span>
-                  <span>SIMULATION START</span>
+                  <span>시작하기</span>
                 </button>
               </div>
             ))}
@@ -204,30 +289,37 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button onClick={handleEndChat} className="material-symbols-outlined text-[#3ECF8E] cursor-pointer hover:opacity-80">
+          <button onClick={() => {
+            if (activeSession.messages.length <= 1 && onDeletePersona) {
+              onDeletePersona(selectedPersona.id);
+            }
+            setShowChat(false);
+          }} className="material-symbols-outlined text-[#3ECF8E] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
-            <h1 className="font-headline-md text-base font-bold text-white flex items-center gap-2">
-              AI SIM: {selectedPersona.name}
-              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#3ECF8E]/20 text-[#3ECF8E] rounded border border-[#3ECF8E]/30 font-semibold">
+            <h1 className="font-headline-md text-base font-bold text-white flex items-center gap-2 max-w-[200px] sm:max-w-xs md:max-w-md">
+              <span className="truncate">{activeSession.storyTitle || selectedPersona.name}</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#3ECF8E]/20 text-[#3ECF8E] rounded border border-[#3ECF8E]/30 font-semibold shrink-0">
                 {selectedPersona.role}
               </span>
             </h1>
           </div>
         </div>
-        <button onClick={handleEndChat} className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer">
-          close
-        </button>
+        <div className="flex items-center gap-4">
+          {activeSession.chatMode === 'explanation' && onOpenSettings && (
+            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#3ECF8E] cursor-pointer transition-colors" title="비율 설정 변경">
+              settings
+            </button>
+          )}
+          <button onClick={() => setShowDeleteModal(true)} className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer">
+            close
+          </button>
+        </div>
       </header>
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto chat-container p-6 space-y-4 bg-[#f8f9fa]">
-        <div className="text-center py-2">
-          <span className="font-mono text-[11px] px-3 py-1 bg-white border border-[#E5E7EB] rounded text-[#5f5e5e]">
-            🔒 SECURE TERMINAL • EXPLICIT LOGIC ENGINE ACTIVE
-          </span>
-        </div>
 
         {messages.map((msg) => {
           if (msg.sender === 'user') {
@@ -244,7 +336,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <div key={msg.id} className="flex flex-col items-start max-w-[85%] space-y-1">
                 <div className="flex items-center space-x-2 mb-1 font-mono text-xs">
                   <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span>
-                  <span className="font-bold text-[#1C1C1C]">{selectedPersona.name}</span>
+                  <span className="text-[#5f5e5e] font-medium">{selectedPersona.role}</span>
                 </div>
                 <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
                   <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">{msg.text || '...'}</p>
@@ -278,20 +370,36 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </form>
       </footer>
 
-      {/* End Modal */}
-      {showSummaryModal && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white border border-[#E5E7EB] rounded-lg p-6 w-full max-w-sm text-center shadow-lg space-y-4">
-            <h3 className="font-mono text-base font-bold text-[#1C1C1C] uppercase">SIMULATION CONCLUDED</h3>
-            <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed">
-              서로의 입장을 논리적으로 전달하고 대화를 마쳤습니다.
-            </p>
-            <button
-              onClick={confirmEndChat}
-              className="w-full py-3 bg-[#1C1C1C] text-[#3ECF8E] font-mono font-bold text-xs rounded hover:bg-black transition-colors"
-            >
-              CLOSE TERMINAL
-            </button>
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-lg font-bold text-[#1C1C1C] font-headline-md">삭제 하시겠습니까?</h2>
+                <button onClick={() => setShowDeleteModal(false)} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors cursor-pointer p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-[#5f5e5e] mb-6 font-body-sm">
+                지금까지 대화한 내용이 전부 삭제됩니다
+              </p>
+              
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-2.5 bg-white border border-[#E5E7EB] text-[#1C1C1C] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={confirmEndChat}
+                  className="flex-1 py-2.5 bg-[#ba1a1a] text-white rounded-lg font-bold text-sm hover:bg-[#ba1a1a]/90 transition-colors cursor-pointer"
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

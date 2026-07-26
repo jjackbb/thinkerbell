@@ -21,7 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">home_storage</span>
-        <span className="font-label-sm text-[11px]">Home Feed</span>
+        <span className="font-label-sm text-[11px]">Home</span>
       </button>
 
       <button
@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">memory</span>
-        <span className="font-label-sm text-[11px]">AI Simulation</span>
+        <span className="font-label-sm text-[11px]">Ai 대화</span>
       </button>
 
       <button
@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">person_pin</span>
-        <span className="font-label-sm text-[11px]">My Page</span>
+        <span className="font-label-sm text-[11px]">마이</span>
       </button>
     </nav>
   );

@@ -9,6 +9,7 @@ export const INITIAL_PERSONAS: AIPersona[] = [
     avatarIcon: 'Briefcase',
     description: '칼퇴는 눈치 부족, 라떼 이야기와 급발진 회식을 좋아하는 무적의 부장님',
     systemInstruction: '너는 50대 초반의 꼰대 김부장이다. 말투는 반말과 존댓말을 섞어 쓰며 "내가 너만할 때는 말이야~", "요즘 MZ들은 개성이 너무 과해", "이것도 다 너 잘되라고 하는 소리야" 같은 진상 꼰대 대사를 적극적으로 사용한다. 사용자의 항의나 분노에 적절히 변명하거나 도리어 시비를 걸되, 과도한 비하보단 현실 직장 꼰대의 특성을 보여주어 사용자가 감정을 쏟아낼 수 있게 해라.',
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     cardColor: 'pink',
     sampleFirstMessage: '어이 지훈이, 오늘 6시 칼퇴하네? 요새 일이 많이 안 바쁜가 봐? 팀 분위기도 생각해야지~'
   },
@@ -20,6 +21,7 @@ export const INITIAL_PERSONAS: AIPersona[] = [
     avatarIcon: 'Heart',
     description: '갈등만 생기면 잠수 타고 "너 혼자 생각하고 다 결정해라"라며 지치게 만드는 애인',
     systemInstruction: '너는 서운한 일이나 갈등 상황에서 말을 닫고 서운해하는 회피형 애인이다. "너 혼자 다 맞고 난 다 틀린 거지?", "지금 꼭 이런 이야기 해야 돼? 나 머리 아파", "시간을 좀 갖자"라는 입장을 고수한다.',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     cardColor: 'lavender',
     sampleFirstMessage: '아... 또 시작이야? 난 그냥 퇴근하고 좀 쉬고 싶었는데... 왜 매번 나만 나쁜 사람 만들어?'
   },
@@ -31,6 +33,7 @@ export const INITIAL_PERSONAS: AIPersona[] = [
     avatarIcon: 'Users',
     description: '필요할 때만 찾고 인스타 자랑질에는 반응 강요하며 내 슬픔엔 "아 그래? 내 이야기 들어봐"로 가로채는 친구',
     systemInstruction: '너는 필요할 때만 연락하고 타인의 공감보단 자기 이야기만 주구장창 하는 친구다. 사용자가 억울함을 호소하면 "헐 대박... 근데 나 오늘 인스타 협찬 들어왔다?" 같은 소리로 화제를 자기에게 돌려라.',
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     cardColor: 'ochre',
     sampleFirstMessage: '야야 나 방금 인스타협찬 들어왔음! 대박이지? ...어? 너 무슨 속상한 일 있어? 아 그래? 근데 그건 됐고 내 얘기 좀 들어봐!'
   }
@@ -146,7 +149,8 @@ export const INITIAL_COMMENTS: Record<string, Comment[]> = {
       content: '저도 비슷한 상황이었는데, 딱 잘라서 데이트 통장 제안해봤어요. 수입 비례해서 넣는 걸로 하니까 훨씬 마음 편하더라구요!',
       createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(), // 10분 전
       likeCount: 12,
-      reportsCount: 0
+      reportsCount: 0,
+      authorVoted: 'A'
     },
     {
       id: 'c-302',
@@ -156,7 +160,8 @@ export const INITIAL_COMMENTS: Record<string, Comment[]> = {
       content: '니편 들어보자면... 남자친구분도 나름대로 선물이나 다른 쪽에서 노력하고 있는 부분은 없나요? 그런 것도 한번 잘 따져보세요.',
       createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(), // 25분 전
       likeCount: 3,
-      reportsCount: 0
+      reportsCount: 0,
+      authorVoted: 'B'
     }
   ],
   'story-work-1': [
@@ -168,7 +173,8 @@ export const INITIAL_COMMENTS: Record<string, Comment[]> = {
       content: '밥 먹는 속도까지 참견하는 부장님이라니 진짜 스트레스 크시겠네요. 직장 상사 꼰대 대처법 공유해드립니다!',
       createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
       likeCount: 15,
-      reportsCount: 0
+      reportsCount: 0,
+      authorVoted: 'A'
     }
   ]
 };

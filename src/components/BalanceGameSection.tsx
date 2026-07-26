@@ -20,15 +20,12 @@ export const BalanceGameSection: React.FC = () => {
 
   return (
     <section className="mb-10">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="w-2 h-2 rounded-full bg-[#3ECF8E] animate-pulse"></span>
-        <h2 className="font-label-md text-xs uppercase tracking-widest text-[#5f5e5e] font-mono">Current Hot Logic</h2>
-      </div>
+
 
       <div className="relative overflow-hidden bg-[#1C1C1C] rounded-lg p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center border border-[#1C1C1C]">
         <div className="flex-1 z-10">
           <div className="inline-block px-3 py-1 bg-[#3ECF8E]/10 border border-[#3ECF8E]/20 rounded text-[#3ECF8E] font-mono text-xs mb-4">
-            TRENDING BALANCE GAME
+            오늘의 밸런스 게임
           </div>
           <h3 className="font-headline-lg text-lg sm:text-xl font-bold text-white mb-3 leading-snug">
             Q. 점심시간에 고객 전화 자꾸 받는 신입, 가르쳐야 할까요?

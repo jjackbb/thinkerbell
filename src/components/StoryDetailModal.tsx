@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
-import { X, ShieldAlert, Share2, Heart, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { X, Send, ShieldAlert, ThumbsUp, ThumbsDown, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2 } from 'lucide-react';
 
 interface StoryDetailModalProps {
   story: Story | null;
@@ -8,11 +8,14 @@ interface StoryDetailModalProps {
   currentUser: UserProfile;
   onClose: () => void;
   onVote: (storyId: string, option: 'A' | 'B') => void;
-  onAddComment: (storyId: string, content: string) => void;
+  onAddComment: (storyId: string, content: string, isAnonymous: boolean) => void;
   onLikeComment: (commentId: string) => void;
   onStartAIChat: (story: Story) => void;
   onReportStory: (storyId: string) => void;
   onReportComment: (commentId: string) => void;
+  onEditStory?: (storyId: string) => void;
+  onHideStory?: (storyId: string) => void;
+  onDeleteStory?: (storyId: string) => void;
 }
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
@@ -26,19 +29,47 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onStartAIChat,
   onReportStory,
   onReportComment,
+  onEditStory,
+  onHideStory,
+  onDeleteStory,
 }) => {
+  const [commentText, setCommentText] = useState('');
+  const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story?.userVoted || null);
+  const [commentFilter, setCommentFilter] = useState<'all' | 'A' | 'B'>('all');
+  const [commentSort, setCommentSort] = useState<'latest' | 'likes'>('latest');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isMenuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
+
+  const isMyStory = story ? currentUser.id === story.authorId : false;
+  const [isAnonymous, setIsAnonymous] = useState(!isMyStory);
+
   if (!story) return null;
 
-  const [commentText, setCommentText] = useState('');
-  const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story.userVoted || null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const filteredComments = comments
+    .filter(c => {
+      const displayVote = c.authorId === currentUser.id ? votedOption : c.authorVoted;
+      return commentFilter === 'all' || displayVote === commentFilter;
+    })
+    .sort((a, b) => {
+      if (commentSort === 'likes') return b.likeCount - a.likeCount;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
   };
-
-  const isMyStory = currentUser.id === story.authorId;
 
   const handleVote = (option: 'A' | 'B') => {
     if (isMyStory) {
@@ -56,7 +87,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    onAddComment(story.id, commentText.trim());
+    onAddComment(story.id, commentText.trim(), isMyStory ? false : isAnonymous);
     setCommentText('');
     showToast('논리 분석 댓글이 등록되었습니다.');
   };
@@ -67,8 +98,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isZeroVotes = totalVotes === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
-      <div className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
+      <div onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         {/* Toast Alert */}
         {toastMessage && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1C1C1C] text-[#3ECF8E] px-4 py-2 rounded border border-[#3ECF8E]/40 font-mono text-xs font-bold shadow-md">
@@ -79,13 +110,43 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         {/* Modal Top Bar */}
         <header className="sticky top-0 z-40 bg-[#1C1C1C] text-white flex justify-between items-center px-6 py-4 border-b border-[#1C1C1C]">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#3ECF8E]">terminal</span>
+            <span className="material-symbols-outlined text-[#3ECF8E] text-2xl font-bold">terminal</span>
             <h1 className="font-headline-md text-base font-bold text-[#3ECF8E]">니편내편</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => onReportStory(story.id)} className="text-[#5f5e5e] hover:text-[#ba1a1a]">
-              <ShieldAlert className="w-5 h-5" />
-            </button>
+            <div className="relative" ref={menuRef}>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(!isMenuOpen);
+                }} 
+                className="text-[#5f5e5e] hover:text-[#3ECF8E] transition-colors cursor-pointer p-1"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-32 bg-[#2a2a2a] rounded-md shadow-lg border border-[#3a3a3a] z-50 py-1 font-body-sm text-xs">
+                  {isMyStory && onEditStory && (
+                    <button onClick={() => { setIsMenuOpen(false); onEditStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-white flex items-center gap-2 cursor-pointer">
+                      <Edit2 className="w-3.5 h-3.5" /> 수정
+                    </button>
+                  )}
+                  {onHideStory && (
+                    <button onClick={() => { setIsMenuOpen(false); onHideStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                      <EyeOff className="w-3.5 h-3.5" /> 숨기기
+                    </button>
+                  )}
+                  <button onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                    <ShieldAlert className="w-3.5 h-3.5" /> 신고
+                  </button>
+                  {isMyStory && onDeleteStory && (
+                    <button onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
+                      <Trash2 className="w-3.5 h-3.5" /> 삭제
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button onClick={onClose} className="text-[#5f5e5e] hover:text-white cursor-pointer">
               <X className="w-6 h-6" />
             </button>
@@ -103,13 +164,32 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               </span>
               <span className="font-mono text-xs text-[#5f5e5e]">POST ID: #{story.id.slice(-6)}</span>
             </div>
-            <h2 className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
-              {story.title}
-            </h2>
-            <div className="flex flex-wrap items-center gap-6 text-[#5f5e5e] font-mono text-xs">
-              <span>{new Date(story.createdAt).toLocaleDateString()}</span>
-              <span>{story.viewCount} Views</span>
-              <span>{comments.length} Comments</span>
+            
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <h2 className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
+                  {story.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-6 text-[#5f5e5e] font-mono text-xs">
+                  <span>{new Date(story.createdAt).toLocaleDateString()}</span>
+                  <span>{story.viewCount} Views</span>
+                  <span>{comments.length} Comments</span>
+                </div>
+              </div>
+              
+              {/* AI Chat CTA */}
+              <div className="p-3 bg-[#1C1C1C] text-white rounded-lg flex items-center justify-between gap-4 w-[90%] md:w-[310px] shrink-0 border border-[#2a2a2a] self-end">
+                <div>
+                  <h4 className="font-bold text-xs text-[#3ECF8E]">Ai 시뮬레이션</h4>
+                  <p className="text-[10px] text-[#5f5e5e] font-mono mt-0.5 leading-tight">AI와의 시뮬레이션 대화를 시작 해보세요.</p>
+                </div>
+                <button
+                  onClick={() => onStartAIChat(story)}
+                  className="px-3 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded hover:bg-[#3ECF8E]/90 cursor-pointer shrink-0"
+                >
+                  시작하기
+                </button>
+              </div>
             </div>
           </section>
 
@@ -125,9 +205,23 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
               {/* Voting Section */}
               <div className="space-y-4 pt-4 border-t border-[#E5E7EB]">
-                <div className="flex items-end justify-between">
-                  <h3 className="font-headline-md text-base font-bold">당신의 선택은?</h3>
-                  <p className="font-mono text-xs text-[#5f5e5e]">Current Votes: {totalVotes}</p>
+                {/* Live Vote Gauge */}
+                <div>
+                  <div className="flex justify-between font-label-sm text-xs mb-2">
+                    <span className="text-[#3ECF8E] font-bold">A. 내 편 ({percentA}%)</span>
+                    <span className="text-[#5f5e5e]">B. 남 편 ({percentB}%)</span>
+                  </div>
+
+                  <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] mb-3">
+                    {isZeroVotes ? (
+                      <div className="bg-[#E5E7EB] w-full h-full"></div>
+                    ) : (
+                      <>
+                        <div className="bg-[#3ECF8E] h-full vote-bar-progress" style={{ width: `${percentA}%` }}></div>
+                        <div className="bg-[#5f5e5e]/20 h-full vote-bar-progress" style={{ width: `${percentB}%` }}></div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -135,15 +229,16 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   <button
                     onClick={() => handleVote('A')}
                     disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#3ECF8E] ${
-                      isMyStory ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    } ${
-                      votedOption === 'A' ? 'ring-4 ring-[#3ECF8E]/30' : ''
+                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 rounded-lg transition-all active:scale-[0.98] border-2 ${
+                      votedOption === 'A'
+                        ? 'bg-[#3ECF8E] text-[#1C1C1C] border-[#3ECF8E] ring-4 ring-[#3ECF8E]/30 cursor-default'
+                        : isMyStory
+                        ? 'bg-[#f3f4f5] border-[#E5E7EB] text-[#5f5e5e]/50 cursor-not-allowed'
+                        : 'bg-[#f3f4f5] border-[#E5E7EB] text-[#1C1C1C] hover:bg-[#3ECF8E]/20 cursor-pointer'
                     }`}
                   >
                     <ThumbsUp className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform`} />
-                    <span className="font-headline-lg text-lg font-black mb-1">내편</span>
-                    <span className="font-mono text-[10px] uppercase font-bold opacity-80">Team Author</span>
+                    <span className="font-headline-lg text-lg font-black mb-1">내 편</span>
                     <span className="absolute top-3 right-3 font-mono text-xs font-bold">{percentA}%</span>
                   </button>
 
@@ -151,18 +246,20 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   <button
                     onClick={() => handleVote('B')}
                     disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[#f3f4f5] text-[#1C1C1C] rounded-lg transition-all active:scale-[0.98] border-2 border-[#E5E7EB] ${
-                      isMyStory ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    } ${
-                      votedOption === 'B' ? 'ring-4 ring-[#1C1C1C]/20' : ''
+                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 rounded-lg transition-all active:scale-[0.98] border-2 ${
+                      votedOption === 'B'
+                        ? 'bg-[#1C1C1C] text-white border-[#1C1C1C] ring-4 ring-[#1C1C1C]/20 cursor-default'
+                        : isMyStory
+                        ? 'bg-[#f3f4f5] border-[#E5E7EB] text-[#5f5e5e]/50 cursor-not-allowed'
+                        : 'bg-[#f3f4f5] border-[#E5E7EB] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
                     }`}
                   >
-                    <ThumbsDown className={`w-8 h-8 mb-2 text-[#5f5e5e] group-hover:scale-110 transition-transform`} />
-                    <span className="font-headline-lg text-lg font-black mb-1">니편</span>
-                    <span className="font-mono text-[10px] text-[#5f5e5e] uppercase font-bold">Team Opponent</span>
-                    <span className="absolute top-3 right-3 font-mono text-xs font-bold text-[#5f5e5e]">{percentB}%</span>
+                    <ThumbsDown className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform ${votedOption === 'B' ? 'text-white' : 'text-[#5f5e5e]'}`} />
+                    <span className="font-headline-lg text-lg font-black mb-1">남 편</span>
+                    <span className={`absolute top-3 right-3 font-mono text-xs font-bold ${votedOption === 'B' ? 'text-white/80' : 'text-[#5f5e5e]'}`}>{percentB}%</span>
                   </button>
                 </div>
+
                 {isMyStory && (
                   <p className="text-xs text-[#5f5e5e] text-center font-medium bg-[#f3f4f5] py-2 px-3 rounded border border-[#E5E7EB]">
                     💡 사연 작성자는 본인 사연에 투표할 수 없으며, 여론(투표 비율 및 댓글) 확인만 가능합니다.
@@ -170,78 +267,94 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 )}
               </div>
 
-              {/* AI Chat CTA */}
-              <div className="p-4 bg-[#1C1C1C] text-white rounded-lg flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-[#3ECF8E]">Ai 시뮬레이션</h4>
-                  <p className="text-[11px] text-[#5f5e5e] font-mono mt-0.5">AI 시뮬레이션으로 입장 차이를 확인하세요.</p>
-                </div>
-                <button
-                  onClick={() => onStartAIChat(story)}
-                  className="px-4 py-2 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded hover:bg-[#3ECF8E]/90 cursor-pointer"
-                >
-                  START AI SIM
-                </button>
-              </div>
             </div>
 
-            {/* Right Analysis Data & Comments */}
+            {/* Right Comments */}
             <aside className="w-full lg:w-80 space-y-6">
-              {/* Analysis Data Card */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center justify-between">
-                  <h4 className="font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span> Analysis Data
-                  </h4>
-                </div>
-                <div className="p-5 space-y-3 font-mono text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#5f5e5e]">Sentiment Logic</span>
-                    <span className="text-[#3ECF8E] font-bold">Stable</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-[#E5E7EB] rounded-full overflow-hidden">
-                    {!isZeroVotes && (
-                      <div className="h-full bg-[#3ECF8E]" style={{ width: `${percentA}%` }}></div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Comments Feed */}
               <div className="space-y-3">
-                <h4 className="font-headline-md text-sm font-bold">Feed Analysis ({comments.length})</h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
+                      <span className="material-symbols-outlined text-[18px]">forum</span> {filteredComments.length}
+                    </span>
+                    <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
+                      <span className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 text-xs font-mono">
+                    <select value={commentFilter} onChange={(e) => setCommentFilter(e.target.value as 'all' | 'A' | 'B')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
+                      <option value="all">전체</option>
+                      <option value="A">내 편</option>
+                      <option value="B">남 편</option>
+                    </select>
+                    <select value={commentSort} onChange={(e) => setCommentSort(e.target.value as 'latest' | 'likes')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
+                      <option value="latest">최신순</option>
+                      <option value="likes">좋아요 순</option>
+                    </select>
+                  </div>
+                </div>
 
                 <div className="space-y-3">
-                  {comments.map((c) => (
+                  {filteredComments.map((c) => {
+                    const displayVote = c.authorId === currentUser.id ? votedOption : c.authorVoted;
+                    return (
                     <div key={c.id} className="bg-white border border-[#E5E7EB] p-4 rounded-lg space-y-2">
                       <div className="flex items-center justify-between font-mono text-xs">
-                        <span className="font-bold text-[#1C1C1C]">{c.anonymousId}</span>
-                        <button onClick={() => onLikeComment(c.id)} className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#3ECF8E]">
+                        <div className="flex items-center flex-wrap gap-1">
+                          <span className="font-bold text-[#1C1C1C]">{c.anonymousId}</span>
+                          {c.authorId === story.authorId ? (
+                            <span className="bg-[#1C1C1C] text-white px-1.5 py-0.5 rounded text-[10px] font-normal leading-none ml-1">
+                              작성자
+                            </span>
+                          ) : (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ml-1 ${
+                              displayVote === 'A' ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 
+                              displayVote === 'B' ? 'bg-[#1C1C1C] text-white' : 
+                              'bg-[#9ca3af] text-white'
+                            }`}>
+                              {displayVote === 'A' ? '내 편' : displayVote === 'B' ? '남 편' : '미투표'}
+                            </span>
+                          )}
+                        </div>
+                        <button onClick={() => onLikeComment(c.id)} className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#3ECF8E] ml-2">
                           <Heart className={`w-3.5 h-3.5 ${c.userLiked ? 'fill-[#3ECF8E] text-[#3ECF8E]' : ''}`} />
                           <span>{c.likeCount}</span>
                         </button>
                       </div>
                       <p className="text-xs text-[#1C1C1C] font-body-sm leading-relaxed">{c.content}</p>
                     </div>
-                  ))}
+                  )})}
                 </div>
 
                 {/* Add Comment Input */}
-                <form onSubmit={handleCommentSubmit} className="relative mt-4">
+                <form onSubmit={handleCommentSubmit} className="relative mt-4 bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Share your logic..."
+                    placeholder="댓글을 달아주세요"
                     rows={3}
                     maxLength={200}
-                    className="w-full bg-white border border-[#E5E7EB] p-3 font-body-sm text-xs rounded-lg focus:outline-none focus:border-[#3ECF8E] resize-none"
+                    className="w-full p-3 font-body-sm text-xs focus:outline-none resize-none border-b border-[#E5E7EB]"
                   />
-                  <button
-                    type="submit"
-                    className="absolute bottom-3 right-3 bg-[#1C1C1C] text-[#3ECF8E] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black"
-                  >
-                    EXECUTE
-                  </button>
+                  <div className="flex items-center justify-between p-2 px-3 bg-[#f9fafb]">
+                    <label className={`flex items-center gap-2 text-xs font-mono cursor-pointer ${isMyStory ? 'opacity-50' : ''}`}>
+                      <input 
+                        type="checkbox" 
+                        checked={isMyStory ? false : isAnonymous} 
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        disabled={isMyStory}
+                        className="rounded border-[#E5E7EB] text-[#3ECF8E] focus:ring-[#3ECF8E]"
+                      />
+                      <span className="text-[#5f5e5e] font-bold">익명 표시</span>
+                    </label>
+                    <button
+                      type="submit"
+                      className="bg-[#1C1C1C] text-[#3ECF8E] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"
+                    >
+                      입력
+                    </button>
+                  </div>
                 </form>
               </div>
             </aside>

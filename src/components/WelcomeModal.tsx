@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface WelcomeModalProps {
@@ -80,17 +80,17 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
+      <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
         
         {/* Header Branding */}
         <div className="space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-2xl mx-auto shadow-lg transform -rotate-3">
-            <span className="text-[#ff4d8b]">니</span>편
+          <div className="text-center mb-2">
+            <span className="material-symbols-outlined text-[#3ECF8E] text-5xl font-bold">terminal</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-[#0a0a0a] font-display">
+          <h2 className="text-xl sm:text-2xl font-black text-[#1C1C1C] font-display">
             니편내편에 오신 것을 환영합니다!
           </h2>
-          <p className="text-xs sm:text-sm text-[#6a6a6a]">
+          <p className="text-xs sm:text-sm text-[#5f5e5e]">
             {isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입하고 완전한 익명성으로 활동하세요.'}
           </p>
         </div>
@@ -99,24 +99,24 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           
           <div>
-            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">이메일</label>
+            <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">이메일</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl font-bold text-[#1C1C1C] focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
               placeholder="example@email.com"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">비밀번호 (6자 이상)</label>
+            <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">비밀번호 (6자 이상)</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl font-bold text-[#1C1C1C] focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
               placeholder="••••••••"
               required
             />
@@ -124,18 +124,18 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
 
           {!isLoginMode && (
             <div>
-              <label className="block text-xs font-bold text-[#0a0a0a] mb-1.5">닉네임</label>
+              <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">닉네임</label>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 maxLength={12}
-                className="w-full p-3 text-xs sm:text-sm bg-[#faf5e8] border border-[#e8e2d0] rounded-2xl font-bold text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-[#ff4d8b]"
+                className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl font-bold text-[#1C1C1C] focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
                 placeholder="익명 닉네임"
                 required={!isLoginMode}
               />
-              <p className="text-[11px] text-[#6a6a6a] mt-1.5 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#ff4d8b]" /> 언제든 변경 가능합니다.
+              <p className="text-[11px] text-[#5f5e5e] mt-1.5 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#3ECF8E]" /> 언제든 변경 가능합니다.
               </p>
             </div>
           )}
@@ -150,14 +150,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-[#0a0a0a] hover:bg-[#1f1f1f] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3.5 bg-[#1C1C1C] hover:bg-[#333333] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span>{isLoginMode ? '로그인하기' : '니편내편 시작하기'}</span>
-            {!isLoading && <CheckCircle2 className="w-4 h-4 text-[#ff4d8b]" />}
+            {!isLoading && <Check className="w-4 h-4 text-[#3ECF8E]" />}
           </button>
         </form>
 
-        <div className="pt-2 border-t border-[#e8e2d0] text-xs font-bold text-[#6a6a6a]">
+        <div className="pt-2 border-t border-[#E5E7EB] text-xs font-bold text-[#5f5e5e]">
           {isLoginMode ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
           <button 
             type="button" 
@@ -165,7 +165,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
               setIsLoginMode(!isLoginMode);
               setErrorMsg('');
             }} 
-            className="text-[#ff4d8b] hover:underline cursor-pointer"
+            className="text-[#3ECF8E] hover:underline cursor-pointer"
           >
             {isLoginMode ? '회원가입' : '로그인'}
           </button>
