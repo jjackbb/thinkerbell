@@ -24,7 +24,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <h3 className="font-headline-md font-bold text-[#1C1C1C] text-sm flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-[#3ECF8E]" />
-            상황 설명 모드 설정
+            공감 비율 설정
           </h3>
           <button 
             onClick={onClose}
@@ -37,9 +37,9 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6">
           <div>
-            <h4 className="font-bold text-[#1C1C1C] mb-2 text-sm">AI 성향 비율 설정</h4>
+            <h4 className="font-bold text-[#1C1C1C] mb-2 text-sm">공감 비율 설정</h4>
             <p className="text-xs text-[#5f5e5e] mb-4 leading-relaxed">
-              AI가 나를 얼마나 옹호할지, 혹은 얼마나 객관적으로 비판할지 선택하세요.
+              AI가 누구의 입장에 서서 상황을 분석하고 위로할지 선택하세요.
             </p>
             
             <div className="space-y-3">
@@ -52,7 +52,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
                   className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
                 />
                 <div>
-                  <div className="font-bold text-sm text-[#1C1C1C]">High (무조건 내 편)</div>
+                  <div className="font-bold text-sm text-[#1C1C1C]">내 편 100%</div>
                   <div className="text-xs text-[#5f5e5e]">상황을 철저히 내 입장에서 옹호하며 위로해줍니다.</div>
                 </div>
               </label>
@@ -66,8 +66,8 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
                   className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
                 />
                 <div>
-                  <div className="font-bold text-sm text-[#1C1C1C]">Middle (공감 반 / 객관 반)</div>
-                  <div className="text-xs text-[#5f5e5e]">적절한 공감과 함께 제3자 입장에서 객관적으로 분석합니다.</div>
+                  <div className="font-bold text-sm text-[#1C1C1C]">반반</div>
+                  <div className="text-xs text-[#5f5e5e]">적절한 공감과 함께 양쪽 입장을 객관적으로 분석합니다.</div>
                 </div>
               </label>
 
@@ -80,8 +80,8 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
                   className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
                 />
                 <div>
-                  <div className="font-bold text-sm text-[#1C1C1C]">Low (극사실주의 객관)</div>
-                  <div className="text-xs text-[#5f5e5e]">냉정하게 팩트만을 기반으로 상황을 분석하고 비판합니다.</div>
+                  <div className="font-bold text-sm text-[#1C1C1C]">상대편 100%</div>
+                  <div className="text-xs text-[#5f5e5e]">상대방의 입장을 100% 대변하여 상황을 다각도로 이해하게 해줍니다.</div>
                 </div>
               </label>
             </div>

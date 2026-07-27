@@ -496,14 +496,46 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
   };
 
   const handleConfirmExplainSettings = (ratio: ExplainRatio) => {
-    let ratioInstruction = '';
-    if (ratio === 'High') {
-      ratioInstruction = '사용자의 입장에 100% 공감하고 철저히 옹호하며 위로해주는 답변을 제공하세요. 상대방의 잘못을 논리적으로 짚어주되 사용자의 기분을 가장 우선적으로 맞춰주세요.';
-    } else if (ratio === 'Middle') {
-      ratioInstruction = '사용자의 심정에 적절히 공감하면서도, 제3자 입장에서 객관적으로 양쪽의 잘못이나 오해를 균형 있게 분석해 주세요.';
-    } else {
-      ratioInstruction = '냉정하고 객관적으로 팩트만을 기반으로 상황을 분석하세요. 감정적인 공감보다는 사용자가 잘못한 부분이나 놓치고 있는 부분을 날카롭고 극사실주의적으로 비판하고 조언해 주세요.';
-    }
+    const empathyRatioStr = ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 입장 100%';
+    
+    // Fallback if aiExplainSettingsStory is somehow null in activeChatSession case
+    const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
+    const storyBody = story?.body || '';
+    const personalityText = story?.opponentPersonality || '사연 속 상대방의 성격 및 행동 특성';
+
+    const systemInstruction = `[상황 이해 & 위로 대화 시뮬레이션 - 절대 이탈 금지]
+
+너는 아래 사연을 읽고 유저의 이야기를 진심으로 들어주며, 지정된 '공감 스탠스'에 맞춰 대화를 나누는 따뜻하고 솔직한 대화 상대(친구 또는 조언자)이다.
+너는 AI나 챗봇이 아니며, 지금 유저의 억울함과 고민을 1:1 카카오톡/문자로 함께 나누고 있는 실제 사람이다.
+
+■ 사연 내용:
+"${storyBody}"
+
+■ 갈등 상대방의 특징/성격 (참고용):
+${personalityText}
+
+■ 설정된 공감 스탠스 (필수 적용):
+"${empathyRatioStr}" 
+(값 유형: '내 편 100%' / '반반' / '상대편 입장 100%')
+
+■ 공감 스탠스별 대화 지침:
+1. ['내 편 100%' 선택 시]:
+   - 무조건 유저의 편이 되어준다. 유저가 느꼈을 감정(억울함, 상처, 분노)에 200% 격하게 공감하고 맞장구쳐라.
+   - 상대방의 잘못된 행동이나 태도를 함께 비판해주며 유저의 답답한 마음을 시원하게 뚫어줘라.
+
+2. ['반반' 선택 시]:
+   - 먼저 유저의 속상한 마음에 충분히 공감해 주며 마음을 다독여라.
+   - 이후 객관적이고 중립적인 시각에서 "상대방도 이런 마음이나 사정이 있어서 그랬을 수 있겠다"라는 점을 부드럽게 짚어주며, 양쪽 입장을 균형 있게 다루어라.
+
+3. ['상대편 입장 100%' 선택 시]:
+   - 유저를 비난하거나 공격하지 않는 선에서, '상대방의 서운함이나 의도'를 대변해 주는 조언자 역할을 해라.
+   - "상대방 입장에서는 너의 행동이 이렇게 느껴졌을 수도 있어", "그 사람 마음은 이런 상태였을 거야"처럼 상대방의 시점을 설명하여 유저가 상황을 다각도로 이해할 수 있도록 돕는다.
+
+■ 대화 수칙 (반드시 준수):
+1. [AI 정체 완벽 차단]: 너는 절대로 'AI', '챗봇', '인공지능', '모델'이라는 단어를 언급하거나 인정해서는 안 된다.
+2. [메타 발언 및 교조적 태도 금지]: "지침에 따라", "공감 모드로서" 같은 메타 발언이나, 가르치려 드는 훈계조의 말을 일절 하지 마라.
+3. [자연스러운 대화 톤]: 딱딱한 보고서 스타일이 아닌, 실제로 친한 친구나 믿음직한 선배와 대화하듯 자연스럽고 따뜻한 구어체(반말 또는 존댓말 등 맥락에 맞는 구어체)를 사용해라.
+4. [출력 지침]: 인사말, 설명, 부연 텍스트 없이 오직 유저에게 보낼 실제 대사 메시지 만을 출력해라.`;
 
     if (activeChatSession && activeChatSession.chatMode === 'explanation') {
       setActiveChatSession(prev => prev ? {
@@ -515,9 +547,9 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
         if (p.id === activeChatSession.personaId) {
           return {
             ...p,
-            role: ratio === 'High' ? '무조건 내 편' : ratio === 'Middle' ? '공감 반 / 사실 반' : '극사실주의',
-            description: `사연에 대해 ${ratio === 'High' ? '무조건 내 편으로' : ratio === 'Middle' ? '공감 반 / 사실 반으로' : '극사실주의로'} 분석하는 AI입니다.`,
-            systemInstruction: `너는 다음 사연을 객관적으로 분석하는 제3자 AI이다: "${aiExplainSettingsStory?.body || ''}". ${ratioInstruction}`
+            role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
+            description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
+            systemInstruction
           };
         }
         return p;
@@ -526,14 +558,14 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
       const newPersona: AIPersona = {
         id: `persona-${Date.now()}`,
         name: aiExplainSettingsStory.title,
-        role: ratio === 'High' ? '무조건 내 편' : ratio === 'Middle' ? '공감 반 / 사실 반' : '극사실주의',
+        role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
         category: aiExplainSettingsStory.category,
         avatarIcon: 'ListTree',
-        description: `사연에 대해 ${ratio === 'High' ? '무조건 내 편으로' : ratio === 'Middle' ? '공감 반 / 사실 반으로' : '극사실주의로'} 분석하는 AI입니다.`,
-        systemInstruction: `너는 다음 사연을 객관적으로 분석하는 제3자 AI이다: "${aiExplainSettingsStory.body}". ${ratioInstruction}`,
+        description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
+        systemInstruction,
         createdAt: new Date().toISOString(),
         cardColor: 'teal',
-        sampleFirstMessage: `사연을 분석해드릴 준비가 되었습니다. 궁금한 점을 편하게 말씀해주세요.`
+        sampleFirstMessage: `상황에 대한 이야기를 들려주세요. 편하게 감정을 털어놓으셔도 좋습니다.`
       };
       setPersonas(prev => [newPersona, ...prev]);
       setActiveChatSession({

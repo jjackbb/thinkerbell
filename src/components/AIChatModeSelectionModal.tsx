@@ -50,9 +50,9 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
               <ListTree className="w-5 h-5 text-[#1C1C1C]" />
             </div>
             <div>
-              <h4 className="font-bold text-[#1C1C1C] mb-1">상황 설명 모드</h4>
+              <h4 className="font-bold text-[#1C1C1C] mb-1">공감</h4>
               <p className="text-xs text-[#5f5e5e] leading-relaxed">
-                제3자 입장의 AI에게 상황을 분석받고 객관적인 조언을 들어봅니다.
+                상황 이해 중심의 위로 대화 시뮬레이션을 진행합니다.
               </p>
             </div>
           </button>
