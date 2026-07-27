@@ -4,9 +4,10 @@ import { X, Crown, Sparkles } from 'lucide-react';
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDemoClick?: () => void;
 }
 
-export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose }) => {
+export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onDemoClick }) => {
   if (!isOpen) return null;
 
   return (
@@ -15,6 +16,14 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose }) =
         <div className="px-5 py-4 border-b border-[#ebe6d6] flex items-center justify-between bg-[#faf5e8]">
           <h2 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2">
             <Crown className="w-5 h-5 text-[#ffd700]" /> 프리미엄 기능
+            {onDemoClick && (
+              <button 
+                onClick={onDemoClick}
+                className="px-2 py-0.5 text-[10px] font-bold bg-[#ffd700] text-black rounded-md active:scale-95 transition-transform"
+              >
+                데모
+              </button>
+            )}
           </h2>
           <button
             onClick={onClose}

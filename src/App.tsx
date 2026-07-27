@@ -111,10 +111,62 @@ export default function App() {
     };
   }, []);
 
-  const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>(() => {
-    const saved = localStorage.getItem('nipyeon_comments');
-    return saved ? JSON.parse(saved) : INITIAL_COMMENTS;
-  });
+  const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
+
+  useEffect(() => {
+    // Initial fetch
+    supabase.from('comments').select('*').order('createdAt', { ascending: true }).then(({ data, error }) => {
+      if (data && !error) {
+        const newMap: Record<string, Comment[]> = {};
+        data.forEach(c => {
+          if (!newMap[c.storyId]) newMap[c.storyId] = [];
+          newMap[c.storyId].push(c as Comment);
+        });
+        setCommentsMap(newMap);
+      }
+    });
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('public:comments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, payload => {
+        setCommentsMap(prev => {
+          const comment = payload.new as Comment;
+          const storyComments = prev[comment.storyId] || [];
+          if (storyComments.some(c => c.id === comment.id)) return prev;
+          return { ...prev, [comment.storyId]: [...storyComments, comment] };
+        });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comments' }, payload => {
+        setCommentsMap(prev => {
+          const comment = payload.new as Comment;
+          const storyComments = prev[comment.storyId] || [];
+          return {
+            ...prev,
+            [comment.storyId]: storyComments.map(c => c.id === comment.id ? { ...c, ...comment } : c)
+          };
+        });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, payload => {
+        setCommentsMap(prev => {
+          const updatedMap = { ...prev };
+          let found = false;
+          for (const sId in updatedMap) {
+            if (updatedMap[sId].some(c => c.id === payload.old.id)) {
+              updatedMap[sId] = updatedMap[sId].filter(c => c.id !== payload.old.id);
+              found = true;
+              break;
+            }
+          }
+          return found ? updatedMap : prev;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const [personas, setPersonas] = useState<AIPersona[]>(() => {
     const saved = localStorage.getItem('nipyeon_personas');
@@ -133,7 +185,7 @@ export default function App() {
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
@@ -157,9 +209,7 @@ export default function App() {
 
   // (Removed stories localStorage sync as it is now in Supabase)
 
-  useEffect(() => {
-    localStorage.setItem('nipyeon_comments', JSON.stringify(commentsMap));
-  }, [commentsMap]);
+  // (Removed comments localStorage sync as it is now in Supabase)
 
   useEffect(() => {
     localStorage.setItem('nipyeon_personas', JSON.stringify(personas));
@@ -266,7 +316,7 @@ export default function App() {
     }
   };
 
-  const handleAddComment = (storyId: string, content: string, isAnonymous: boolean) => {
+  const handleAddComment = async (storyId: string, content: string, isAnonymous: boolean) => {
     const storyComments = commentsMap[storyId] || [];
     const anonNumber = storyComments.length + 1;
     const newComment: Comment = {
@@ -278,6 +328,8 @@ export default function App() {
       createdAt: new Date().toISOString(),
       likeCount: 0,
       reportsCount: 0,
+      isBlind: false,
+      isEdited: false
     };
 
     setCommentsMap(prev => ({
@@ -286,20 +338,32 @@ export default function App() {
     }));
 
     // Increment story comment count
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
+    const story = stories.find(s => s.id === storyId);
+    if (story) {
+      setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
+      await supabase.from('stories').update({ commentCount: story.commentCount + 1 }).eq('id', storyId);
+    }
+    
+    const { userLiked, ...dbComment } = newComment;
+    await supabase.from('comments').insert(dbComment);
   };
 
-  const handleLikeComment = (commentId: string) => {
+  const handleLikeComment = async (commentId: string) => {
+    let updateNeeded = false;
+    let newLikeCount = 0;
+
     setCommentsMap(prev => {
       const updatedMap = { ...prev };
       Object.keys(updatedMap).forEach(storyId => {
         updatedMap[storyId] = updatedMap[storyId].map(c => {
           if (c.id === commentId) {
             const userLiked = !c.userLiked;
+            newLikeCount = userLiked ? c.likeCount + 1 : c.likeCount - 1;
+            updateNeeded = true;
             return {
               ...c,
               userLiked,
-              likeCount: userLiked ? c.likeCount + 1 : c.likeCount - 1
+              likeCount: newLikeCount
             };
           }
           return c;
@@ -307,8 +371,12 @@ export default function App() {
       });
       return updatedMap;
     });
+
+    if (updateNeeded) {
+      await supabase.from('comments').update({ likeCount: newLikeCount }).eq('id', commentId);
+    }
   };
-  const handleEditComment = (storyId: string, commentId: string, newContent: string) => {
+  const handleEditComment = async (storyId: string, commentId: string, newContent: string) => {
     setCommentsMap(prev => {
       const updatedMap = { ...prev };
       if (updatedMap[storyId]) {
@@ -318,9 +386,11 @@ export default function App() {
       }
       return updatedMap;
     });
+    
+    await supabase.from('comments').update({ content: newContent, isEdited: true }).eq('id', commentId);
   };
 
-  const handleDeleteComment = (storyId: string, commentId: string) => {
+  const handleDeleteComment = async (storyId: string, commentId: string) => {
     setCommentsMap(prev => {
       const updatedMap = { ...prev };
       if (updatedMap[storyId]) {
@@ -328,7 +398,14 @@ export default function App() {
       }
       return updatedMap;
     });
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
+    
+    const story = stories.find(s => s.id === storyId);
+    if (story) {
+      setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
+      await supabase.from('stories').update({ commentCount: Math.max(0, story.commentCount - 1) }).eq('id', storyId);
+    }
+    
+    await supabase.from('comments').delete().eq('id', commentId);
   };
 
   const handleEditStory = (storyId: string) => {
@@ -485,12 +562,12 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
     }));
   }, []);
 
-  const handleStartAIChatWithStory = (story: Story) => {
-    if (story.authorId === user.id) {
+  const handleStartAIChatWithStory = (story: Story, bypassPremium: boolean = false) => {
+    if (story.authorId === user.id || bypassPremium) {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
-      setIsPremiumModalOpen(true);
+      setPremiumModalStory(story);
     }
   };
 
@@ -672,16 +749,23 @@ ${personalityText}
     }
     
     // Check if it's a comment
+    let commentUpdateNeeded = false;
+    let commentNewReportsCount = 0;
+    let commentNewIsBlind = false;
+
     setCommentsMap(prev => {
       const updatedMap = { ...prev };
       Object.keys(updatedMap).forEach(storyId => {
         updatedMap[storyId] = updatedMap[storyId].map(c => {
           if (c.id === targetId) {
             const reportsCount = c.reportsCount + 1;
+            commentUpdateNeeded = true;
+            commentNewReportsCount = reportsCount;
+            commentNewIsBlind = reportsCount >= 5;
             return {
               ...c,
               reportsCount,
-              isBlind: reportsCount >= 5
+              isBlind: commentNewIsBlind
             };
           }
           return c;
@@ -689,6 +773,10 @@ ${personalityText}
       });
       return updatedMap;
     });
+
+    if (commentUpdateNeeded) {
+      await supabase.from('comments').update({ reportsCount: commentNewReportsCount, isBlind: commentNewIsBlind }).eq('id', targetId);
+    }
   };
 
   const filteredStories = stories.filter(s => {
@@ -979,8 +1067,14 @@ ${personalityText}
       />
 
       <PremiumModal
-        isOpen={isPremiumModalOpen}
-        onClose={() => setIsPremiumModalOpen(false)}
+        isOpen={!!premiumModalStory}
+        onClose={() => setPremiumModalStory(null)}
+        onDemoClick={() => {
+          if (premiumModalStory) {
+            handleStartAIChatWithStory(premiumModalStory, true);
+            setPremiumModalStory(null);
+          }
+        }}
       />
 
       {/* AI Chat Mode Selection Modal */}
