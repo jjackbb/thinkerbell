@@ -185,10 +185,19 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           {/* Quick Vote Buttons */}
           <div className="grid grid-cols-2 gap-2 mb-2">
             <button
-              onClick={(e) => handleVoteClick(e, 'A')}
-              disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isBlurRequired && onRequireAdultVerification) {
+                  onRequireAdultVerification();
+                  return;
+                }
+                handleVoteClick(e, 'A');
+              }}
+              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
-                votedOption === 'A'
+                isBlurRequired
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
+                  : votedOption === 'A'
                   ? 'bg-[#3ECF8E] text-[#1C1C1C] cursor-default'
                   : isMyStory
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
@@ -198,10 +207,19 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               내 편
             </button>
             <button
-              onClick={(e) => handleVoteClick(e, 'B')}
-              disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isBlurRequired && onRequireAdultVerification) {
+                  onRequireAdultVerification();
+                  return;
+                }
+                handleVoteClick(e, 'B');
+              }}
+              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
-                votedOption === 'B'
+                isBlurRequired
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
+                  : votedOption === 'B'
                   ? 'bg-[#1C1C1C] text-white cursor-default'
                   : isMyStory
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
@@ -222,9 +240,17 @@ export const StoryCard: React.FC<StoryCardProps> = ({
       {/* Card Footer Info */}
       <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex items-center gap-4">
         <span 
-          className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs cursor-pointer hover:text-[#1C1C1C] transition-colors"
+          className={`flex items-center gap-1 font-label-sm text-xs transition-colors ${
+            isBlurRequired
+              ? 'text-[#5f5e5e]/30 cursor-not-allowed'
+              : 'text-[#5f5e5e] cursor-pointer hover:text-[#1C1C1C]'
+          }`}
           onClick={(e) => {
             e.stopPropagation();
+            if (isBlurRequired) {
+              if (onRequireAdultVerification) onRequireAdultVerification();
+              return;
+            }
             setActiveCommentTab(activeCommentTab === null ? 'all' : null);
           }}
         >

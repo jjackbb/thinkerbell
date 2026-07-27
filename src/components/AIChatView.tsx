@@ -363,13 +363,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Share your logic..."
-            disabled={isLoading}
             className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
           />
           <button
             type="submit"
             disabled={!inputText.trim() || isLoading}
-            className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer"
+            className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             EXECUTE
           </button>
