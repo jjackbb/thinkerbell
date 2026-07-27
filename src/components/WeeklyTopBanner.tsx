@@ -19,7 +19,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveBanner(prev => prev === 'weekly' ? 'realtime' : 'weekly');
-    }, 5000);
+    }, 20000);
     return () => clearInterval(timer);
   }, []);
 

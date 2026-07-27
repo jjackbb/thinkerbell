@@ -77,10 +77,39 @@ export default function App() {
   });
 
   // Main Feed State
-  const [stories, setStories] = useState<Story[]>(() => {
-    const saved = localStorage.getItem('nipyeon_stories');
-    return saved ? JSON.parse(saved) : INITIAL_STORIES;
-  });
+  const [stories, setStories] = useState<Story[]>([]);
+
+  useEffect(() => {
+    // Initial fetch
+    supabase.from('stories').select('*').order('createdAt', { ascending: false }).then(({ data, error }) => {
+      if (data && !error) {
+        setStories(data);
+      }
+    });
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('public:stories')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, payload => {
+        setStories(prev => {
+          // Prevent duplicates if local insert happened first
+          if (prev.some(s => s.id === payload.new.id)) return prev;
+          return [payload.new as Story, ...prev];
+        });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stories' }, payload => {
+        setStories(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
+        setSelectedStory(prev => prev?.id === payload.new.id ? { ...prev, ...payload.new } : prev);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories' }, payload => {
+        setStories(prev => prev.filter(s => s.id !== payload.old.id));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>(() => {
     const saved = localStorage.getItem('nipyeon_comments');
@@ -126,9 +155,7 @@ export default function App() {
     localStorage.setItem('nipyeon_user', JSON.stringify(user));
   }, [user]);
 
-  useEffect(() => {
-    localStorage.setItem('nipyeon_stories', JSON.stringify(stories));
-  }, [stories]);
+  // (Removed stories localStorage sync as it is now in Supabase)
 
   useEffect(() => {
     localStorage.setItem('nipyeon_comments', JSON.stringify(commentsMap));
@@ -179,7 +206,11 @@ export default function App() {
     }
   };
 
-  const handleVote = (storyId: string, option: 'A' | 'B') => {
+  const handleVote = async (storyId: string, option: 'A' | 'B') => {
+    let newVotesA = 0;
+    let newVotesB = 0;
+    let updateNeeded = false;
+
     setStories(prev => prev.map(story => {
       if (story.id === storyId) {
         // 이미 같은 옵션에 투표했다면 무시
@@ -204,6 +235,10 @@ export default function App() {
           
           setToastMessage('투표가 변경되었습니다.');
           setTimeout(() => setToastMessage(null), 3000);
+          
+          newVotesA = updated.votesA;
+          newVotesB = updated.votesB;
+          updateNeeded = true;
           return updated;
         }
 
@@ -217,10 +252,18 @@ export default function App() {
         // Track vote in my activity
         setMyVotes(mv => [...mv, { storyId: story.id, title: story.title, option }]);
         if (selectedStory?.id === storyId) setSelectedStory(updated);
+        
+        newVotesA = updated.votesA;
+        newVotesB = updated.votesB;
+        updateNeeded = true;
         return updated;
       }
       return story;
     }));
+
+    if (updateNeeded) {
+      await supabase.from('stories').update({ votesA: newVotesA, votesB: newVotesB }).eq('id', storyId);
+    }
   };
 
   const handleAddComment = (storyId: string, content: string, isAnonymous: boolean) => {
@@ -296,22 +339,26 @@ export default function App() {
     }
   };
 
-  const handleHideStory = (storyId: string) => {
+  const handleHideStory = async (storyId: string) => {
     setStories(prev => prev.map(s => s.id === storyId ? { ...s, isHidden: true } : s));
     if (selectedStory?.id === storyId) {
       setSelectedStory(null);
     }
     setToastMessage('해당 사연을 숨겼습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    
+    await supabase.from('stories').update({ isHidden: true }).eq('id', storyId);
   };
 
-  const handleDeleteStory = (storyId: string) => {
+  const handleDeleteStory = async (storyId: string) => {
     setStories(prev => prev.filter(s => s.id !== storyId));
     if (selectedStory?.id === storyId) {
       setSelectedStory(null);
     }
     setToastMessage('사연이 삭제되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    
+    await supabase.from('stories').delete().eq('id', storyId);
   };
 
   const handleTogglePinPersona = (personaId: string) => {
@@ -338,7 +385,7 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleCreateStory = (storyData: {
+  const handleCreateStory = async (storyData: {
     title: string;
     category: Exclude<StoryCategory, '전체'>;
     body: string;
@@ -369,16 +416,22 @@ export default function App() {
     };
 
     if (editingStory) {
-      setStories(prev => prev.map(s => s.id === editingStory.id ? { ...newStory, id: editingStory.id, createdAt: editingStory.createdAt, votesA: editingStory.votesA, votesB: editingStory.votesB, userVoted: editingStory.userVoted, commentCount: editingStory.commentCount, viewCount: editingStory.viewCount } : s));
+      const updatedStory = { ...newStory, id: editingStory.id, createdAt: editingStory.createdAt, votesA: editingStory.votesA, votesB: editingStory.votesB, userVoted: editingStory.userVoted, commentCount: editingStory.commentCount, viewCount: editingStory.viewCount };
+      setStories(prev => prev.map(s => s.id === editingStory.id ? updatedStory : s));
       setEditingStory(null);
       setToastMessage('사연이 성공적으로 수정되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
+      
+      const { userVoted, voteChanged, ...dbStory } = updatedStory;
+      await supabase.from('stories').update(dbStory).eq('id', updatedStory.id);
     } else {
       setStories(prev => [newStory, ...prev]);
+      setToastMessage('사연 등록이 완료되었습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+      
+      const { userVoted, voteChanged, ...dbStory } = newStory;
+      await supabase.from('stories').insert([dbStory]);
     }
-    
-    setToastMessage('사연 등록이 완료되었습니다.');
-    setTimeout(() => setToastMessage(null), 3000);
 
     // If auto persona creation requested
     if (storyData.createAIPersona) {
@@ -593,19 +646,30 @@ ${personalityText}
     setIsReportOpen(true);
   };
 
-  const handleSubmitReport = (targetId: string, reason: string) => {
+  const handleSubmitReport = async (targetId: string, reason: string) => {
+    let storyUpdateNeeded = false;
+    let newReportsCount = 0;
+    let newIsBlind = false;
+
     // Check if it's a story
     setStories(prev => prev.map(s => {
       if (s.id === targetId) {
         const reportsCount = s.reportsCount + 1;
+        storyUpdateNeeded = true;
+        newReportsCount = reportsCount;
+        newIsBlind = reportsCount >= 5;
         return {
           ...s,
           reportsCount,
-          isBlind: reportsCount >= 5 // Auto blind policy after 5 reports
+          isBlind: newIsBlind // Auto blind policy after 5 reports
         };
       }
       return s;
     }));
+
+    if (storyUpdateNeeded) {
+      await supabase.from('stories').update({ reportsCount: newReportsCount, isBlind: newIsBlind }).eq('id', targetId);
+    }
     
     // Check if it's a comment
     setCommentsMap(prev => {

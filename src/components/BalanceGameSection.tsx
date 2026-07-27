@@ -57,10 +57,10 @@ export const BalanceGameSection: React.FC = () => {
             오늘의 밸런스 게임
           </div>
           <h3 className="font-headline-lg text-lg sm:text-xl font-bold text-white mb-3 leading-snug">
-            Q. 점심시간에 고객 전화 자꾸 받는 신입, 가르쳐야 할까요?
+            Q. 금요일 퇴근 10분 전, "이거 월요일 오전에 보고해야 하니까 지금 좀 부탁해~" 라며 일을 던지고 먼저 퇴근하는 상사, 어떻게 할까요?
           </h3>
           <p className="text-[#5f5e5e] font-body-sm text-xs sm:text-sm mb-6 max-w-xl">
-            휴게시간을 지켜야 한다는 의견과 팀 분위기 및 책임감의 문제라는 논쟁이 첨예합니다.
+            직장인들의 퇴근 시간을 위협하는 상황, 당신의 선택은?
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -72,7 +72,7 @@ export const BalanceGameSection: React.FC = () => {
                   : 'bg-white/10 hover:bg-white/20 text-white'
               }`}
             >
-              <span>A. 가르쳐야 한다</span>
+              <span>A. 뚝배기 🔨</span>
               {selectedOption === 'A' && <CheckCircle2 className="w-4 h-4 text-[#1C1C1C]" />}
             </button>
 
@@ -84,7 +84,7 @@ export const BalanceGameSection: React.FC = () => {
                   : 'bg-white/10 hover:bg-white/20 text-white'
               }`}
             >
-              <span>B. 본인 마음이다</span>
+              <span>B. 그럴 수 있지~</span>
               {selectedOption === 'B' && <CheckCircle2 className="w-4 h-4 text-[#1C1C1C]" />}
             </button>
           </div>
@@ -94,7 +94,7 @@ export const BalanceGameSection: React.FC = () => {
         <div className="w-full md:w-72 flex flex-col gap-3 z-10 font-mono">
           <div className="bg-white/5 p-4 border border-white/10 rounded-lg">
             <div className="flex justify-between text-white text-xs mb-1.5 font-bold">
-              <span>가르쳐야 한다</span>
+              <span>뚝배기 🔨</span>
               <span className="text-[#3ECF8E]">{percentA}%</span>
             </div>
             <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
@@ -104,7 +104,7 @@ export const BalanceGameSection: React.FC = () => {
 
           <div className="bg-white/5 p-4 border border-white/10 rounded-lg opacity-80">
             <div className="flex justify-between text-white text-xs mb-1.5 font-bold">
-              <span>본인 마음이다</span>
+              <span>그럴 수 있지~</span>
               <span>{percentB}%</span>
             </div>
             <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
