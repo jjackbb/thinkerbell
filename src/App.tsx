@@ -779,7 +779,7 @@ ${personalityText}
     }
   };
 
-  const filteredStories = stories.filter(s => {
+  const baseFilteredStories = stories.filter(s => {
     if (s.isBlind) return false;
     if (s.isHidden) return false;
     if (selectedCategory === '전체') return true;
@@ -791,8 +791,27 @@ ${personalityText}
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  // Pin user's most recent written story to the top of feed if present
+  const myStoriesFiltered = baseFilteredStories
+    .filter(s => s.authorId === user.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const latestMyStory = myStoriesFiltered.length > 0 ? myStoriesFiltered[0] : null;
+
+  const filteredStories = latestMyStory
+    ? [latestMyStory, ...baseFilteredStories.filter(s => s.id !== latestMyStory.id)]
+    : baseFilteredStories;
+
+  // Current week date calculation (Monday to Sunday)
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday...
+  const distanceToMonday = (dayOfWeek + 6) % 7;
+  const currentMonday = new Date(now);
+  currentMonday.setDate(now.getDate() - distanceToMonday);
+  currentMonday.setHours(0, 0, 0, 0);
+
   const weeklyTopStories = [...stories]
-    .filter(s => !s.isBlind)
+    .filter(s => !s.isBlind && new Date(s.createdAt) >= currentMonday)
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   const realtimeTopStories = [...stories]

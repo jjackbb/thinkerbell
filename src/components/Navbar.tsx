@@ -16,8 +16,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClick={() => onTabChange('feed')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'feed'
-            ? 'text-[#3ECF8E] font-bold'
-            : 'text-[#5f5e5e] hover:text-white font-medium'
+            ? 'text-white font-bold'
+            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">home_storage</span>
@@ -28,8 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClick={() => onTabChange('ai-chat')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'ai-chat'
-            ? 'text-[#3ECF8E] font-bold'
-            : 'text-[#5f5e5e] hover:text-white font-medium'
+            ? 'text-white font-bold'
+            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">memory</span>
@@ -40,8 +40,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClick={() => onTabChange('mypage')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'mypage'
-            ? 'text-[#3ECF8E] font-bold'
-            : 'text-[#5f5e5e] hover:text-white font-medium'
+            ? 'text-white font-bold'
+            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">person_pin</span>

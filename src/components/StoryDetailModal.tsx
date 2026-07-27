@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
-import { X, Send, ShieldAlert, ThumbsUp, ThumbsDown, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2 } from 'lucide-react';
+import { X, Send, ShieldAlert, ThumbsUp, ThumbsDown, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
   story: Story | null;
@@ -188,6 +188,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 {story.category}
               </span>
               <span className="font-mono text-xs text-[#5f5e5e]">POST ID: #{story.id.slice(-6)}</span>
+              {currentUser?.id === story.authorId && (
+                <span className="inline-flex items-center gap-1 text-[#3ECF8E] text-xs font-mono font-medium ml-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  내 글
+                </span>
+              )}
             </div>
             
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -203,14 +209,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               </div>
               
               {/* AI Chat CTA */}
-              <div className="p-3 bg-[#1C1C1C] text-white rounded-lg flex items-center justify-between gap-4 w-[90%] md:w-[310px] shrink-0 border border-[#2a2a2a] self-end">
+              <div className="p-4 sm:p-5 bg-white text-[#1C1C1C] rounded-xl flex items-center justify-between gap-4 w-full md:w-[350px] shrink-0 border border-[#E5E7EB] shadow-sm self-end">
                 <div>
-                  <h4 className="font-bold text-xs text-[#3ECF8E]">Ai 시뮬레이션</h4>
-                  <p className="text-[10px] text-[#5f5e5e] font-mono mt-0.5 leading-tight">AI와의 시뮬레이션 대화를 시작 해보세요.</p>
+                  <h4 className="font-bold text-sm text-[#3ECF8E]">AI 시뮬레이션 대화</h4>
+                  <p className="text-xs text-[#5f5e5e] font-mono mt-1 leading-tight">AI와의 시뮬레이션 대화를 시작 해보세요.</p>
                 </div>
                 <button
                   onClick={() => onStartAIChat(story)}
-                  className="px-3 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded hover:bg-[#3ECF8E]/90 cursor-pointer shrink-0"
+                  className="px-4 py-2 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs sm:text-sm rounded-lg hover:bg-[#3ECF8E]/90 cursor-pointer shrink-0 transition-all"
                 >
                   시작하기
                 </button>
@@ -279,15 +285,15 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         : 'bg-[#f3f4f5] border-[#E5E7EB] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
                     }`}
                   >
-                    <ThumbsDown className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform ${votedOption === 'B' ? 'text-white' : 'text-[#5f5e5e]'}`} />
+                    <ThumbsDown className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="font-headline-lg text-lg font-black mb-1">남 편</span>
-                    <span className={`absolute top-3 right-3 font-mono text-xs font-bold ${votedOption === 'B' ? 'text-white/80' : 'text-[#5f5e5e]'}`}>{percentB}%</span>
+                    <span className="absolute top-3 right-3 font-mono text-xs font-bold">{percentB}%</span>
                   </button>
                 </div>
 
                 {isMyStory && (
-                  <p className="text-xs text-[#5f5e5e] text-center font-medium bg-[#f3f4f5] py-2 px-3 rounded border border-[#E5E7EB]">
-                    💡 사연 작성자는 본인 사연에 투표할 수 없으며, 여론(투표 비율 및 댓글) 확인만 가능합니다.
+                  <p className="text-xs text-[#F97316] text-center font-semibold mt-1">
+                    ※ 내가 작성한 사연은 여론 확인만 가능합니다.
                   </p>
                 )}
               </div>

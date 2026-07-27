@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Story, UserProfile, Comment } from '../types';
-import { ShieldAlert, Share2, Heart, MoreVertical, Edit2, EyeOff, Trash2 } from 'lucide-react';
+import { ShieldAlert, Share2, Heart, MoreVertical, Edit2, EyeOff, Trash2, CheckCircle } from 'lucide-react';
 
 interface StoryCardProps {
   story: Story;
@@ -77,7 +77,11 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           onSelect(story);
         }
       }}
-      className="bg-white border border-[#E5E7EB] group hover:border-[#3ECF8E] transition-all duration-300 flex flex-col cursor-pointer rounded-lg overflow-hidden shadow-xs hover:-translate-y-1 relative"
+      className={`bg-white group hover:border-[#3ECF8E] transition-all duration-300 flex flex-col cursor-pointer rounded-lg overflow-hidden shadow-xs hover:-translate-y-1 relative ${
+        isMyStory
+          ? 'border-2 border-[#3ECF8E]'
+          : 'border border-[#E5E7EB]'
+      }`}
     >
       {/* Top Meta Header */}
       <div className="p-6 pb-0 flex-1 flex flex-col">
@@ -91,6 +95,12 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             <span className="font-label-sm text-[11px] text-[#5f5e5e]/60">
               {new Date(story.createdAt).toLocaleDateString()}
             </span>
+            {isMyStory && (
+              <span className="inline-flex items-center gap-1 bg-[#3ECF8E]/10 border border-[#3ECF8E] text-[#3ECF8E] px-2 py-0.5 rounded text-xs font-mono font-medium ml-1 shrink-0">
+                <CheckCircle className="w-3.5 h-3.5" />
+                내 글
+              </span>
+            )}
             {story.isAdult && isUserAdultVerified && (
               <span className="flex items-center justify-center w-5 h-5 bg-red-50 border border-red-200 text-red-500 rounded text-[10px] font-black ml-0.5">19</span>
             )}
@@ -229,36 +239,39 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               남 편
             </button>
           </div>
-          {isMyStory && (
-            <p className="text-[11px] text-[#5f5e5e] text-center mb-3 font-semibold">
-              ※ 내가 작성한 사연은 여론 확인만 가능합니다.
-            </p>
-          )}
         </div>
       </div>
 
       {/* Card Footer Info */}
-      <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex items-center gap-4">
-        <span 
-          className={`flex items-center gap-1 font-label-sm text-xs transition-colors ${
-            isBlurRequired
-              ? 'text-[#5f5e5e]/30 cursor-not-allowed'
-              : 'text-[#5f5e5e] cursor-pointer hover:text-[#1C1C1C]'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isBlurRequired) {
-              if (onRequireAdultVerification) onRequireAdultVerification();
-              return;
-            }
-            setActiveCommentTab(activeCommentTab === null ? 'all' : null);
-          }}
-        >
-          <span className="material-symbols-outlined text-[18px]">forum</span> {comments.length}
-        </span>
-        <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-          <span className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
-        </span>
+      <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span 
+            className={`flex items-center gap-1 font-label-sm text-xs transition-colors ${
+              isBlurRequired
+                ? 'text-[#5f5e5e]/30 cursor-not-allowed'
+                : 'text-[#5f5e5e] cursor-pointer hover:text-[#1C1C1C]'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isBlurRequired) {
+                if (onRequireAdultVerification) onRequireAdultVerification();
+                return;
+              }
+              setActiveCommentTab(activeCommentTab === null ? 'all' : null);
+            }}
+          >
+            <span className="material-symbols-outlined text-[18px]">forum</span> {comments.length}
+          </span>
+          <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
+            <span className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
+          </span>
+        </div>
+
+        {isMyStory && (
+          <span className="text-[11px] text-[#F97316] font-semibold text-right">
+            ※ 내가 작성한 사연은 여론 확인만 가능합니다.
+          </span>
+        )}
       </div>
       
       {/* Unified Top 3 Comments Tabs */}

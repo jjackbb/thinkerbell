@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Story } from '../types';
-import { Trophy, Zap } from 'lucide-react';
+import { Trophy, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface WeeklyTopBannerProps {
   weeklyTopStories: Story[];
@@ -44,20 +44,24 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
     setTouchStartX(null);
   };
 
+  const toggleBanner = () => {
+    setActiveBanner(prev => prev === 'weekly' ? 'realtime' : 'weekly');
+  };
+
   if (!weeklyTopStories || weeklyTopStories.length === 0) return null;
 
   const renderStories = (stories: Story[], bannerType: 'weekly' | 'realtime') => {
     return stories.slice(0, 3).map((story, idx) => {
       const total = story.votesA + story.votesB;
       const percentageA = total > 0 ? Math.round((story.votesA / total) * 100) : 50;
-      const rankColor = bannerType === 'weekly' ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 'bg-[#FF5C00] text-white';
+      const rankColor = 'bg-[#FF5C00] text-white';
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
         <div
           key={`${bannerType}-${story.id}`}
           onClick={() => onSelectStory(story)}
-          className={`bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] ${bannerType === 'weekly' ? 'hover:border-[#3ECF8E]' : 'hover:border-[#FF5C00]'} rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between`}
+          className="bg-white border border-[#FF5C00] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"
         >
           <div>
             <div className="flex items-center justify-between mb-2 font-mono text-xs">
@@ -75,7 +79,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
           <div>
             <div className="w-full bg-[#E5E7EB] h-2 rounded-full overflow-hidden flex mb-2">
               <div
-                className={`${bannerType === 'weekly' ? 'bg-[#3ECF8E]' : 'bg-[#FF5C00]'} h-full transition-all duration-500`}
+                className="bg-[#FF5C00] h-full transition-all duration-500"
                 style={{ width: `${percentageA}%` }}
               />
               <div
@@ -85,7 +89,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
             </div>
 
             <div className="flex items-center justify-between font-mono text-[11px] text-[#5f5e5e]">
-              <span className={`${bannerType === 'weekly' ? 'text-[#3ECF8E]' : 'text-[#FF5C00]'} font-bold`}>내편 {percentageA}%</span>
+              <span className="text-[#FF5C00] font-bold">내편 {percentageA}%</span>
               <span>{total}표</span>
             </div>
           </div>
@@ -94,29 +98,78 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
     });
   };
 
+  // Calculate current week date range (Monday to Sunday)
+  const getWeeklyDateRangeString = () => {
+    const today = new Date();
+    const day = today.getDay(); // 0: Sun, 1: Mon, ...
+    const distToMon = (day + 6) % 7;
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - distToMon);
+
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+
+    const monMonth = mon.getMonth() + 1;
+    const monDate = mon.getDate();
+    const sunMonth = sun.getMonth() + 1;
+    const sunDate = sun.getDate();
+
+    return `${monMonth}.${monDate}.(월)-${sunMonth}.${sunDate}.(일)`;
+  };
+
+  // Calculate hourly reference time string (e.g. "18:00 기준")
+  const getRealtimeHourString = () => {
+    const hours = new Date().getHours();
+    const formattedHour = String(hours).padStart(2, '0');
+    return `${formattedHour}:00 기준`;
+  };
+
+  const dateRangeStr = getWeeklyDateRangeString();
+  const realtimeHourStr = getRealtimeHourString();
+
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 mb-8 shadow-xs overflow-hidden">
       <div className="flex items-center justify-between mb-4 border-b border-[#E5E7EB] pb-3">
-        <div className="flex items-center gap-2 relative h-8 w-64 overflow-hidden">
+        <div className="flex items-center gap-2 relative h-8 w-full max-w-[450px] overflow-hidden">
           {/* Weekly Header */}
           <div className={`absolute inset-0 flex items-center gap-2 transition-transform duration-500 ${activeBanner === 'weekly' ? 'translate-y-0' : '-translate-y-full'}`}>
-            <div className="w-7 h-7 bg-[#3ECF8E]/10 rounded flex items-center justify-center text-[#3ECF8E] font-bold">
+            <div className="w-7 h-7 bg-[#FF5C00]/10 rounded flex items-center justify-center text-[#FF5C00] font-bold shrink-0">
               <Trophy className="w-4 h-4" />
             </div>
             <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md whitespace-nowrap">
-              주간 랭킹 TOP 3 <span className="text-xs px-2 py-0.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono rounded font-bold ml-1">WEEKLY</span>
+              주간 랭킹 TOP 3
+              <span className="text-xs px-2 py-0.5 bg-[#FF5C00] text-white font-mono rounded font-bold ml-1">{dateRangeStr}</span>
             </h2>
           </div>
           
           {/* Realtime Header */}
           <div className={`absolute inset-0 flex items-center gap-2 transition-transform duration-500 ${activeBanner === 'realtime' ? 'translate-y-0' : 'translate-y-full'}`}>
-            <div className="w-7 h-7 bg-[#FF5C00]/10 rounded flex items-center justify-center text-[#FF5C00] font-bold">
+            <div className="w-7 h-7 bg-[#FF5C00]/10 rounded flex items-center justify-center text-[#FF5C00] font-bold shrink-0">
               <Zap className="w-4 h-4" />
             </div>
             <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md whitespace-nowrap">
-              실시간 랭킹 TOP 3 <span className="text-xs px-2 py-0.5 bg-[#FF5C00] text-white font-mono rounded font-bold ml-1">REAL-TIME</span>
+              실시간 랭킹 TOP 3
+              <span className="text-xs px-2 py-0.5 bg-[#FF5C00] text-white font-mono rounded font-bold ml-1">{realtimeHourStr}</span>
             </h2>
           </div>
+        </div>
+
+        {/* Arrow Navigation Controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleBanner}
+            className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+            aria-label="이전 배너 보기"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={toggleBanner}
+            className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+            aria-label="다음 배너 보기"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -151,7 +204,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         <div className="flex items-center gap-1.5">
           <button 
             onClick={() => setActiveBanner('weekly')} 
-            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'weekly' ? 'bg-[#3ECF8E] w-4' : 'bg-[#E5E7EB]'}`} 
+            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'weekly' ? 'bg-[#FF5C00] w-4' : 'bg-[#E5E7EB]'}`} 
             aria-label="주간 랭킹 보기"
           />
           <button 
