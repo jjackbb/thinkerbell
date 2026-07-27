@@ -62,11 +62,11 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     setIsCheckingAdult(true);
 
     try {
-      // AI 19금 필터링
+      // AI 19금 + 비속어 필터링 (제목 + 본문)
       const res = await fetch('/api/check-adult-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: body.trim() })
+        body: JSON.stringify({ title: title.trim(), body: body.trim() })
       });
       
       const data = await res.json();
@@ -83,10 +83,15 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         return;
       }
 
+      // 비속어가 감지된 경우 안내 메시지 표시
+      if (data.hasProfanity) {
+        console.log('비속어가 감지되어 자동 마스킹 처리되었습니다.');
+      }
+
       onSubmit({
-        title: title.trim(),
+        title: data.sanitizedTitle || title.trim(),
         category,
-        body: body.trim(),
+        body: data.sanitizedText || body.trim(),
         opponentPersonality: opponentPersonality.trim(),
         createAIPersona: true,
         isAdult: isAdultCheck,

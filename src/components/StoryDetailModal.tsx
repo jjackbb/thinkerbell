@@ -92,10 +92,27 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     onVote(story.id, option);
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    onAddComment(story.id, commentText.trim(), isMyStory ? false : isAnonymous);
+
+    let sanitizedComment = commentText.trim();
+    try {
+      const res = await fetch('/api/sanitize-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: commentText.trim() })
+      });
+      const data = await res.json();
+      if (data.sanitizedText) {
+        // AI가 따옴표로 감싸서 반환하는 경우 방어
+        sanitizedComment = data.sanitizedText.replace(/^["']|["']$/g, '');
+      }
+    } catch (err) {
+      console.warn('댓글 비속어 필터 실패, 원문으로 등록:', err);
+    }
+
+    onAddComment(story.id, sanitizedComment, isMyStory ? false : isAnonymous);
     setCommentText('');
     showToast('논리 분석 댓글이 등록되었습니다.');
   };

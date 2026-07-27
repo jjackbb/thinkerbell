@@ -210,16 +210,27 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
   }
 });
 
-// AI Adult Content Checking
+// AI Adult Content & Profanity Checking (사연 제목 + 본문)
 app.post("/api/check-adult-content", async (req: Request, res: Response) => {
   try {
-    const { body, apiKey } = req.body;
+    const { title, body, apiKey } = req.body;
     if (!body) return res.status(400).json({ error: "Story body is required" });
 
     const effectiveApiKey = apiKey || process.env.POTENS_API_KEY;
-    const prompt = `다음 텍스트가 성적인 내용, 지나친 폭력성 등 청소년에게 부적절한 19금(Adult Content)에 해당하는지 판단하여, 오직 'true' 또는 'false' 문자열만 응답해라. 부가 설명은 절대 하지 마라.\n\n텍스트: "${body}"`;
+    const titlePart = title ? `제목: "${title.replace(/"/g, '\\"')}"\n` : '';
+    const prompt = `다음 텍스트를 검사하여 아래 JSON 포맷으로만 응답해라. 부가 설명이나 마크다운 코드블럭(백틱)은 절대 붙이지 마라.
 
-    let isAdultStr = "false";
+1. isAdult: 성적인 내용, 지나친 잔혹성 등 19금 성인 콘텐츠 포함 여부 (true/false)
+2. hasProfanity: 심한 욕설, 비하 발언, 비속어 포함 여부 (true/false)
+3. sanitizedTitle: 제목에 비속어가 있다면 해당 단어만 '***'로 치환. 비속어가 없거나 제목이 없으면 원문 그대로 출력.
+4. sanitizedText: 본문에 비속어나 심한 욕설이 있다면 해당 단어만 '***'로 치환. 비속어가 없으면 원문 그대로 출력.
+
+${titlePart}본문: "${body.replace(/"/g, '\\"')}"
+
+응답 포맷(이 형식만 출력):
+{"isAdult": false, "hasProfanity": true, "sanitizedTitle": "제목 예시", "sanitizedText": "본문 *** 예시"}`;
+
+    let result: any = { isAdult: false, hasProfanity: false, sanitizedTitle: title || '', sanitizedText: body };
 
     if (effectiveApiKey) {
       try {
@@ -238,33 +249,108 @@ app.post("/api/check-adult-content", async (req: Request, res: Response) => {
 
         if (response.ok) {
           const data = await response.json();
-          const text = data.message || data.text || "";
-          isAdultStr = text.trim().toLowerCase();
+          const rawText = (data.message || data.text || "").trim();
+          try {
+            result = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+          } catch (parseErr) {
+            console.warn("Potens JSON parse failed, raw:", rawText);
+            const lower = rawText.toLowerCase();
+            result.isAdult = lower.includes("true");
+          }
         }
       } catch (e) {
         console.warn("Potens API check failed, fallback to Gemini:", e);
       }
     }
 
-    if ((isAdultStr !== "true" && isAdultStr !== "false") && process.env.GEMINI_API_KEY) {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const geminiRes = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt
-      });
-      isAdultStr = (geminiRes.text || "false").trim().toLowerCase();
+    // Gemini 폴백: Potens 결과가 기본값 그대로이고 Gemini 키가 있을 때
+    if (result.sanitizedText === body && process.env.GEMINI_API_KEY) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const geminiRes = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt
+        });
+        const geminiRaw = (geminiRes.text || "").trim();
+        try {
+          result = JSON.parse(geminiRaw.replace(/```json|```/g, "").trim());
+        } catch (parseErr) {
+          console.warn("Gemini JSON parse failed, raw:", geminiRaw);
+          const lower = geminiRaw.toLowerCase();
+          result.isAdult = lower.includes("true");
+        }
+      } catch (geminiErr) {
+        console.warn("Gemini fallback failed:", geminiErr);
+      }
     }
 
-    // fallback 
-    const isAdult = isAdultStr.includes("true");
-
-    res.json({ isAdult });
+    res.json(result);
   } catch (error: any) {
     console.error("Check adult content error:", error);
-    // On error, default to false so we don't block users arbitrarily
-    res.json({ isAdult: false });
+    res.json({ isAdult: false, hasProfanity: false, sanitizedTitle: req.body?.title || '', sanitizedText: req.body?.body || "" });
+  }
+});
+
+// 댓글 전용 비속어 필터 (경량 API)
+app.post("/api/sanitize-text", async (req: Request, res: Response) => {
+  try {
+    const { text, apiKey } = req.body;
+    if (!text) return res.status(400).json({ error: "Text is required" });
+
+    const effectiveApiKey = apiKey || process.env.POTENS_API_KEY;
+    const prompt = `다음 텍스트에 비속어나 심한 욕설이 포함되어 있다면 해당 단어만 '***'로 치환한 텍스트를 반환해라. 비속어가 없으면 원문 그대로 출력해라. 부가 설명 없이 치환된 텍스트만 출력해라.
+
+텍스트: "${text.replace(/"/g, '\\"')}"`;
+
+    let sanitized = text;
+
+    if (effectiveApiKey) {
+      try {
+        const response = await fetch("https://ai.potens.ai/api/chat", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${effectiveApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt,
+            model: "claude-4-6-sonnet",
+            temperature: 0.1
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = (data.message || data.text || "").trim();
+          if (rawText) sanitized = rawText;
+        }
+      } catch (e) {
+        console.warn("Potens sanitize failed, fallback to Gemini:", e);
+      }
+    }
+
+    // Gemini 폴백
+    if (sanitized === text && process.env.GEMINI_API_KEY) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const geminiRes = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt
+        });
+        const geminiRaw = (geminiRes.text || "").trim();
+        if (geminiRaw) sanitized = geminiRaw;
+      } catch (geminiErr) {
+        console.warn("Gemini sanitize fallback failed:", geminiErr);
+      }
+    }
+
+    res.json({ sanitizedText: sanitized });
+  } catch (error: any) {
+    console.error("Sanitize text error:", error);
+    res.json({ sanitizedText: req.body?.text || "" });
   }
 });
 
 
 export default app;
+
