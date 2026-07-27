@@ -16,6 +16,8 @@ interface StoryDetailModalProps {
   onEditStory?: (storyId: string) => void;
   onHideStory?: (storyId: string) => void;
   onDeleteStory?: (storyId: string) => void;
+  onEditComment?: (storyId: string, commentId: string, newContent: string) => void;
+  onDeleteComment?: (storyId: string, commentId: string) => void;
 }
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
@@ -32,6 +34,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onEditStory,
   onHideStory,
   onDeleteStory,
+  onEditComment,
+  onDeleteComment,
 }) => {
   const [commentText, setCommentText] = useState('');
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story?.userVoted || null);
@@ -40,6 +44,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -317,12 +325,53 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <button onClick={() => onLikeComment(c.id)} className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#3ECF8E] ml-2">
-                          <Heart className={`w-3.5 h-3.5 ${c.userLiked ? 'fill-[#3ECF8E] text-[#3ECF8E]' : ''}`} />
-                          <span>{c.likeCount}</span>
-                        </button>
+                        <div className="flex items-center gap-2 ml-2">
+                          <button onClick={() => onLikeComment(c.id)} className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#3ECF8E]">
+                            <Heart className={`w-3.5 h-3.5 ${c.userLiked ? 'fill-[#3ECF8E] text-[#3ECF8E]' : ''}`} />
+                            <span>{c.likeCount}</span>
+                          </button>
+                          {c.authorId === currentUser.id ? (
+                            <div className="relative">
+                              <button onClick={() => setCommentMenuOpenId(commentMenuOpenId === c.id ? null : c.id)} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 rounded cursor-pointer">
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {commentMenuOpenId === c.id && (
+                                <div className="absolute right-0 mt-1 w-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10 text-xs overflow-hidden">
+                                  <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>
+                                  <button onClick={() => { onDeleteComment?.(story.id, c.id); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-red-500 cursor-pointer">삭제</button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <button onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
+                              <ShieldAlert className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-[#1C1C1C] font-body-sm leading-relaxed">{c.content}</p>
+                      {editingCommentId === c.id ? (
+                        <div className="mt-2 space-y-2">
+                          <textarea
+                            value={editingCommentText}
+                            onChange={(e) => setEditingCommentText(e.target.value)}
+                            className="w-full p-2 text-xs border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#3ECF8E] resize-none"
+                            rows={2}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingCommentId(null)} className="px-3 py-1.5 text-xs text-[#5f5e5e] hover:bg-[#f3f4f5] rounded-md cursor-pointer font-bold">취소</button>
+                            <button onClick={() => { if(editingCommentText.trim()) { onEditComment?.(story.id, c.id, editingCommentText.trim()); setEditingCommentId(null); } }} className="px-3 py-1.5 text-xs bg-[#1C1C1C] text-white rounded-md cursor-pointer font-bold">완료</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-xs text-[#1C1C1C] font-body-sm leading-relaxed whitespace-pre-wrap">
+                            {c.content}
+                          </p>
+                          {c.isEdited && (
+                            <span className="text-[10px] text-[#9ca3af] text-right mr-1">(수정됨)</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )})}
                 </div>

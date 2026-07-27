@@ -46,6 +46,7 @@ export interface Comment {
   reportsCount: number;
   isBlind?: boolean;
   authorVoted?: 'A' | 'B';
+  isEdited?: boolean;
 }
 
 export interface AIPersona {

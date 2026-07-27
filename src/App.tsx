@@ -265,6 +265,28 @@ export default function App() {
       return updatedMap;
     });
   };
+  const handleEditComment = (storyId: string, commentId: string, newContent: string) => {
+    setCommentsMap(prev => {
+      const updatedMap = { ...prev };
+      if (updatedMap[storyId]) {
+        updatedMap[storyId] = updatedMap[storyId].map(c => 
+          c.id === commentId ? { ...c, content: newContent, isEdited: true } : c
+        );
+      }
+      return updatedMap;
+    });
+  };
+
+  const handleDeleteComment = (storyId: string, commentId: string) => {
+    setCommentsMap(prev => {
+      const updatedMap = { ...prev };
+      if (updatedMap[storyId]) {
+        updatedMap[storyId] = updatedMap[storyId].filter(c => c.id !== commentId);
+      }
+      return updatedMap;
+    });
+    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
+  };
 
   const handleEditStory = (storyId: string) => {
     const story = stories.find(s => s.id === storyId);
@@ -514,6 +536,7 @@ export default function App() {
   };
 
   const handleSubmitReport = (targetId: string, reason: string) => {
+    // Check if it's a story
     setStories(prev => prev.map(s => {
       if (s.id === targetId) {
         const reportsCount = s.reportsCount + 1;
@@ -525,6 +548,25 @@ export default function App() {
       }
       return s;
     }));
+    
+    // Check if it's a comment
+    setCommentsMap(prev => {
+      const updatedMap = { ...prev };
+      Object.keys(updatedMap).forEach(storyId => {
+        updatedMap[storyId] = updatedMap[storyId].map(c => {
+          if (c.id === targetId) {
+            const reportsCount = c.reportsCount + 1;
+            return {
+              ...c,
+              reportsCount,
+              isBlind: reportsCount >= 5
+            };
+          }
+          return c;
+        });
+      });
+      return updatedMap;
+    });
   };
 
   const filteredStories = stories.filter(s => {
@@ -779,6 +821,8 @@ export default function App() {
         onDeleteStory={handleDeleteStory}
         onHideStory={handleHideStory}
         onReportComment={handleReport}
+        onEditComment={handleEditComment}
+        onDeleteComment={handleDeleteComment}
       />
 
       {/* Create Story Modal */}

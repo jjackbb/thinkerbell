@@ -8,13 +8,7 @@ interface ReportModalProps {
   onSubmitReport: (targetId: string, reason: string) => void;
 }
 
-const REPORT_REASONS = [
-  '욕설, 비방, 인신공격성 표현',
-  '허위 사실 유포 및 명예훼손',
-  '상업적 홍보 및 도배성 게시물',
-  '음란, 청소년 유해 매체물',
-  '개인정보 유출 및 기타 규정 위반'
-];
+
 
 export const ReportModal: React.FC<ReportModalProps> = ({
   isOpen,
@@ -24,7 +18,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 }) => {
   if (!isOpen || !targetId) return null;
 
-  const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,26 +64,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </p>
 
             <div className="space-y-2">
-              {REPORT_REASONS.map((reason) => (
-                <label
-                  key={reason}
-                  onClick={() => setSelectedReason(reason)}
-                  className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold cursor-pointer transition-all ${
-                    selectedReason === reason
-                      ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
-                      : 'bg-[#f5f0e0] border-[#e8e2d0] text-[#3a3a3a] hover:bg-[#ebe6d6]'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="reportReason"
-                    checked={selectedReason === reason}
-                    onChange={() => setSelectedReason(reason)}
-                    className="accent-[#ff4d8b]"
-                  />
-                  <span>{reason}</span>
-                </label>
-              ))}
+              <textarea
+                value={selectedReason}
+                onChange={(e) => setSelectedReason(e.target.value)}
+                placeholder="신고 사유를 상세히 적어주세요 (최대 500자)"
+                maxLength={500}
+                rows={5}
+                className="w-full p-4 rounded-2xl border border-[#e8e2d0] bg-[#f5f0e0] text-[#3a3a3a] text-xs font-medium focus:outline-none focus:border-[#0a0a0a] focus:ring-1 focus:ring-[#0a0a0a] resize-none transition-colors"
+                required
+              />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
