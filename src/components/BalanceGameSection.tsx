@@ -1,17 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
 export const BalanceGameSection: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState<'A' | 'B' | null>(null);
   const [votes, setVotes] = useState({ A: 782, B: 218 });
+  const confirmedOptionRef = useRef<'A' | 'B' | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleVote = (option: 'A' | 'B') => {
-    if (selectedOption) return;
+    if (selectedOption === option) return;
+    
     setSelectedOption(option);
-    setVotes(prev => ({
-      ...prev,
-      [option]: prev[option] + 1
-    }));
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    timerRef.current = setTimeout(() => {
+      setVotes(prev => {
+        const newVotes = { ...prev };
+        
+        // 이전 투표가 있었다면 취소
+        const prevConfirmed = confirmedOptionRef.current;
+        if (prevConfirmed && prevConfirmed !== option) {
+          newVotes[prevConfirmed] -= 1;
+        }
+        
+        // 새로운 투표가 이전 확정된 투표와 다를 때만 증가
+        if (prevConfirmed !== option) {
+          newVotes[option] += 1;
+        }
+        
+        confirmedOptionRef.current = option;
+        return newVotes;
+      });
+    }, 10000);
   };
 
   const total = votes.A + votes.B;
