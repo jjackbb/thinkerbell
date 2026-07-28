@@ -17,6 +17,7 @@ import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { AdultVerificationModal } from './components/AdultVerificationModal';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -192,6 +193,7 @@ export default function App() {
   const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
+  const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
 
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
@@ -427,7 +429,14 @@ export default function App() {
     await supabase.from('stories').update({ isHidden: true }).eq('id', storyId);
   };
 
-  const handleDeleteStory = async (storyId: string) => {
+  const handleDeleteStory = (storyId: string) => {
+    setStoryToDelete(storyId);
+  };
+
+  const confirmDeleteStory = async () => {
+    if (!storyToDelete) return;
+    const storyId = storyToDelete;
+
     setStories(prev => prev.filter(s => s.id !== storyId));
     if (selectedStory?.id === storyId) {
       setSelectedStory(null);
@@ -436,7 +445,9 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
     
     await supabase.from('stories').delete().eq('id', storyId);
+    setStoryToDelete(null);
   };
+
 
   const handleTogglePinPersona = (personaId: string) => {
     setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: !p.isPinned } : p));
@@ -1085,6 +1096,13 @@ ${personalityText}
         isOpen={isAdultVerificationOpen}
         onClose={() => setIsAdultVerificationOpen(false)}
         onVerify={handleVerifyAdult}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!storyToDelete}
+        onClose={() => setStoryToDelete(null)}
+        onConfirm={confirmDeleteStory}
+        title="삭제 하시겠습니까?"
       />
 
       <PremiumModal
