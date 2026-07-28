@@ -54,8 +54,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     if (activeSession) {
       const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
       setSelectedPersona(persona);
+      if (activeSession.empathyScore !== undefined) {
+        setEmpathyScore(activeSession.empathyScore);
+      }
     }
-  }, [activeSession?.personaId, personas]);
+  }, [activeSession?.personaId, activeSession?.empathyScore, activeSession?.explanationRatio, personas]);
 
   useEffect(() => {
     if (activeSession) {
@@ -327,8 +330,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {activeSession.chatMode === 'explanation' && onOpenSettings && (
-            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#3ECF8E] cursor-pointer transition-colors" title="비율 설정 변경">
+          {(activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
+            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#3ECF8E] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
           )}
@@ -339,7 +342,37 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       </header>
 
       {/* Messages */}
-      <main className="flex-1 overflow-y-auto chat-container p-6 space-y-4 bg-[#f8f9fa]">
+      <main className="flex-1 overflow-y-auto chat-container p-6 space-y-4 bg-[#f8f9fa] flex flex-col">
+        {messages.length === 0 && (
+          <div className="my-auto max-w-md mx-auto text-center py-12 px-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-2xs space-y-4 animate-fadeIn">
+            <div className="w-12 h-12 rounded-full bg-[#3ECF8E]/20 text-[#3ECF8E] flex items-center justify-center mx-auto mb-2 font-mono text-xl border border-[#3ECF8E]/30 font-bold">
+              {activeSession?.chatMode === 'explanation' ? '☕' : '💬'}
+            </div>
+            <h3 className="font-headline-md font-bold text-base sm:text-lg text-[#1C1C1C]">
+              {activeSession?.chatMode === 'explanation' 
+                ? `${selectedPersona.role || '공감'} 1:1 라운지`
+                : `${selectedPersona.name}와의 1:1 대화 시뮬레이션`}
+            </h3>
+            <p className="font-body-sm text-xs sm:text-sm text-[#5f5e5e] leading-relaxed">
+              {activeSession?.chatMode === 'explanation' ? (
+                <>
+                  사연 속 속상하고 답답했던 마음을 편안하게 털어놓아 보세요.
+                  <br />
+                  <span className="font-semibold text-[#1C1C1C]">친구와 카톡하듯</span> 온전한 공감과 따뜻한 위로를 나눌 수 있습니다.
+                </>
+              ) : (
+                <>
+                  사연 속 상대방 페르소나와 실전 대화를 시작해보세요!
+                  <br />
+                  <span className="font-semibold text-[#1C1C1C]">"내 입장을 명확히 전달"</span>하거나, <span className="font-semibold text-[#3ECF8E] bg-[#1C1C1C] px-1.5 py-0.5 rounded text-xs ml-0.5">화해와 타협안</span>을 이끌어내보세요.
+                </>
+              )}
+            </p>
+            <p className="font-mono text-[11px] text-[#5f5e5e] pt-4">
+              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#3ECF8E] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">EXECUTE</span> 를 누르세요!
+            </p>
+          </div>
+        )}
 
         {messages.map((msg) => {
           if (msg.sender === 'user') {
@@ -371,8 +404,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         <div ref={messagesEndRef} />
       </main>
 
-      {/* 4턴 이상 오갔을 때 사용자 직접 종결 유도 바 (안전장치) */}
-      {!simEndResult && messages.filter(m => m.sender === 'user').length >= 4 && !isLoading && (
+      {/* 4턴 이상 오갔을 때 사용자 직접 종결 유도 바 (시뮬레이션 모드에서만 동작) */}
+      {!simEndResult && activeSession?.chatMode !== 'explanation' && messages.filter(m => m.sender === 'user').length >= 4 && !isLoading && (
         <div className="bg-[#f3f4f5] border-t border-[#E5E7EB] p-3 px-6 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <span className="text-xs text-[#5f5e5e] font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#3ECF8E] animate-ping"></span>

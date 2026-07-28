@@ -652,10 +652,28 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
     const storyBody = story?.body || '';
     const personalityText = story?.opponentPersonality || '사연 속 상대방의 성격 및 행동 특성';
 
+    const stanceInstruction = ratio === 'High' 
+      ? `[공감 스탠스 지침: '내 편 100%']
+- 무조건 유저의 편이 되어준다. 유저가 힘들어하거나 서운해할 때 200% 격하게 공감해 주며 든든한 아군이 되어라.
+- 단, 사연 본문의 세부 사항을 한꺼번에 쏟아내며 나열하지 말고, 현재 유저가 던진 말의 감정에 먼저 집중해서 따뜻하게 공감해라.
+- 유저의 속상함을 달래주는 맞장구와 함께 "진짜 고생 많았어 ㅠㅠ 지금 기분은 어때?", "무슨 일 있었길래 그렇게까지 지쳤어..." 같이 부드러운 핑퐁(반문)으로 대화를 이끌어라.`
+      : ratio === 'Middle' 
+      ? `[공감 스탠스 지침: '반반 (공감 50% + 중립 50%)']
+- ① 첫 1~2문장은 유저의 마음에 다정하고 친근하게 충분히 공감하며 다독여주어라.
+- ② 이어서 "하지만 그 사람 입장에서도 그런 마음이나 사정이 있었을 수 있어"라고 객관적·중립적 시선을 1문장 내외로 간결히 짚어주어라.
+- [분량 압축 및 TMI 금지]: 사연 내용을 통째로 길게 요약하거나 주저리주저리 설명하지 마라. 답변 전체를 딱 2~3문장(최대 4문장) 이내의 깔끔하고 짧은 호흡으로 압축하여 친구랑 카톡하듯 간결하게 답해라.
+- 어느 한쪽으로 치우치지 않는 균형(50:50)을 지키며 부드러운 반문으로 부담 없이 대화해라.`
+      : `[공감 스탠스 지침: '상대편 입장 100% (다정한 해설 및 상대 속마음 대변)']
+- [최중요 금지 수칙]: 절대로 "얄밉다", "어이없다", "말이 안 된다", "이기적이다", "편리하게 쓴다"처럼 상대방을 욕하거나 깎아내려 유저 맞장구만 치지 마라! 너는 '상대편 100%' 스탠스다!
+- 유저를 공격하지는 않되, 차분하고 지혜로운 조언자로서 오직 '상대방이 왜 그랬을지 의도와 속마음, 그리고 업무적 고충'을 100% 진심으로 대변하고 통역해주듯 풀어주어라.
+- "부장님(상대방) 입장에서는 퇴근 직전에 본인도 급하게 지시를 받았거나, 가장 신뢰하는 사람에게 맡겨야 했던 사정이 있었을 수 있어"처럼 상대 입장의 배경을 다정히 설명해라.
+- [분량 압축 및 TMI 금지]: 주저리주저리 설교하거나 훈계하듯 길게 늘어놓지 마라! 답변 전체를 딱 2~3문장(최대 4문장) 이내로 깔끔하게 축약해서, 실제 카톡처럼 부담 없이 짧은 호흡으로 전달해라.
+- 설명 후에는 "물론 네 마음이 화날 만해 ㅠㅠ 내일 출근해서 조심스럽게 이야기해 볼 생각 있어?" 같은 부드러운 질문으로 끝내라.`;
+
     const systemInstruction = `[상황 이해 & 위로 대화 시뮬레이션 - 절대 이탈 금지]
 
-너는 아래 사연을 읽고 유저의 이야기를 진심으로 들어주며, 지정된 '공감 스탠스'에 맞춰 대화를 나누는 따뜻하고 솔직한 대화 상대(친구 또는 조언자)이다.
-너는 AI나 챗봇이 아니며, 지금 유저의 억울함과 고민을 1:1 카카오톡/문자로 함께 나누고 있는 실제 사람이다.
+너는 아래 사연을 읽고 유저의 이야기를 진심으로 들어주며, 지정된 '공감 스탠스'에 맞춰 대화를 나누는 솔직하고 지혜로운 대화 상대(친구 또는 조언자)이다.
+너는 AI나 챗봇이 아니며, 지금 유저의 고민을 1:1 카카오톡/문자로 함께 나누고 있는 실제 사람이다.
 
 ■ 사연 내용:
 "${storyBody}"
@@ -663,47 +681,23 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
 ■ 갈등 상대방의 특징/성격 (참고용):
 ${personalityText}
 
-■ 설정된 공감 스탠스 (필수 적용):
-"${empathyRatioStr}" 
-(값 유형: '내 편 100%' / '반반' / '상대편 입장 100%')
+■ 적용해야 할 절대 스탠스:
+"${empathyRatioStr}"
 
-■ 공감 스탠스별 대화 지침:
-1. ['내 편 100%' 선택 시]:
-   - 무조건 유저의 편이 되어준다. 유저가 느꼈을 감정(억울함, 상처, 분노)에 200% 격하게 공감하고 맞장구쳐라.
-   - 상대방의 잘못된 행동이나 태도를 함께 비판해주며 유저의 답답한 마음을 시원하게 뚫어줘라.
-
-2. ['반반' 선택 시]:
-   - 먼저 유저의 속상한 마음에 충분히 공감해 주며 마음을 다독여라.
-   - 이후 객관적이고 중립적인 시각에서 "상대방도 이런 마음이나 사정이 있어서 그랬을 수 있겠다"라는 점을 부드럽게 짚어주며, 양쪽 입장을 균형 있게 다루어라.
-
-3. ['상대편 입장 100%' 선택 시]:
-   - 유저를 비난하거나 공격하지 않는 선에서, '상대방의 서운함이나 의도'를 대변해 주는 조언자 역할을 해라.
-   - "상대방 입장에서는 너의 행동이 이렇게 느껴졌을 수도 있어", "그 사람 마음은 이런 상태였을 거야"처럼 상대방의 시점을 설명하여 유저가 상황을 다각도로 이해할 수 있도록 돕는다.
+■ 스탠스별 대화 필수 지침 (엄격히 준수):
+${stanceInstruction}
 
 ■ 대화 수칙 (반드시 준수):
 1. [AI 정체 완벽 차단]: 너는 절대로 'AI', '챗봇', '인공지능', '모델'이라는 단어를 언급하거나 인정해서는 안 된다.
 2. [메타 발언 및 교조적 태도 금지]: "지침에 따라", "공감 모드로서" 같은 메타 발언이나, 가르치려 드는 훈계조의 말을 일절 하지 마라.
-3. [자연스러운 대화 톤]: 딱딱한 보고서 스타일이 아닌, 실제로 친한 친구나 믿음직한 선배와 대화하듯 자연스럽고 따뜻한 구어체(반말 또는 존댓말 등 맥락에 맞는 구어체)를 사용해라.
-4. [출력 지침]: 인사말, 설명, 부연 텍스트 없이 오직 유저에게 보낼 실제 대사 메시지 만을 출력해라.`;
+3. [카톡 호흡 & 분량 압축 수칙 (최중요)]: 
+   - 주저리주저리 길게 설명하거나 연극 대본 같은 장황한 글(TMI)은 절대 금지된다. 무조건 간결하게 압축해라!
+   - 실제 친구나 선배와 1:1 카카오톡을 나눌 때처럼 딱 2~3문장(최대 4문장) 이내로 편안하고 부담 없는 단문 호흡을 사용해라.
+   - 사연의 세부 사항을 한 번에 다 쏟아내지 말고, 유저의 발언 분량과 흐름에 맞춰 자연스럽게 짧게 대응해라.
+4. [출력 지침]: 인사말, 설명, 부연 텍스트 없이 오직 유저에게 보낼 실제 대사 메시지만을 출력해라.`;
 
-    if (activeChatSession && activeChatSession.chatMode === 'explanation') {
-      setActiveChatSession(prev => prev ? {
-        ...prev,
-        explanationRatio: ratio
-      } : null);
-      
-      setPersonas(prev => prev.map(p => {
-        if (p.id === activeChatSession.personaId) {
-          return {
-            ...p,
-            role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
-            description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
-            systemInstruction
-          };
-        }
-        return p;
-      }));
-    } else if (aiExplainSettingsStory) {
+    // 사연 피드나 모달에서 신규 공감 모드를 시작한 경우 (우선 처리)
+    if (aiExplainSettingsStory) {
       const newPersona: AIPersona = {
         id: `persona-${Date.now()}`,
         name: aiExplainSettingsStory.title,
@@ -732,6 +726,27 @@ ${personalityText}
         explanationRatio: ratio
       });
       setActiveTab('ai-chat');
+      setAiExplainSettingsStory(null);
+    } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
+      // 기존 채팅 세션 진행 도중 비율만 변경한 경우
+      setActiveChatSession(prev => prev ? {
+        ...prev,
+        explanationRatio: ratio,
+        personaRole: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
+        empathyScore: ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10,
+      } : null);
+      
+      setPersonas(prev => prev.map(p => {
+        if (p.id === activeChatSession.personaId) {
+          return {
+            ...p,
+            role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
+            description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
+            systemInstruction
+          };
+        }
+        return p;
+      }));
     }
     
     setIsExplainSettingsModalOpen(false);
@@ -984,6 +999,8 @@ ${personalityText}
             })}
             activeSession={activeChatSession}
             onStartSession={(persona) => {
+              const isExplanation = ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(persona.role) || (persona.description && persona.description.includes('공감하며 위로'));
+              const ratio: ExplainRatio | undefined = persona.role === '내 편 100%' ? 'High' : persona.role === '반반' ? 'Middle' : (persona.role === '상대편 100%' || persona.role === '상대편 입장 100%') ? 'Low' : undefined;
               const newSession: ChatSession = {
                 id: `session-${Date.now()}`,
                 personaId: persona.id,
@@ -995,15 +1012,18 @@ ${personalityText}
                       {
                         id: `msg-0`,
                         sender: 'ai',
-                        text: persona.sampleFirstMessage,
+                        text: persona.sampleFirstMessage || (isExplanation ? `상황에 대한 이야기를 들려주세요. 편하게 감정을 털어놓으셔도 좋습니다.` : `말해보세요. 제 이야기도 들어보실래요?`),
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       }
                     ],
-                empathyScore: persona.empathyScore !== undefined ? persona.empathyScore : 64,
+                empathyScore: persona.empathyScore !== undefined ? persona.empathyScore : (ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : ratio === 'Low' ? 10 : 50),
                 createdAt: new Date().toISOString(),
-                status: 'active'
+                status: 'active',
+                chatMode: isExplanation ? 'explanation' : 'simulation',
+                explanationRatio: ratio
               };
               setActiveChatSession(newSession);
+              setAiExplainSettingsStory(null);
             }}
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
