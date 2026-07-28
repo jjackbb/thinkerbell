@@ -165,7 +165,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <ShieldAlert className="w-3.5 h-3.5" /> 신고
                   </button>
                   {isMyStory && onDeleteStory && (
-                    <button onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
+                    <button onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
                       <Trash2 className="w-3.5 h-3.5" /> 삭제
                     </button>
                   )}

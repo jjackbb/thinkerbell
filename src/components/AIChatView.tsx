@@ -191,11 +191,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       <div className="max-w-4xl mx-auto space-y-8 pb-24">
         {/* Banner */}
         <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
-          <div className="flex items-center gap-2 mb-3 font-mono text-xs">
-            <span className="bg-[#3ECF8E]/20 text-[#3ECF8E] px-2.5 py-0.5 rounded font-bold border border-[#3ECF8E]/30">
-              AI SIMULATION ENGINE
-            </span>
-          </div>
           <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
             1:1 AI 대화 시뮬레이션
           </h2>
