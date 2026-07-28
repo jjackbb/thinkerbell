@@ -116,11 +116,21 @@ app.post("/api/chat", async (req: Request, res: Response) => {
 // AI Chat Streaming (SSE)
 app.post("/api/chat-stream", async (req: Request, res: Response) => {
   try {
-    const { prompt, model = "claude-4-6-sonnet", apiKey, persona, systemInstruction } = req.body;
+    const { prompt, model = "claude-4-6-sonnet", apiKey, persona, systemInstruction, history } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
     }
+
+    // 이전 대화 기록 포매팅 (AI가 대화 흐름을 잊지 않고 수렴시키도록 함)
+    let historyText = "";
+    if (Array.isArray(history) && history.length > 0) {
+      historyText = "\n\n[과거 대화 히스토리 (시나리오 흐름 참고용)]:\n" + 
+        history.map((m: any) => `${m.sender === "user" ? "작성자(유저)" : "상대방(너)"}: ${m.text}`).join("\n");
+    }
+
+    // 통합 프롬프트 생성
+    const compiledPrompt = `${systemInstruction ? `[System Instruction: ${systemInstruction}]\n` : ""}${historyText}\n\n[작성자(유저)의 이번 최신 발언]: "${prompt}"\n[상대방(너)의 실제 대사 및 응답]:`;
 
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -132,10 +142,6 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
 
     if (effectiveApiKey) {
       try {
-        const fullPrompt = systemInstruction 
-          ? `[System Instruction: ${systemInstruction}]\n\n[User Input]: ${prompt}`
-          : prompt;
-
         const response = await fetch("https://ai.potens.ai/api/chat-stream", {
           method: "POST",
           headers: {
@@ -143,7 +149,7 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            prompt: fullPrompt,
+            prompt: compiledPrompt,
             model: model || "claude-4-6-sonnet"
           })
         });
@@ -171,11 +177,9 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
       const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const fullPrompt = `${systemInstruction ? systemInstruction + "\n\n" : ""}${prompt}`;
-      
       const resultStream = await ai.models.generateContentStream({
         model: "gemini-2.5-flash",
-        contents: fullPrompt
+        contents: compiledPrompt
       });
 
       for await (const chunk of resultStream) {

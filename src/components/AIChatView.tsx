@@ -35,6 +35,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [empathyScore, setEmpathyScore] = useState(64);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [simEndResult, setSimEndResult] = useState<'success' | 'fail' | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -61,6 +62,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       setShowChat(true);
       setMessages(activeSession.messages || []);
       setEmpathyScore(activeSession.empathyScore || 64);
+      setSimEndResult(null);
     }
   }, [activeSession?.id]);
 
@@ -101,7 +103,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           model: 'claude-4-6-sonnet',
           apiKey: potensApiKey,
           persona: selectedPersona.name,
-          systemInstruction: selectedPersona.systemInstruction
+          systemInstruction: selectedPersona.systemInstruction,
+          history: messages.slice(-8)
         })
       });
 
@@ -143,7 +146,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               const data = JSON.parse(trimmedLine.slice(6));
               if (data.type === 'text' && data.text) {
                 aiResponseText += data.text;
-                setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: aiResponseText } : m));
+                let displayText = aiResponseText;
+                if (displayText.includes('[SIM_END:SUCCESS]')) {
+                  setSimEndResult('success');
+                } else if (displayText.includes('[SIM_END:FAIL]')) {
+                  setSimEndResult('fail');
+                }
+                displayText = displayText.replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim();
+                setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
               }
             } catch (err) {
               // ignore parse error for incomplete JSON if any
@@ -152,7 +162,16 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         }
       }
 
-      if (!aiResponseText) {
+      if (aiResponseText) {
+        let finalText = aiResponseText;
+        if (finalText.includes('[SIM_END:SUCCESS]')) {
+          setSimEndResult('success');
+        } else if (finalText.includes('[SIM_END:FAIL]')) {
+          setSimEndResult('fail');
+        }
+        finalText = finalText.replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim();
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
+      } else {
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 논리적으로 다시 설명해 보세요.` } : m));
       }
 
@@ -345,7 +364,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   <span className="text-[#5f5e5e] font-medium">{selectedPersona.role}</span>
                 </div>
                 <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
-                  <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">{msg.text || '...'}</p>
+                  <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">
+                    {(msg.text || '...').replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim()}
+                  </p>
                 </div>
                 <span className="font-mono text-[10px] text-[#5f5e5e] px-1">{msg.timestamp}</span>
               </div>
@@ -355,25 +376,90 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         <div ref={messagesEndRef} />
       </main>
 
-      {/* Input */}
-      <footer className="bg-white border-t border-[#E5E7EB] p-4">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Share your logic..."
-            className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
-          />
-          <button
-            type="submit"
-            disabled={!inputText.trim() || isLoading}
-            className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            EXECUTE
-          </button>
-        </form>
-      </footer>
+      {/* 4턴 이상 오갔을 때 사용자 직접 종결 유도 바 (안전장치) */}
+      {!simEndResult && messages.filter(m => m.sender === 'user').length >= 4 && !isLoading && (
+        <div className="bg-[#f3f4f5] border-t border-[#E5E7EB] p-3 px-6 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+          <span className="text-xs text-[#5f5e5e] font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#3ECF8E] animate-ping"></span>
+            충분한 대화가 오갔습니다. 대화를 이만 매듭짓고 결과를 결정하시겠습니까?
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSimEndResult('success')}
+              className="px-3 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] text-xs font-bold font-mono rounded hover:bg-[#3ECF8E]/90 transition-all cursor-pointer shadow-2xs"
+            >
+              🤝 화해로 끝내기
+            </button>
+            <button
+              type="button"
+              onClick={() => setSimEndResult('fail')}
+              className="px-3 py-1.5 bg-[#1C1C1C] text-white text-xs font-bold font-mono rounded hover:bg-[#1C1C1C]/90 transition-all cursor-pointer shadow-2xs"
+            >
+              ⚡ 결렬로 끝내기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Input / Simulation Result Footer */}
+      {simEndResult ? (
+        <footer className="bg-[#1C1C1C] text-white p-6 border-t border-[#E5E7EB] transition-all animate-fadeIn">
+          <div className="max-w-xl mx-auto flex flex-col items-center text-center space-y-4">
+            <div className="flex items-center gap-2">
+              {simEndResult === 'success' ? (
+                <span className="px-3.5 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
+                  🎉 SIMULATION RESOLVED : 대화 화해 & 합의 성공!
+                </span>
+              ) : (
+                <span className="px-3.5 py-1.5 bg-[#ba1a1a] text-white rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
+                  ⚡ SIMULATION ENDED : 평행선 & 협상 결렬
+                </span>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm font-body-sm text-[#E5E7EB] leading-relaxed">
+              {simEndResult === 'success' 
+                ? '합리적이고 따뜻한 설득으로 갈등이 아름답게 해소되었습니다. 오늘의 시뮬레이션 경험을 실전에서도 십분 발휘해보세요!'
+                : '서로의 확고한 입장 차이를 확인하고 대화가 마무리되었습니다. 때로는 적당한 간격을 두는 것이 지혜로운 해답이 될 수 있습니다.'}
+            </p>
+            <div className="flex gap-3 w-full justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setSimEndResult(null)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border border-white/20"
+              >
+                🔄 종결 취소하고 계속 대화
+              </button>
+              <button
+                type="button"
+                onClick={confirmEndChat}
+                className="px-5 py-2 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg text-xs font-bold hover:bg-[#3ECF8E]/90 transition-colors cursor-pointer shadow-md font-mono"
+              >
+                ✨ 시뮬레이션 완료 및 닫기
+              </button>
+            </div>
+          </div>
+        </footer>
+      ) : (
+        <footer className="bg-white border-t border-[#E5E7EB] p-4">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Share your logic..."
+              className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
+            />
+            <button
+              type="submit"
+              disabled={!inputText.trim() || isLoading}
+              className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              EXECUTE
+            </button>
+          </form>
+        </footer>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
