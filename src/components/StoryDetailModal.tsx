@@ -8,7 +8,7 @@ interface StoryDetailModalProps {
   currentUser: UserProfile;
   onClose: () => void;
   onVote: (storyId: string, option: 'A' | 'B') => void;
-  onAddComment: (storyId: string, content: string, isAnonymous: boolean) => void;
+  onAddComment: (storyId: string, content: string) => void;
   onLikeComment: (commentId: string) => void;
   onStartAIChat: (story: Story) => void;
   onReportStory: (storyId: string) => void;
@@ -65,7 +65,6 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   }, [isMenuOpen]);
 
   const isMyStory = story ? currentUser.id === story.authorId : false;
-  const [isAnonymous, setIsAnonymous] = useState(!isMyStory);
 
   if (!story) return null;
 
@@ -117,7 +116,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       console.warn('댓글 비속어 필터 실패, 원문으로 등록:', err);
     }
 
-    onAddComment(story.id, sanitizedComment, isMyStory ? false : isAnonymous);
+    onAddComment(story.id, sanitizedComment);
     setCommentText('');
     showToast('논리 분석 댓글이 등록되었습니다.');
   };
@@ -419,16 +418,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     className="w-full p-3 font-body-sm text-xs focus:outline-none resize-none border-b border-[#E5E7EB]"
                   />
                   <div className="flex items-center justify-between p-2 px-3 bg-[#f9fafb]">
-                    <label className={`flex items-center gap-2 text-xs font-mono cursor-pointer ${isMyStory ? 'opacity-50' : ''}`}>
-                      <input 
-                        type="checkbox" 
-                        checked={isMyStory ? false : isAnonymous} 
-                        onChange={(e) => setIsAnonymous(e.target.checked)}
-                        disabled={isMyStory}
-                        className="rounded border-[#E5E7EB] text-[#FF6B5A] focus:ring-[#FF6B5A]"
-                      />
-                      <span className="text-[#5f5e5e] font-bold">익명 표시</span>
-                    </label>
+                    {/* 익명은 선택이 아니라 유일한 방식이다. 체크박스를 두면 실수로
+                        닉네임이 노출되고, 사연에서 닉네임을 감춘 의미도 사라진다 */}
+                    <span className="text-xs font-mono text-[#5f5e5e]">
+                      {isMyStory ? '글쓴이로 표시됩니다' : '익명으로 등록됩니다'}
+                    </span>
                     <button
                       type="submit"
                       className="bg-[#1C1C1C] text-[#FF6B5A] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"

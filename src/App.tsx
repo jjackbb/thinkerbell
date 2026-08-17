@@ -389,16 +389,34 @@ export default function App() {
     await loadMyVotes();
   };
 
-  const handleAddComment = async (storyId: string, content: string, isAnonymous: boolean) => {
-    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
+  // 화면에 즉시 보여줄 익명 표기. 최종 확정은 서버 트리거(assign_comment_anon_id)가 하고,
+  // 여기서는 같은 규칙으로 미리 계산해 낙관적 업데이트가 어긋나지 않게 한다.
+  const previewAnonymousId = (storyId: string): string => {
+    const story = stories.find(s => s.id === storyId);
+    if (story && story.authorId === user.id) return '글쓴이';
 
     const storyComments = commentsMap[storyId] || [];
-    const anonNumber = storyComments.length + 1;
+
+    // 이 사연에 이미 단 적이 있으면 그때 번호를 유지한다
+    const mine = storyComments.find(c => c.authorId === user.id && /^익명 \d+$/.test(c.anonymousId));
+    if (mine) return mine.anonymousId;
+
+    // 없으면 현재 최대 번호 + 1 (댓글 '개수'가 아니라 '최대 번호' 기준)
+    const maxNo = storyComments.reduce((max, c) => {
+      const m = /^익명 (\d+)$/.exec(c.anonymousId);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 0);
+    return `익명 ${maxNo + 1}`;
+  };
+
+  const handleAddComment = async (storyId: string, content: string) => {
+    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
+
     const newComment: Comment = {
       id: `comment-${Date.now()}`,
       storyId,
       authorId: user.id,
-      anonymousId: isAnonymous ? `익명 ${anonNumber}` : user.nickname,
+      anonymousId: previewAnonymousId(storyId),
       content,
       createdAt: new Date().toISOString(),
       likeCount: 0,
