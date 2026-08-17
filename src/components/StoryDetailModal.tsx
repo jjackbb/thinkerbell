@@ -49,6 +49,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editingCommentText, setEditingCommentText] = useState('');
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
 
+  // 서버에서 내 투표 기록을 불러오면 모달 상태도 따라가야 한다
+  useEffect(() => {
+    setVotedOption(story?.userVoted ?? null);
+  }, [story?.id, story?.userVoted]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (isMenuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {

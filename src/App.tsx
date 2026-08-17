@@ -99,8 +99,11 @@ export default function App() {
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || prev.nickname,
         }));
+        loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
         setShowWelcomeModal(true);
+        setMyVoteRecords([]);
+        setStories(prev => prev.map(s => ({ ...s, userVoted: undefined, voteChanged: false })));
       }
     });
 
@@ -120,6 +123,7 @@ export default function App() {
     supabase.from('stories').select('*').order('createdAt', { ascending: false }).then(({ data, error }) => {
       if (data && !error) {
         setStories(data);
+        loadMyVotes();
       }
     });
 
@@ -233,11 +237,8 @@ export default function App() {
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
 
-  // My Activity Trackers
-  const [myVotes, setMyVotes] = useState<{ storyId: string; title: string; option: 'A' | 'B' }[]>(() => {
-    const saved = localStorage.getItem('nipyeon_my_votes');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // My Activity Trackers — 투표 기록은 서버(votes 테이블)가 원본이다
+  const [myVoteRecords, setMyVoteRecords] = useState<{ storyId: string; option: 'A' | 'B' }[]>([]);
 
   // Save to LocalStorage
   useEffect(() => {
@@ -252,9 +253,33 @@ export default function App() {
     localStorage.setItem('nipyeon_personas', JSON.stringify(personas));
   }, [personas]);
 
-  useEffect(() => {
-    localStorage.setItem('nipyeon_my_votes', JSON.stringify(myVotes));
-  }, [myVotes]);
+  // 내 투표 기록을 서버에서 불러와 화면 상태에 반영한다.
+  // (RLS가 본인 행만 내려주므로 별도 필터가 필요 없다)
+  const loadMyVotes = useCallback(async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session?.user) {
+      setMyVoteRecords([]);
+      return;
+    }
+
+    const { data, error } = await supabase.from('votes').select('storyId, option, changeCount');
+    if (error || !data) return;
+
+    const voteByStory = new Map<string, { option: 'A' | 'B'; changeCount: number }>(
+      data.map((v: any) => [v.storyId, { option: v.option, changeCount: v.changeCount }])
+    );
+
+    setStories(prev =>
+      prev.map(s => {
+        const v = voteByStory.get(s.id);
+        return v
+          ? { ...s, userVoted: v.option, voteChanged: v.changeCount >= 1 }
+          : { ...s, userVoted: undefined, voteChanged: false };
+      })
+    );
+
+    setMyVoteRecords(data.map((v: any) => ({ storyId: v.storyId, option: v.option as 'A' | 'B' })));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('potens_api_key', potensApiKey);
@@ -296,7 +321,6 @@ export default function App() {
   const handleVote = async (storyId: string, option: 'A' | 'B') => {
     if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
 
-    let previousVote: 'A' | 'B' | null = null;
     let updateNeeded = false;
 
     setStories(prev => prev.map(story => {
@@ -324,7 +348,6 @@ export default function App() {
           setToastMessage('투표가 변경되었습니다.');
           setTimeout(() => setToastMessage(null), 3000);
 
-          previousVote = story.userVoted;
           updateNeeded = true;
           return updated;
         }
@@ -336,26 +359,34 @@ export default function App() {
           votesA: option === 'A' ? story.votesA + 1 : story.votesA,
           votesB: option === 'B' ? story.votesB + 1 : story.votesB,
         };
-        // Track vote in my activity
-        setMyVotes(mv => [...mv, { storyId: story.id, title: story.title, option }]);
         if (selectedStory?.id === storyId) setSelectedStory(updated);
 
-        previousVote = null;
         updateNeeded = true;
         return updated;
       }
       return story;
     }));
 
-    if (updateNeeded) {
-      // 남의 사연을 수정하는 동작이라 RLS상 직접 UPDATE가 막혀 있다.
-      // 서버 함수가 증감 폭과 본인 사연 여부를 검증한다.
-      await supabase.rpc('vote_story', {
-        p_story_id: storyId,
-        p_option: option,
-        p_previous: previousVote,
-      });
+    if (!updateNeeded) return;
+
+    // 중복·재투표 판정은 서버의 votes 테이블이 최종 결정한다.
+    // 화면은 먼저 바꿔두고, 거절당하면 서버 기준으로 되돌린다.
+    const { error } = await supabase.rpc('vote_story', {
+      p_story_id: storyId,
+      p_option: option,
+    });
+
+    if (error) {
+      setToastMessage(error.message || '투표를 처리하지 못했습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+
+      const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).single();
+      if (fresh) {
+        setStories(prev => prev.map(s => (s.id === storyId ? { ...s, ...(fresh as Story) } : s)));
+      }
     }
+
+    await loadMyVotes();
   };
 
   const handleAddComment = async (storyId: string, content: string, isAnonymous: boolean) => {
@@ -880,6 +911,13 @@ ${stanceInstruction}
   const filteredStories = latestMyStory
     ? [latestMyStory, ...baseFilteredStories.filter(s => s.id !== latestMyStory.id)]
     : baseFilteredStories;
+
+  // 마이페이지에 보여줄 내 투표 목록 (제목은 현재 사연 목록에서 가져온다)
+  const myVotes = myVoteRecords.map(v => ({
+    storyId: v.storyId,
+    option: v.option,
+    title: stories.find(s => s.id === v.storyId)?.title ?? '삭제된 사연',
+  }));
 
   // Current week date calculation (Monday to Sunday)
   const now = new Date();

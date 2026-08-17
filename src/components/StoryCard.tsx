@@ -38,6 +38,11 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const cardRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 서버에서 내 투표 기록을 불러오면 카드 상태도 따라가야 한다
+  useEffect(() => {
+    setVotedOption(story.userVoted ?? null);
+  }, [story.userVoted]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (isExpanded && cardRef.current && !cardRef.current.contains(e.target as Node)) {
