@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
+import { SessionSummaryCard } from './SessionSummaryCard';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
   onCrisisDetected?: (text: string) => void;
+  /** 이 대화가 붙어 있는 사연에서 '내 편'을 고른 사람 수 */
+  supporterCount?: number;
   personas: AIPersona[];
   activeSession: ChatSession | null;
   onStartSession: (persona: AIPersona) => void;
@@ -19,6 +22,7 @@ interface AIChatViewProps {
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
   onCrisisDetected,
+  supporterCount,
   personas,
   activeSession,
   onStartSession,
@@ -41,6 +45,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   // 아직 대화를 시작하지 않은 채 나갈 때, 지울지 남길지 사용자가 고르게 한다
   const [showExitChoice, setShowExitChoice] = useState(false);
   const [simEndResult, setSimEndResult] = useState<'success' | 'fail' | null>(null);
+  // 요약 카드에서 되짚어 온 말풍선을 잠깐 표시해 둔다
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -202,6 +208,20 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   const handleEndChat = () => {
     setShowDeleteModal(true);
+  };
+
+  /**
+   * 요약 카드의 인용 줄에서 원문 말풍선으로 되돌아간다.
+   * 인용만 보여주면 맥락이 잘려 보이므로, 그때 무슨 대화였는지 확인할 길을 남긴다.
+   */
+  const jumpToMessage = (messageId: string) => {
+    setHighlightedId(messageId);
+    // 요약 카드가 접히면서 대화 영역이 늘어난 뒤에 스크롤해야 위치가 맞는다
+    window.setTimeout(() => {
+      document.getElementById(`bubble-${messageId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+    window.setTimeout(() => setHighlightedId(prev => (prev === messageId ? null : prev)), 2400);
   };
 
   /** AI 인사말만 있고 내가 아직 아무 말도 안 한 상태인가 */
@@ -408,8 +428,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         {messages.map((msg) => {
           if (msg.sender === 'user') {
             return (
-              <div key={msg.id} className="flex flex-col items-end max-w-[85%] ml-auto space-y-1">
-                <div className="bg-[#1C1C1C] text-white p-4 rounded-lg shadow-2xs">
+              <div key={msg.id} id={`bubble-${msg.id}`} className="flex flex-col items-end max-w-[85%] ml-auto space-y-1">
+                <div className={`bg-[#1C1C1C] text-white p-4 rounded-lg shadow-2xs transition-all ${
+                  highlightedId === msg.id ? 'ring-2 ring-[#FF6B5A] ring-offset-2' : ''
+                }`}>
                   <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">{msg.text}</p>
                 </div>
                 <span className="font-mono text-[10px] text-[#5f5e5e] px-1">{msg.timestamp}</span>
@@ -440,7 +462,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         <div className="bg-[#f3f4f5] border-t border-[#E5E7EB] p-3 px-6 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <span className="text-xs text-[#5f5e5e] font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#FF6B5A] animate-ping"></span>
-            충분한 대화가 오갔습니다. 대화를 이만 매듭짓고 결과를 결정하시겠습니까?
+            충분한 대화가 오갔어요. 여기서 한번 정리해볼까요?
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -463,42 +485,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
       {/* Input / Simulation Result Footer */}
       {simEndResult ? (
-        <footer className="bg-[#1C1C1C] text-white p-6 border-t border-[#E5E7EB] transition-all animate-fadeIn">
-          <div className="max-w-xl mx-auto flex flex-col items-center text-center space-y-4">
-            <div className="flex items-center gap-2">
-              {simEndResult === 'success' ? (
-                <span className="px-3.5 py-1.5 bg-[#FF6B5A] text-[#1C1C1C] rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
-                  🎉 SIMULATION RESOLVED : 대화 화해 & 합의 성공!
-                </span>
-              ) : (
-                <span className="px-3.5 py-1.5 bg-[#ba1a1a] text-white rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
-                  ⚡ SIMULATION ENDED : 평행선 & 협상 결렬
-                </span>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm font-body-sm text-[#E5E7EB] leading-relaxed">
-              {simEndResult === 'success' 
-                ? '합리적이고 따뜻한 설득으로 갈등이 아름답게 해소되었습니다. 오늘의 시뮬레이션 경험을 실전에서도 십분 발휘해보세요!'
-                : '서로의 확고한 입장 차이를 확인하고 대화가 마무리되었습니다. 때로는 적당한 간격을 두는 것이 지혜로운 해답이 될 수 있습니다.'}
-            </p>
-            <div className="flex gap-3 w-full justify-center pt-2">
-              <button
-                type="button"
-                onClick={() => setSimEndResult(null)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border border-white/20"
-              >
-                🔄 종결 취소하고 계속 대화
-              </button>
-              <button
-                type="button"
-                onClick={confirmEndChat}
-                className="px-5 py-2 bg-[#FF6B5A] text-[#1C1C1C] rounded-lg text-xs font-bold hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md font-mono"
-              >
-                ✨ 시뮬레이션 완료 및 닫기
-              </button>
-            </div>
-          </div>
-        </footer>
+        <SessionSummaryCard
+          result={simEndResult}
+          messages={messages}
+          supporterCount={supporterCount}
+          onJumpToMessage={jumpToMessage}
+          onContinue={() => setSimEndResult(null)}
+          onFinish={confirmEndChat}
+        />
       ) : (
         <footer className="bg-white border-t border-[#E5E7EB] p-4">
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">

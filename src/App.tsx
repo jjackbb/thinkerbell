@@ -1171,6 +1171,11 @@ ${stanceInstruction}
         {activeTab === 'ai-chat' && (
           <AIChatView
             onCrisisDetected={(t) => notifyIfCrisis(t)}
+            supporterCount={
+              activeChatSession?.storyId
+                ? stories.find(s => s.id === activeChatSession.storyId)?.votesA
+                : undefined
+            }
             personas={[...personas].sort((a, b) => {
               if (b.isPinned !== a.isPinned) return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
               const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
