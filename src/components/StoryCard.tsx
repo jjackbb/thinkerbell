@@ -251,6 +251,15 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               남 편
             </button>
           </div>
+
+          {/* 투표 변경 가능 여부 안내 (투표한 사연에만 노출) */}
+          {!isMyStory && votedOption && (
+            <p className="mt-2 text-[11px] text-[#5f5e5e] text-center">
+              {story.voteChanged
+                ? '투표가 확정되어 더 이상 바꿀 수 없어요.'
+                : '투표는 한 번만 바꿀 수 있어요.'}
+            </p>
+          )}
         </div>
       </div>
 

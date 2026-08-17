@@ -345,7 +345,7 @@ export default function App() {
           };
           if (selectedStory?.id === storyId) setSelectedStory(updated);
           
-          setToastMessage('투표가 변경되었습니다.');
+          setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
           setTimeout(() => setToastMessage(null), 3000);
 
           updateNeeded = true;

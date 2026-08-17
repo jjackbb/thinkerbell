@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
-import { X, Send, ShieldAlert, ThumbsUp, ThumbsDown, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
+import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
   story: Story | null;
@@ -260,45 +260,48 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* My Side (내편) */}
+                {/* 사연 피드 카드와 동일한 투표 버튼 */}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleVote('A')}
                     disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 rounded-lg transition-all active:scale-[0.98] border-2 ${
+                    className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'A'
-                        ? 'bg-[#3ECF8E] text-[#1C1C1C] border-[#3ECF8E] ring-4 ring-[#3ECF8E]/30 cursor-default'
+                        ? 'bg-[#3ECF8E] text-[#1C1C1C] cursor-default'
                         : isMyStory
-                        ? 'bg-[#f3f4f5] border-[#E5E7EB] text-[#5f5e5e]/50 cursor-not-allowed'
-                        : 'bg-[#f3f4f5] border-[#E5E7EB] text-[#1C1C1C] hover:bg-[#3ECF8E]/20 cursor-pointer'
+                        ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
+                        : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#3ECF8E]/20 cursor-pointer'
                     }`}
                   >
-                    <ThumbsUp className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform`} />
-                    <span className="font-headline-lg text-lg font-black mb-1">내 편</span>
-                    <span className="absolute top-3 right-3 font-mono text-xs font-bold">{percentA}%</span>
+                    내 편
                   </button>
-
-                  {/* Opposite Side (니편) */}
                   <button
                     onClick={() => handleVote('B')}
                     disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
-                    className={`group relative overflow-hidden flex flex-col items-center justify-center p-6 rounded-lg transition-all active:scale-[0.98] border-2 ${
+                    className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'B'
-                        ? 'bg-[#1C1C1C] text-white border-[#1C1C1C] ring-4 ring-[#1C1C1C]/20 cursor-default'
+                        ? 'bg-[#1C1C1C] text-white cursor-default'
                         : isMyStory
-                        ? 'bg-[#f3f4f5] border-[#E5E7EB] text-[#5f5e5e]/50 cursor-not-allowed'
-                        : 'bg-[#f3f4f5] border-[#E5E7EB] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
+                        ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
+                        : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
                     }`}
                   >
-                    <ThumbsDown className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-headline-lg text-lg font-black mb-1">남 편</span>
-                    <span className="absolute top-3 right-3 font-mono text-xs font-bold">{percentB}%</span>
+                    남 편
                   </button>
                 </div>
 
                 {isMyStory && (
                   <p className="text-xs text-[#F97316] text-center font-semibold mt-1">
                     ※ 내가 작성한 사연은 여론 확인만 가능합니다.
+                  </p>
+                )}
+
+                {/* 투표 변경 가능 여부 안내 (투표한 경우에만 노출) */}
+                {!isMyStory && votedOption && (
+                  <p className="text-[11px] text-[#5f5e5e] text-center">
+                    {story.voteChanged
+                      ? '투표가 확정되어 더 이상 바꿀 수 없어요.'
+                      : '투표는 한 번만 바꿀 수 있어요.'}
                   </p>
                 )}
               </div>
