@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const BALANCE_GAMES = [
   {
@@ -173,49 +173,41 @@ export const BalanceGameSection: React.FC = () => {
                 </h3>
               </div>
 
-              {/* 결과 비율 바 — 바의 좌/우를 눌러 투표한다 */}
+              {/* 결과 비율 바 + 투표 버튼 (사연 피드 카드와 동일한 구성) */}
               <div className="w-full md:w-72 z-10 font-mono">
-                <div className="bg-white/5 px-4 py-3 border border-white/10 rounded-lg">
-                  <div className="flex items-center justify-between text-white text-xs mb-1 font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#3ECF8E] shrink-0"></span>
-                      <span>{game.optA}</span>
-                      <span className="text-[#3ECF8E]">{percentA}%</span>
-                      {state.selectedOption === 'A' && <CheckCircle2 className="w-3.5 h-3.5 text-[#3ECF8E] shrink-0" />}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      {state.selectedOption === 'B' && <CheckCircle2 className="w-3.5 h-3.5 text-white/70 shrink-0" />}
-                      <span>{percentB}%</span>
-                      <span>{game.optB}</span>
-                      <span className="w-2 h-2 rounded-full bg-white/40 shrink-0"></span>
-                    </span>
-                  </div>
+                <div className="flex justify-between text-xs font-bold mb-2">
+                  <span className="text-[#3ECF8E]">{game.optA} ({percentA}%)</span>
+                  <span className="text-white/50">{game.optB} ({percentB}%)</span>
+                </div>
 
-                  <div className="relative py-1.5">
-                    <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden flex">
-                      <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
-                      <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
-                    </div>
+                <div className="flex w-full h-2 rounded-full overflow-hidden bg-white/10 mb-3">
+                  <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
+                  <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
+                </div>
 
-                    <button
-                      onClick={() => handleVote(idx, 'A')}
-                      className="absolute inset-y-0 left-0 w-1/2 rounded-l-full cursor-pointer transition-colors hover:bg-white/10 active:bg-white/20"
-                      aria-label={`${game.optA}에 투표하기`}
-                      aria-pressed={state.selectedOption === 'A'}
-                    />
-                    <button
-                      onClick={() => handleVote(idx, 'B')}
-                      className="absolute inset-y-0 right-0 w-1/2 rounded-r-full cursor-pointer transition-colors hover:bg-white/10 active:bg-white/20"
-                      aria-label={`${game.optB}에 투표하기`}
-                      aria-pressed={state.selectedOption === 'B'}
-                    />
-                  </div>
-
-                  {!state.selectedOption && (
-                    <p className="text-[10px] text-[#5f5e5e] text-center leading-none">
-                      바의 좌 · 우를 눌러 투표하세요
-                    </p>
-                  )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleVote(idx, 'A')}
+                    aria-pressed={state.selectedOption === 'A'}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      state.selectedOption === 'A'
+                        ? 'bg-[#3ECF8E] text-[#1C1C1C]'
+                        : 'bg-white/10 text-white hover:bg-[#3ECF8E]/20'
+                    }`}
+                  >
+                    {game.optA}
+                  </button>
+                  <button
+                    onClick={() => handleVote(idx, 'B')}
+                    aria-pressed={state.selectedOption === 'B'}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      state.selectedOption === 'B'
+                        ? 'bg-white text-[#1C1C1C]'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    {game.optB}
+                  </button>
                 </div>
               </div>
             </div>

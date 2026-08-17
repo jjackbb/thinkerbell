@@ -239,8 +239,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 {/* Live Vote Gauge */}
                 <div>
                   <div className="flex justify-between font-label-sm text-xs mb-2">
-                    <span className="text-[#3ECF8E] font-bold">A. 내 편 ({percentA}%)</span>
-                    <span className="text-[#5f5e5e]">B. 남 편 ({percentB}%)</span>
+                    <span className="text-[#3ECF8E] font-bold">내 편 ({percentA}%)</span>
+                    <span className="text-[#5f5e5e]">남 편 ({percentB}%)</span>
                   </div>
 
                   <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] mb-3">
