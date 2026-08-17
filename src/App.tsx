@@ -296,8 +296,7 @@ export default function App() {
   const handleVote = async (storyId: string, option: 'A' | 'B') => {
     if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
 
-    let newVotesA = 0;
-    let newVotesB = 0;
+    let previousVote: 'A' | 'B' | null = null;
     let updateNeeded = false;
 
     setStories(prev => prev.map(story => {
@@ -324,9 +323,8 @@ export default function App() {
           
           setToastMessage('투표가 변경되었습니다.');
           setTimeout(() => setToastMessage(null), 3000);
-          
-          newVotesA = updated.votesA;
-          newVotesB = updated.votesB;
+
+          previousVote = story.userVoted;
           updateNeeded = true;
           return updated;
         }
@@ -341,9 +339,8 @@ export default function App() {
         // Track vote in my activity
         setMyVotes(mv => [...mv, { storyId: story.id, title: story.title, option }]);
         if (selectedStory?.id === storyId) setSelectedStory(updated);
-        
-        newVotesA = updated.votesA;
-        newVotesB = updated.votesB;
+
+        previousVote = null;
         updateNeeded = true;
         return updated;
       }
@@ -351,7 +348,13 @@ export default function App() {
     }));
 
     if (updateNeeded) {
-      await supabase.from('stories').update({ votesA: newVotesA, votesB: newVotesB }).eq('id', storyId);
+      // 남의 사연을 수정하는 동작이라 RLS상 직접 UPDATE가 막혀 있다.
+      // 서버 함수가 증감 폭과 본인 사연 여부를 검증한다.
+      await supabase.rpc('vote_story', {
+        p_story_id: storyId,
+        p_option: option,
+        p_previous: previousVote,
+      });
     }
   };
 
@@ -378,20 +381,18 @@ export default function App() {
       [storyId]: [...(prev[storyId] || []), newComment]
     }));
 
-    // Increment story comment count
-    const story = stories.find(s => s.id === storyId);
-    if (story) {
-      setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
-      await supabase.from('stories').update({ commentCount: story.commentCount + 1 }).eq('id', storyId);
-    }
-    
+    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
+    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
+
     const { userLiked, ...dbComment } = newComment;
     await supabase.from('comments').insert(dbComment);
   };
 
   const handleLikeComment = async (commentId: string) => {
+    if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) return;
+
     let updateNeeded = false;
-    let newLikeCount = 0;
+    let delta = 0;
 
     setCommentsMap(prev => {
       const updatedMap = { ...prev };
@@ -399,12 +400,12 @@ export default function App() {
         updatedMap[storyId] = updatedMap[storyId].map(c => {
           if (c.id === commentId) {
             const userLiked = !c.userLiked;
-            newLikeCount = userLiked ? c.likeCount + 1 : c.likeCount - 1;
+            delta = userLiked ? 1 : -1;
             updateNeeded = true;
             return {
               ...c,
               userLiked,
-              likeCount: newLikeCount
+              likeCount: Math.max(0, c.likeCount + delta)
             };
           }
           return c;
@@ -414,7 +415,8 @@ export default function App() {
     });
 
     if (updateNeeded) {
-      await supabase.from('comments').update({ likeCount: newLikeCount }).eq('id', commentId);
+      // 남의 댓글을 수정하는 동작이라 서버 함수를 통해서만 증감한다
+      await supabase.rpc('like_comment', { p_comment_id: commentId, p_delta: delta });
     }
   };
   const handleEditComment = async (storyId: string, commentId: string, newContent: string) => {
@@ -440,12 +442,9 @@ export default function App() {
       return updatedMap;
     });
     
-    const story = stories.find(s => s.id === storyId);
-    if (story) {
-      setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
-      await supabase.from('stories').update({ commentCount: Math.max(0, story.commentCount - 1) }).eq('id', storyId);
-    }
-    
+    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
+    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
+
     await supabase.from('comments').delete().eq('id', commentId);
   };
 
@@ -801,6 +800,8 @@ ${stanceInstruction}
   };
 
   const handleSubmitReport = async (targetId: string, reason: string) => {
+    if (blockedForGuest('신고하려면 로그인이 필요해요.')) return;
+
     let storyUpdateNeeded = false;
     let newReportsCount = 0;
     let newIsBlind = false;
@@ -822,7 +823,8 @@ ${stanceInstruction}
     }));
 
     if (storyUpdateNeeded) {
-      await supabase.from('stories').update({ reportsCount: newReportsCount, isBlind: newIsBlind }).eq('id', targetId);
+      // 신고 누적과 5회 자동 블라인드 판정은 서버 함수가 처리한다
+      await supabase.rpc('report_story', { p_story_id: targetId });
     }
     
     // Check if it's a comment
@@ -852,7 +854,7 @@ ${stanceInstruction}
     });
 
     if (commentUpdateNeeded) {
-      await supabase.from('comments').update({ reportsCount: commentNewReportsCount, isBlind: commentNewIsBlind }).eq('id', targetId);
+      await supabase.rpc('report_comment', { p_comment_id: targetId });
     }
   };
 
