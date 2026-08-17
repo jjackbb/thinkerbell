@@ -3,6 +3,8 @@ import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } f
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 
 interface AIChatViewProps {
+  /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
+  onCrisisDetected?: (text: string) => void;
   personas: AIPersona[];
   activeSession: ChatSession | null;
   onStartSession: (persona: AIPersona) => void;
@@ -16,6 +18,7 @@ interface AIChatViewProps {
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
+  onCrisisDetected,
   personas,
   activeSession,
   onStartSession,
@@ -85,6 +88,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
     const userMsgText = inputText.trim();
     setInputText('');
+
+    onCrisisDetected?.(userMsgText);
 
     const newUserMsg: ChatMessage = {
       id: `msg-${Date.now()}`,

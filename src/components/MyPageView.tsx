@@ -509,6 +509,19 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
 
+        {/* 위기 상담은 어느 화면에서든 1~2번 터치로 닿아야 한다.
+            깊은 메뉴에 묻어두면 정작 필요한 순간에 못 찾는다 */}
+        <a
+          href="tel:109"
+          className="w-full flex items-center justify-between p-4 bg-white border border-[#FF6B5A] rounded-lg hover:bg-[#FF6B5A]/5 transition-colors cursor-pointer"
+        >
+          <span className="flex flex-col text-left">
+            <span className="font-bold text-sm text-[#1C1C1C]">힘들 때 상담 전화</span>
+            <span className="text-[11px] text-[#5f5e5e] font-normal">자살예방상담전화 · 24시간 익명</span>
+          </span>
+          <span className="font-mono text-lg font-bold text-[#D6452F]">109</span>
+        </a>
+
         <div className="pt-4">
           <button 
             onClick={() => supabase.auth.signOut()}

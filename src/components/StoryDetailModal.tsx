@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
+import { detectCrisis } from '../lib/crisis';
 import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
@@ -48,11 +49,17 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
+  const [showSensitiveBody, setShowSensitiveBody] = useState(false);
 
   // 서버에서 내 투표 기록을 불러오면 모달 상태도 따라가야 한다
   useEffect(() => {
     setVotedOption(story?.userVoted ?? null);
   }, [story?.id, story?.userVoted]);
+
+  // 다른 사연으로 바뀌면 민감 안내를 다시 보여준다
+  useEffect(() => {
+    setShowSensitiveBody(false);
+  }, [story?.id]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -67,6 +74,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isMyStory = story ? currentUser.id === story.authorId : false;
 
   if (!story) return null;
+
+  const isSensitive = detectCrisis(story.body) || detectCrisis(story.title);
 
   const filteredComments = comments
     .filter(c => {
@@ -232,11 +241,40 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
           <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-8">
             {/* Left Story Body & Vote */}
             <div className="flex-1 space-y-8">
-              <article className="prose max-w-none">
-                <p className="font-body-lg text-sm sm:text-base text-[#191c1d] leading-relaxed whitespace-pre-line">
-                  {story.body}
-                </p>
-              </article>
+              {/* 위기 표현이 담긴 사연은 본문보다 먼저 안내를 보여준다.
+                  자살 관련 보도에서 기사 앞에 주의 문구를 두는 방식과 같다 */}
+              {isSensitive && !showSensitiveBody ? (
+                <article className="rounded-xl border border-[#E5E7EB] bg-[#f9fafb] p-6 text-center">
+                  <p className="text-sm font-bold text-[#1C1C1C] mb-2">
+                    힘든 마음이 담긴 사연이에요
+                  </p>
+                  <p className="text-xs text-[#5f5e5e] leading-relaxed mb-4">
+                    읽는 것만으로 마음이 무거워질 수 있어요.
+                    지금 나도 힘들다면 <span className="font-bold text-[#1C1C1C]">자살예방상담전화 109</span>에서
+                    24시간 익명으로 이야기할 수 있습니다.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <button
+                      onClick={() => setShowSensitiveBody(true)}
+                      className="px-4 py-2 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
+                    >
+                      사연 보기
+                    </button>
+                    <a
+                      href="tel:109"
+                      className="px-4 py-2 rounded-lg bg-[#FF6B5A] text-white text-xs font-bold hover:bg-[#e85a4a] transition-colors"
+                    >
+                      109 연결하기
+                    </a>
+                  </div>
+                </article>
+              ) : (
+                <article className="prose max-w-none">
+                  <p className="font-body-lg text-sm sm:text-base text-[#191c1d] leading-relaxed whitespace-pre-line">
+                    {story.body}
+                  </p>
+                </article>
+              )}
 
               {/* Voting Section */}
               <div className="space-y-4 pt-4 border-t border-[#E5E7EB]">

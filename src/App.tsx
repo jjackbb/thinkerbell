@@ -17,11 +17,13 @@ import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { LoginPromptModal } from './components/LoginPromptModal';
+import { CrisisSupportModal } from './components/CrisisSupportModal';
 import { AdultVerificationModal } from './components/AdultVerificationModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { detectCrisis } from './lib/crisis';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -52,6 +54,13 @@ export default function App() {
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(false);
   const [loginPromptMessage, setLoginPromptMessage] = useState<string | null>(null);
+
+  // 위기 표현이 감지되면 상담 안내를 띄운다. 글쓰기나 대화는 막지 않는다 —
+  // 막으면 다른 앱으로 옮겨갈 뿐이라, 리소스만 보여주고 흐름은 그대로 둔다.
+  const [isCrisisOpen, setIsCrisisOpen] = useState<boolean>(false);
+  const notifyIfCrisis = (...texts: (string | undefined)[]) => {
+    if (texts.some(t => detectCrisis(t ?? ''))) setIsCrisisOpen(true);
+  };
 
   const handleGuestBrowse = () => {
     setIsGuest(true);
@@ -412,6 +421,8 @@ export default function App() {
   const handleAddComment = async (storyId: string, content: string) => {
     if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
 
+    notifyIfCrisis(content);
+
     const newComment: Comment = {
       id: `comment-${Date.now()}`,
       storyId,
@@ -568,6 +579,8 @@ export default function App() {
     createAIPersona: boolean;
     isAdult: boolean;
   }) => {
+    notifyIfCrisis(storyData.title, storyData.body);
+
     const cardColors: ('pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream')[] = ['pink', 'teal', 'lavender', 'peach', 'ochre'];
     const randomColor = cardColors[Math.floor(Math.random() * cardColors.length)];
 
@@ -1104,6 +1117,7 @@ ${stanceInstruction}
         {/* TAB 2: AI SIMULATION CHAT VIEW */}
         {activeTab === 'ai-chat' && (
           <AIChatView
+            onCrisisDetected={(t) => notifyIfCrisis(t)}
             personas={[...personas].sort((a, b) => {
               if (b.isPinned !== a.isPinned) return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
               const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -1190,6 +1204,11 @@ ${stanceInstruction}
         isOpen={showWelcomeModal}
         onComplete={handleCompleteWelcome}
         onGuestBrowse={handleGuestBrowse}
+      />
+
+      <CrisisSupportModal
+        isOpen={isCrisisOpen}
+        onClose={() => setIsCrisisOpen(false)}
       />
 
       <LoginPromptModal
