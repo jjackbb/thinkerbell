@@ -9,7 +9,7 @@ import { StoryCard } from './components/StoryCard';
 import { StoryDetailModal } from './components/StoryDetailModal';
 import { CreateStoryModal } from './components/CreateStoryModal';
 import { AIChatView } from './components/AIChatView';
-import { AIChatModeSelectionModal } from './components/AIChatModeSelectionModal';
+import { AIChatModeSelectionModal, ChatOpening } from './components/AIChatModeSelectionModal';
 import { AIExplainSettingsModal, ExplainRatio } from './components/AIExplainSettingsModal';
 import { AIErrorReportModal } from './components/AIErrorReportModal';
 import { MyPageView } from './components/MyPageView';
@@ -695,7 +695,26 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
     }
   };
 
-  const handleSelectAiChatMode = (mode: 'simulation' | 'explanation') => {
+  /** 시작점별 첫 대사와 태도 지시. 같은 갈등을 다른 온도로 재생하게 한다 */
+  const OPENING_SCRIPTS: Record<ChatOpening, { scene: string; first: string | null; stance: string }> = {
+    apology: {
+      scene: '상대가 먼저 연락해 사과를 건네온 참이다.',
+      first: '저기… 그때 일은 내가 좀 심했던 것 같아. 미안해.',
+      stance: '너는 이미 한 번 사과를 건넨 상태다. 다만 완전히 수긍한 것은 아니어서, 유저가 몰아붙이면 방어적으로 돌아설 수 있다.',
+    },
+    oblivious: {
+      scene: '상대는 아무 일도 없었다는 듯 평소처럼 굴고 있다.',
+      first: '어 왔어? 별일 없지?',
+      stance: '너는 갈등이 있었다는 사실 자체를 대수롭지 않게 여긴다. 유저가 문제를 꺼내면 처음엔 "그게 그렇게 기분 나빴어?" 하는 식으로 반응한다.',
+    },
+    meFirst: {
+      scene: '아직 아무 말도 오가지 않았다. 유저가 먼저 말을 꺼내려는 참이다.',
+      first: null,
+      stance: '유저가 먼저 말을 꺼낼 때까지 기다린다. 첫 마디에 담긴 어조를 그대로 받아 반응해라.',
+    },
+  };
+
+  const handleSelectAiChatMode = (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
     
     if (mode === 'simulation') {
@@ -713,6 +732,12 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
 
 ■ 사연 내용 (네가 유저에게 한 행동/상황):
 "${aiChatModeStory.body}"
+
+■ 지금 상황 (대화가 시작되는 지점):
+${OPENING_SCRIPTS[opening].scene}
+
+■ 이 상황에서 너의 태도:
+${OPENING_SCRIPTS[opening].stance}
 
 ■ 너의 성격 및 특징:
 사연 내용과 상대방 성격을 기반으로 성격을 분석하여 적용된 인물
@@ -738,7 +763,15 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
         personaRole: newPersona.role,
         storyId: aiChatModeStory.id,
         storyTitle: aiChatModeStory.title,
-        messages: [],
+        // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
+        messages: OPENING_SCRIPTS[opening].first
+          ? [{
+              id: `msg-${Date.now()}`,
+              sender: 'ai' as const,
+              text: OPENING_SCRIPTS[opening].first as string,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            }]
+          : [],
         empathyScore: 50,
         createdAt: new Date().toISOString(),
         status: 'active',
@@ -1349,6 +1382,7 @@ ${stanceInstruction}
         <AIChatModeSelectionModal
           onClose={() => setAiChatModeStory(null)}
           onSelectMode={handleSelectAiChatMode}
+          opponentLabel={OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방'}
         />
       )}
 
