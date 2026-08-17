@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
+import { VoteResult } from './VoteResult';
 import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
@@ -279,24 +280,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               {/* Voting Section */}
               <div className="space-y-4 pt-4 border-t border-[#E5E7EB]">
                 {/* Live Vote Gauge */}
-                <div>
-                  {/* 서비스 이름 순서대로 왼쪽이 '니 편'(상대방), 오른쪽이 '내 편'(작성자) */}
-                  <div className="flex justify-between font-label-sm text-xs mb-2">
-                    <span className="text-[#4553C4] font-bold">니 편 ({percentB}%)</span>
-                    <span className="text-[#D6452F] font-bold">내 편 ({percentA}%)</span>
-                  </div>
-
-                  <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] mb-3">
-                    {isZeroVotes ? (
-                      <div className="bg-[#E5E7EB] w-full h-full"></div>
-                    ) : (
-                      <>
-                        <div className="bg-[#6C7BE8] h-full vote-bar-progress" style={{ width: `${percentB}%` }}></div>
-                        <div className="bg-[#FF6B5A] h-full vote-bar-progress" style={{ width: `${percentA}%` }}></div>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <VoteResult
+                  votesA={story.votesA}
+                  votesB={story.votesB}
+                  hasVoted={!!votedOption}
+                  isMyStory={isMyStory}
+                />
 
                 {/* 사연 피드 카드와 동일한 투표 버튼 — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
                 <div className="grid grid-cols-2 gap-2">

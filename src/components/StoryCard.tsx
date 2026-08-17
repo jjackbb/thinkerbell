@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Story, UserProfile, Comment } from '../types';
+import { VoteResult } from './VoteResult';
 import { ShieldAlert, Share2, Heart, MoreVertical, Edit2, EyeOff, Trash2, CheckCircle } from 'lucide-react';
 
 interface StoryCardProps {
@@ -239,22 +240,12 @@ export const StoryCard: React.FC<StoryCardProps> = ({
 
         {/* Live Vote Gauge */}
         <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
-          {/* 서비스 이름 순서대로 왼쪽이 '니 편'(상대방), 오른쪽이 '내 편'(작성자) */}
-          <div className="flex justify-between font-label-sm text-xs mb-2">
-            <span className="text-[#4553C4] font-bold">니 편 ({percentB}%)</span>
-            <span className="text-[#D6452F] font-bold">내 편 ({percentA}%)</span>
-          </div>
-
-          <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] mb-3">
-            {isZeroVotes ? (
-              <div className="bg-[#E5E7EB] w-full h-full"></div>
-            ) : (
-              <>
-                <div className="bg-[#6C7BE8] h-full vote-bar-progress" style={{ width: `${percentB}%` }}></div>
-                <div className="bg-[#FF6B5A] h-full vote-bar-progress" style={{ width: `${percentA}%` }}></div>
-              </>
-            )}
-          </div>
+          <VoteResult
+            votesA={story.votesA}
+            votesB={story.votesB}
+            hasVoted={!!votedOption}
+            isMyStory={isMyStory}
+          />
 
           {/* Quick Vote Buttons — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
           <div className="grid grid-cols-2 gap-2 mb-2">
