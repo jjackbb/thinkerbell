@@ -156,7 +156,7 @@ export const BalanceGameSection: React.FC = () => {
       </div>
 
       <div 
-        className="flex transition-transform duration-700 ease-in-out h-full pt-16 pb-8"
+        className="flex transition-transform duration-700 ease-in-out h-full pt-13 pb-5"
         style={{ width: `${BALANCE_GAMES.length * 100}%`, transform: `translateX(-${(currentIndex * 100) / BALANCE_GAMES.length}%)` }}
       >
         {BALANCE_GAMES.map((game, idx) => {
@@ -166,61 +166,56 @@ export const BalanceGameSection: React.FC = () => {
           const percentB = 100 - percentA;
 
           return (
-            <div key={game.id} className="w-full flex flex-col md:flex-row gap-8 items-center p-6 md:p-8 shrink-0" style={{ width: `${100 / BALANCE_GAMES.length}%` }}>
+            <div key={game.id} className="w-full flex flex-col md:flex-row gap-4 md:gap-6 items-center px-6 py-2 md:px-8 shrink-0" style={{ width: `${100 / BALANCE_GAMES.length}%` }}>
               <div className="flex-1 z-10 w-full">
-                <h3 className="font-headline-lg text-lg sm:text-xl font-bold text-white mb-3 leading-snug mt-2">
+                <h3 className="font-headline-lg text-base sm:text-lg font-bold text-white leading-snug">
                   {game.question}
                 </h3>
-                <p className="text-[#5f5e5e] font-body-sm text-xs sm:text-sm mb-6 max-w-xl">
-                  {game.desc}
-                </p>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => handleVote(idx, 'A')}
-                    className={`px-5 py-2.5 rounded-lg font-mono text-xs font-bold flex items-center gap-2 transition-transform active:scale-95 cursor-pointer ${
-                      state.selectedOption === 'A'
-                        ? 'bg-[#3ECF8E] text-[#1C1C1C]'
-                        : 'bg-white/10 hover:bg-white/20 text-white'
-                    }`}
-                  >
-                    <span>A. {game.optA}</span>
-                    {state.selectedOption === 'A' && <CheckCircle2 className="w-4 h-4 text-[#1C1C1C]" />}
-                  </button>
-
-                  <button
-                    onClick={() => handleVote(idx, 'B')}
-                    className={`px-5 py-2.5 rounded-lg font-mono text-xs font-bold flex items-center gap-2 transition-transform active:scale-95 cursor-pointer ${
-                      state.selectedOption === 'B'
-                        ? 'bg-[#3ECF8E] text-[#1C1C1C]'
-                        : 'bg-white/10 hover:bg-white/20 text-white'
-                    }`}
-                  >
-                    <span>B. {game.optB}</span>
-                    {state.selectedOption === 'B' && <CheckCircle2 className="w-4 h-4 text-[#1C1C1C]" />}
-                  </button>
-                </div>
               </div>
 
-              {/* Real-time stats gauge */}
+              {/* 결과 비율 바 — 바의 좌/우를 눌러 투표한다 */}
               <div className="w-full md:w-72 z-10 font-mono">
-                <div className="bg-white/5 p-4 border border-white/10 rounded-lg">
-                  <div className="flex items-center justify-between text-white text-xs mb-1.5 font-bold">
+                <div className="bg-white/5 px-4 py-3 border border-white/10 rounded-lg">
+                  <div className="flex items-center justify-between text-white text-xs mb-1 font-bold">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#3ECF8E] shrink-0"></span>
                       <span>{game.optA}</span>
                       <span className="text-[#3ECF8E]">{percentA}%</span>
+                      {state.selectedOption === 'A' && <CheckCircle2 className="w-3.5 h-3.5 text-[#3ECF8E] shrink-0" />}
                     </span>
                     <span className="flex items-center gap-1.5">
+                      {state.selectedOption === 'B' && <CheckCircle2 className="w-3.5 h-3.5 text-white/70 shrink-0" />}
                       <span>{percentB}%</span>
                       <span>{game.optB}</span>
                       <span className="w-2 h-2 rounded-full bg-white/40 shrink-0"></span>
                     </span>
                   </div>
-                  <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden flex">
-                    <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
-                    <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
+
+                  <div className="relative py-1.5">
+                    <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden flex">
+                      <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
+                      <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
+                    </div>
+
+                    <button
+                      onClick={() => handleVote(idx, 'A')}
+                      className="absolute inset-y-0 left-0 w-1/2 rounded-l-full cursor-pointer transition-colors hover:bg-white/10 active:bg-white/20"
+                      aria-label={`${game.optA}에 투표하기`}
+                      aria-pressed={state.selectedOption === 'A'}
+                    />
+                    <button
+                      onClick={() => handleVote(idx, 'B')}
+                      className="absolute inset-y-0 right-0 w-1/2 rounded-r-full cursor-pointer transition-colors hover:bg-white/10 active:bg-white/20"
+                      aria-label={`${game.optB}에 투표하기`}
+                      aria-pressed={state.selectedOption === 'B'}
+                    />
                   </div>
+
+                  {!state.selectedOption && (
+                    <p className="text-[10px] text-[#5f5e5e] text-center leading-none">
+                      바의 좌 · 우를 눌러 투표하세요
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
