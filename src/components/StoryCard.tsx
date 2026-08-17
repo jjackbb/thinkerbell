@@ -14,6 +14,7 @@ interface StoryCardProps {
   isUserAdultVerified?: boolean;
   onRequireAdultVerification?: () => void;
   comments?: Comment[];
+  isGuest?: boolean;
 }
 
 export const StoryCard: React.FC<StoryCardProps> = ({
@@ -28,6 +29,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   isUserAdultVerified,
   onRequireAdultVerification,
   comments = [],
+  isGuest = false,
 }) => {
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story.userVoted || null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -57,6 +59,11 @@ export const StoryCard: React.FC<StoryCardProps> = ({
     e.stopPropagation();
     if (isMyStory) return;
     if (votedOption && story.voteChanged) return; // Prevent if already changed
+    // 게스트는 로그인 안내만 띄우고 카드 상태는 그대로 둔다
+    if (isGuest) {
+      onVote(story.id, option);
+      return;
+    }
     setVotedOption(option);
     setActiveCommentTab(option);
     onVote(story.id, option);

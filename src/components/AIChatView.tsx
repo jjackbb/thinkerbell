@@ -369,7 +369,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               )}
             </p>
             <p className="font-mono text-[11px] text-[#5f5e5e] pt-4">
-              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#3ECF8E] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">EXECUTE</span> 를 누르세요!
+              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#3ECF8E] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">보내기</span> 를 누르세요!
             </p>
           </div>
         )}
@@ -475,7 +475,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Share your logic..."
+              placeholder="메시지를 입력하세요"
               className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
             />
             <button
@@ -483,7 +483,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               disabled={!inputText.trim() || isLoading}
               className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              EXECUTE
+              보내기
             </button>
           </form>
         </footer>

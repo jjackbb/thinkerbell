@@ -88,10 +88,12 @@ export const BalanceGameSection: React.FC = () => {
   };
 
   const handleVote = (gameIndex: number, option: 'A' | 'B') => {
+    // 같은 선택지를 다시 누르면 투표를 취소한다
+    const nextSelection = gamesState[gameIndex].selectedOption === option ? null : option;
+
     setGamesState(prev => {
       const newState = [...prev];
-      if (newState[gameIndex].selectedOption === option) return prev;
-      newState[gameIndex] = { ...newState[gameIndex], selectedOption: option };
+      newState[gameIndex] = { ...newState[gameIndex], selectedOption: nextSelection };
       return newState;
     });
 
@@ -101,19 +103,16 @@ export const BalanceGameSection: React.FC = () => {
 
     timersRef.current[gameIndex] = setTimeout(() => {
       setGamesState(prev => {
+        const prevConfirmed = confirmedOptionsRef.current[gameIndex];
+        if (prevConfirmed === nextSelection) return prev;
+
         const newState = [...prev];
         const newVotes = { ...newState[gameIndex].votes };
-        
-        const prevConfirmed = confirmedOptionsRef.current[gameIndex];
-        if (prevConfirmed && prevConfirmed !== option) {
-          newVotes[prevConfirmed] -= 1;
-        }
-        
-        if (prevConfirmed !== option) {
-          newVotes[option] += 1;
-        }
-        
-        confirmedOptionsRef.current[gameIndex] = option;
+
+        if (prevConfirmed) newVotes[prevConfirmed] -= 1;
+        if (nextSelection) newVotes[nextSelection] += 1;
+
+        confirmedOptionsRef.current[gameIndex] = nextSelection;
         newState[gameIndex] = { ...newState[gameIndex], votes: newVotes };
         return newState;
       });
@@ -204,23 +203,22 @@ export const BalanceGameSection: React.FC = () => {
               </div>
 
               {/* Real-time stats gauge */}
-              <div className="w-full md:w-72 flex flex-col gap-3 z-10 font-mono">
+              <div className="w-full md:w-72 z-10 font-mono">
                 <div className="bg-white/5 p-4 border border-white/10 rounded-lg">
-                  <div className="flex justify-between text-white text-xs mb-1.5 font-bold">
-                    <span>{game.optA}</span>
-                    <span className="text-[#3ECF8E]">{percentA}%</span>
+                  <div className="flex items-center justify-between text-white text-xs mb-1.5 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#3ECF8E] shrink-0"></span>
+                      <span>{game.optA}</span>
+                      <span className="text-[#3ECF8E]">{percentA}%</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span>{percentB}%</span>
+                      <span>{game.optB}</span>
+                      <span className="w-2 h-2 rounded-full bg-white/40 shrink-0"></span>
+                    </span>
                   </div>
-                  <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden flex">
                     <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 p-4 border border-white/10 rounded-lg opacity-80">
-                  <div className="flex justify-between text-white text-xs mb-1.5 font-bold">
-                    <span>{game.optB}</span>
-                    <span>{percentB}%</span>
-                  </div>
-                  <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
                     <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
                   </div>
                 </div>

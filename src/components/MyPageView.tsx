@@ -141,7 +141,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
-              작성 사연 ({myStories.length})
+              작성한 사연 ({myStories.length})
             </button>
             <button
               onClick={() => handleTabChange('votes')}
@@ -149,7 +149,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
-              참여 투표 ({myVotes.length})
+              참여한 투표 ({myVotes.length})
             </button>
             <button
               onClick={() => handleTabChange('comments')}
@@ -157,7 +157,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
-              작성 댓글 ({myComments.length})
+              작성한 댓글 ({myComments.length})
             </button>
           </div>
 
@@ -381,7 +381,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 <span className="px-2 py-0.5 rounded bg-[#3ECF8E]/20 text-[#3ECF8E] font-bold border border-[#3ECF8E]/30 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" />
                 </span>
-                <span className="text-[#5f5e5e]">Joined 2024.03</span>
               </div>
 
               {isEditingNickname ? (
@@ -459,7 +458,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            작성 사연 ({myStories.length})
+            작성한 사연 ({myStories.length})
           </button>
           <button
             onClick={() => handleTabChange('votes')}
@@ -467,7 +466,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            참여 투표 ({myVotes.length})
+            참여한 투표 ({myVotes.length})
           </button>
           <button
             onClick={() => handleTabChange('comments')}
@@ -475,7 +474,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
-            작성 댓글 ({myComments.length})
+            작성한 댓글 ({myComments.length})
           </button>
         </div>
 
