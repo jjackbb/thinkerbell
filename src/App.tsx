@@ -16,6 +16,7 @@ import { MyPageView } from './components/MyPageView';
 import { ReportModal } from './components/ReportModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
+import { LoginPromptModal } from './components/LoginPromptModal';
 import { AdultVerificationModal } from './components/AdultVerificationModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
@@ -23,6 +24,15 @@ import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react
 import { supabase } from './lib/supabase';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
+
+// 사연 기반 AI 시뮬레이션에서 대화 상대를 부르는 호칭
+const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
+  '연애': '연인',
+  '직장': '직장 상대',
+  '친구': '친구',
+  '가족': '가족',
+  '기타': '상대방',
+};
 
 export default function App() {
   // User Profile State
@@ -39,12 +49,36 @@ export default function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(true);
   const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
 
+  // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [loginPromptMessage, setLoginPromptMessage] = useState<string | null>(null);
+
+  const handleGuestBrowse = () => {
+    setIsGuest(true);
+    setShowWelcomeModal(false);
+    setShowLandingPage(false);
+  };
+
+  const handleGoToLogin = () => {
+    setLoginPromptMessage(null);
+    setIsGuest(false);
+    setShowWelcomeModal(true);
+  };
+
+  // 게스트가 막힌 기능을 누르면 안내 팝업을 띄우고 true를 반환한다
+  const blockedForGuest = (message: string) => {
+    if (!isGuest) return false;
+    setLoginPromptMessage(message);
+    return true;
+  };
+
   // Initialize Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setShowWelcomeModal(false);
         setShowLandingPage(false);
+        setIsGuest(false);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -59,6 +93,7 @@ export default function App() {
       if (event === 'SIGNED_IN' && session) {
         setShowWelcomeModal(false);
         setShowLandingPage(false);
+        setIsGuest(false);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -259,6 +294,8 @@ export default function App() {
   };
 
   const handleVote = async (storyId: string, option: 'A' | 'B') => {
+    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
+
     let newVotesA = 0;
     let newVotesB = 0;
     let updateNeeded = false;
@@ -319,6 +356,8 @@ export default function App() {
   };
 
   const handleAddComment = async (storyId: string, content: string, isAnonymous: boolean) => {
+    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
+
     const storyComments = commentsMap[storyId] || [];
     const anonNumber = storyComments.length + 1;
     const newComment: Comment = {
@@ -516,7 +555,11 @@ export default function App() {
       setStories(prev => [newStory, ...prev]);
       setToastMessage('사연 등록이 완료되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      
+
+      // 등록한 사연을 바로 확인할 수 있도록 홈 피드 상세를 연다
+      setActiveTab('feed');
+      setSelectedStory(newStory);
+
       const { userVoted, voteChanged, ...dbStory } = newStory;
       await supabase.from('stories').insert([dbStory]);
     }
@@ -592,7 +635,7 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
     if (mode === 'simulation') {
       const newPersona: AIPersona = {
         id: `persona-${Date.now()}`,
-        name: aiChatModeStory.title,
+        name: OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방',
         role: '상황',
         category: aiChatModeStory.category,
         avatarIcon: 'Bot',
@@ -856,6 +899,17 @@ ${stanceInstruction}
   const myStories = stories.filter(s => s.authorId === user.id);
   const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
 
+  // 게스트는 홈 피드 탐색만 가능하므로, 나머지 진입점은 로그인 안내로 대체한다
+  const openStoryDetail = (story: Story) => {
+    if (blockedForGuest('사연 전체 내용을 보려면 로그인이 필요해요.')) return;
+    setSelectedStory(story);
+  };
+
+  const openCreateStory = () => {
+    if (blockedForGuest('사연을 등록하려면 로그인이 필요해요.')) return;
+    setIsCreateStoryOpen(true);
+  };
+
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#3ECF8E] selection:text-[#1C1C1C]">
@@ -865,7 +919,7 @@ ${stanceInstruction}
         user={user}
         onOpenProfile={() => setActiveTab('mypage')}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
-        onOpenCreateStory={() => setIsCreateStoryOpen(true)}
+        onOpenCreateStory={openCreateStory}
         onGoHome={() => setActiveTab('feed')}
       />
 
@@ -883,7 +937,7 @@ ${stanceInstruction}
             <WeeklyTopBanner
               weeklyTopStories={weeklyTopStories}
               realtimeTopStories={realtimeTopStories}
-              onSelectStory={(story) => setSelectedStory(story)}
+              onSelectStory={openStoryDetail}
             />
 
             {/* Feed Category & Search Controls */}
@@ -940,10 +994,10 @@ ${stanceInstruction}
                   </h3>
                   <p className="font-mono text-xs text-[#5f5e5e]">첫 번째 사연을 등록해 논리 대결을 시작해보세요!</p>
                   <button
-                    onClick={() => setIsCreateStoryOpen(true)}
+                    onClick={openCreateStory}
                     className="mt-2 px-6 py-2.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#3ECF8E]/90 cursor-pointer"
                   >
-                    CREATE STORY
+                    사연 등록하기
                   </button>
                 </div>
               ) : (
@@ -954,7 +1008,7 @@ ${stanceInstruction}
                     currentUser={user}
                     isUserAdultVerified={user.isAdultVerified}
                     onRequireAdultVerification={() => setIsAdultVerificationOpen(true)}
-                    onSelect={(s) => setSelectedStory(s)}
+                    onSelect={openStoryDetail}
                     onVote={handleVote}
                     onStartAIChatWithStory={handleStartAIChatWithStory}
                     onReport={handleReport}
@@ -962,6 +1016,7 @@ ${stanceInstruction}
                     onDelete={handleDeleteStory}
                     onHide={handleHideStory}
                     comments={commentsMap[story.id] || []}
+                    isGuest={isGuest}
                   />
                 ))
               )}
@@ -979,7 +1034,7 @@ ${stanceInstruction}
                 </div>
               </div>
               <button
-                onClick={() => setIsCreateStoryOpen(true)}
+                onClick={openCreateStory}
                 className="w-full md:w-auto bg-[#1C1C1C] text-white hover:bg-black px-8 py-3.5 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
               >
                 사연 올리기
@@ -1051,7 +1106,7 @@ ${stanceInstruction}
 
       {/* Floating Write Button (Mobile) */}
       <button
-        onClick={() => setIsCreateStoryOpen(true)}
+        onClick={openCreateStory}
         className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#3ECF8E]/90 active:scale-95 transition-all cursor-pointer md:hidden"
         title="익명 사연 쓰기"
       >
@@ -1062,6 +1117,9 @@ ${stanceInstruction}
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => {
+          if (tab === 'ai-chat' && blockedForGuest('AI와 대화하려면 로그인이 필요해요.')) return;
+          if (tab === 'mypage' && blockedForGuest('마이페이지는 로그인 후 이용하실 수 있어요.')) return;
+
           setActiveTab(tab);
           if (tab === 'ai-chat') {
             setActiveChatSession(null);
@@ -1073,6 +1131,14 @@ ${stanceInstruction}
       <WelcomeModal
         isOpen={showWelcomeModal}
         onComplete={handleCompleteWelcome}
+        onGuestBrowse={handleGuestBrowse}
+      />
+
+      <LoginPromptModal
+        isOpen={loginPromptMessage !== null}
+        message={loginPromptMessage ?? undefined}
+        onClose={() => setLoginPromptMessage(null)}
+        onGoToLogin={handleGoToLogin}
       />
 
       <StoryDetailModal 

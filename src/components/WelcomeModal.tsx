@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase';
 interface WelcomeModalProps {
   isOpen: boolean;
   onComplete: (nickname: string, provider: 'kakao' | 'apple' | 'google') => void;
+  onGuestBrowse: () => void;
 }
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse }) => {
   if (!isOpen) return null;
 
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -156,6 +157,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete }
             {!isLoading && <Check className="w-4 h-4 text-[#3ECF8E]" />}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={onGuestBrowse}
+          className="w-full py-3 bg-white border border-[#E5E7EB] text-[#5f5e5e] font-bold text-sm rounded-2xl hover:bg-[#f3f4f5] active:scale-95 transition-all cursor-pointer"
+        >
+          로그인 없이 둘러보기
+        </button>
 
         <div className="pt-2 border-t border-[#E5E7EB] text-xs font-bold text-[#5f5e5e]">
           {isLoginMode ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
