@@ -38,6 +38,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [empathyScore, setEmpathyScore] = useState(64);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // 아직 대화를 시작하지 않은 채 나갈 때, 지울지 남길지 사용자가 고르게 한다
+  const [showExitChoice, setShowExitChoice] = useState(false);
   const [simEndResult, setSimEndResult] = useState<'success' | 'fail' | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -202,6 +204,32 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setShowDeleteModal(true);
   };
 
+  /** AI 인사말만 있고 내가 아직 아무 말도 안 한 상태인가 */
+  const notStartedYet = !messages.some(m => m.sender === 'user');
+
+  /** 대화창을 나갈 때. 아직 시작 전이면 지울지 남길지 물어본다 */
+  const handleLeave = () => {
+    if (notStartedYet) {
+      setShowExitChoice(true);
+      return;
+    }
+    setShowChat(false);
+  };
+
+  /** 세션은 남기고 화면만 닫는다 (AI 대화 탭에 그대로 보관) */
+  const keepAndClose = () => {
+    setShowExitChoice(false);
+    setShowChat(false);
+  };
+
+  /** 세션과 페르소나를 지우고 닫는다 */
+  const discardAndClose = () => {
+    setShowExitChoice(false);
+    if (onDeletePersona && selectedPersona) onDeletePersona(selectedPersona.id);
+    if (activeSession) onEndSession(activeSession.id);
+    setShowChat(false);
+  };
+
   const confirmEndChat = () => {
     if (activeSession) {
       if (onDeletePersona && selectedPersona) {
@@ -317,12 +345,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button onClick={() => {
-            if (activeSession.messages.length <= 1 && onDeletePersona) {
-              onDeletePersona(selectedPersona.id);
-            }
-            setShowChat(false);
-          }} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
+          <button onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
@@ -340,7 +363,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               settings
             </button>
           )}
-          <button onClick={() => setShowDeleteModal(true)} className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer">
+          <button
+            onClick={() => (notStartedYet ? setShowExitChoice(true) : setShowDeleteModal(true))}
+            className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer"
+          >
             close
           </button>
         </div>
@@ -492,6 +518,47 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             </button>
           </form>
         </footer>
+      )}
+
+      {/* 대화를 시작하기 전에 나갈 때: 지울지 남길지 고르게 한다 */}
+      {showExitChoice && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setShowExitChoice(false)}
+        >
+          <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            {/* 취소는 우측 상단 X 로 처리한다 */}
+            <button
+              onClick={() => setShowExitChoice(false)}
+              className="absolute top-3 right-3 text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
+              aria-label="취소"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-6 pt-12">
+              <h2 className="text-lg font-bold text-[#1C1C1C] mb-2">이 대화, 어떻게 할까요?</h2>
+              <p className="text-sm text-[#5f5e5e] mb-5 leading-relaxed">
+                아직 대화를 시작하지 않았어요. 남겨두면 'Ai 대화' 탭에서 이어서 할 수 있습니다.
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={keepAndClose}
+                  className="w-full py-3 bg-[#1C1C1C] text-white rounded-lg font-bold text-sm hover:bg-black transition-colors cursor-pointer"
+                >
+                  남겨두고 닫기
+                </button>
+                <button
+                  onClick={discardAndClose}
+                  className="w-full py-3 bg-white border border-[#E5E7EB] text-[#ba1a1a] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+                >
+                  대화 삭제하고 닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}
