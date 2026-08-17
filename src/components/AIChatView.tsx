@@ -224,7 +224,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         {/* Persona Cards */}
         <div>
           <h3 className="font-label-md text-xs font-bold text-[#5f5e5e] uppercase tracking-wider mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span> SELECT PERSONA
+            <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span> SELECT PERSONA
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -238,7 +238,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                     onStartSession(persona);
                   }
                 }}
-                className="bg-white border border-[#E5E7EB] hover:border-[#3ECF8E] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
+                className="bg-white border border-[#E5E7EB] hover:border-[#FF6B5A] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3 font-mono text-xs">
@@ -247,7 +247,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                         {persona.category}
                       </span>
                       {persona.isPinned && (
-                        <span className="px-2.5 py-0.5 bg-[#3ECF8E] text-white font-semibold rounded flex items-center gap-1">
+                        <span className="px-2.5 py-0.5 bg-[#FF6B5A] text-white font-semibold rounded flex items-center gap-1">
                           <Pin className="w-3 h-3" /> 고정
                         </span>
                       )}
@@ -289,13 +289,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                     </div>
                   </div>
 
-                  <h4 className="font-bold text-base text-[#1C1C1C] mb-2 group-hover:text-[#3ECF8E] transition-colors">{persona.name}</h4>
+                  <h4 className="font-bold text-base text-[#1C1C1C] mb-2 group-hover:text-[#FF6B5A] transition-colors">{persona.name}</h4>
                   <p className="text-xs text-[#5f5e5e] line-clamp-2 leading-relaxed mb-6">
                     {persona.description}
                   </p>
                 </div>
 
-                <button className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#3ECF8E] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2">
+                <button className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#FF6B5A] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2">
                   <span>시작하기</span>
                 </button>
               </div>
@@ -317,13 +317,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               onDeletePersona(selectedPersona.id);
             }
             setShowChat(false);
-          }} className="material-symbols-outlined text-[#3ECF8E] cursor-pointer hover:opacity-80">
+          }} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
             <h1 className="font-headline-md text-base font-bold text-white flex items-center gap-2 max-w-[200px] sm:max-w-xs md:max-w-md">
               <span className="truncate">{activeSession.storyTitle || selectedPersona.name}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#3ECF8E]/20 text-[#3ECF8E] rounded border border-[#3ECF8E]/30 font-semibold shrink-0">
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#FF6B5A]/20 text-[#FF6B5A] rounded border border-[#FF6B5A]/30 font-semibold shrink-0">
                 {selectedPersona.role}
               </span>
             </h1>
@@ -331,7 +331,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </div>
         <div className="flex items-center gap-4">
           {(activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
-            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#3ECF8E] cursor-pointer transition-colors" title="공감 비율 설정 변경">
+            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
           )}
@@ -345,7 +345,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       <main className="flex-1 overflow-y-auto chat-container p-6 space-y-4 bg-[#f8f9fa] flex flex-col">
         {messages.length === 0 && (
           <div className="my-auto max-w-md mx-auto text-center py-12 px-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-2xs space-y-4 animate-fadeIn">
-            <div className="w-12 h-12 rounded-full bg-[#3ECF8E]/20 text-[#3ECF8E] flex items-center justify-center mx-auto mb-2 font-mono text-xl border border-[#3ECF8E]/30 font-bold">
+            <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/20 text-[#FF6B5A] flex items-center justify-center mx-auto mb-2 font-mono text-xl border border-[#FF6B5A]/30 font-bold">
               {activeSession?.chatMode === 'explanation' ? '☕' : '💬'}
             </div>
             <h3 className="font-headline-md font-bold text-base sm:text-lg text-[#1C1C1C]">
@@ -364,12 +364,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 <>
                   사연 속 상대방 페르소나와 실전 대화를 시작해보세요!
                   <br />
-                  <span className="font-semibold text-[#1C1C1C]">"내 입장을 명확히 전달"</span>하거나, <span className="font-semibold text-[#3ECF8E] bg-[#1C1C1C] px-1.5 py-0.5 rounded text-xs ml-0.5">화해와 타협안</span>을 이끌어내보세요.
+                  <span className="font-semibold text-[#1C1C1C]">"내 입장을 명확히 전달"</span>하거나, <span className="font-semibold text-[#FF6B5A] bg-[#1C1C1C] px-1.5 py-0.5 rounded text-xs ml-0.5">화해와 타협안</span>을 이끌어내보세요.
                 </>
               )}
             </p>
             <p className="font-mono text-[11px] text-[#5f5e5e] pt-4">
-              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#3ECF8E] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">보내기</span> 를 누르세요!
+              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#FF6B5A] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">보내기</span> 를 누르세요!
             </p>
           </div>
         )}
@@ -388,7 +388,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             return (
               <div key={msg.id} className="flex flex-col items-start max-w-[85%] space-y-1">
                 <div className="flex items-center space-x-2 mb-1 font-mono text-xs">
-                  <span className="w-2 h-2 rounded-full bg-[#3ECF8E]"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span>
                   <span className="text-[#5f5e5e] font-medium">{selectedPersona.role}</span>
                 </div>
                 <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
@@ -408,14 +408,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       {!simEndResult && activeSession?.chatMode !== 'explanation' && messages.filter(m => m.sender === 'user').length >= 4 && !isLoading && (
         <div className="bg-[#f3f4f5] border-t border-[#E5E7EB] p-3 px-6 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <span className="text-xs text-[#5f5e5e] font-medium flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#3ECF8E] animate-ping"></span>
+            <span className="w-2 h-2 rounded-full bg-[#FF6B5A] animate-ping"></span>
             충분한 대화가 오갔습니다. 대화를 이만 매듭짓고 결과를 결정하시겠습니까?
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setSimEndResult('success')}
-              className="px-3 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] text-xs font-bold font-mono rounded hover:bg-[#3ECF8E]/90 transition-all cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 bg-[#FF6B5A] text-[#1C1C1C] text-xs font-bold font-mono rounded hover:bg-[#FF6B5A]/90 transition-all cursor-pointer shadow-2xs"
             >
               🤝 화해로 끝내기
             </button>
@@ -436,7 +436,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           <div className="max-w-xl mx-auto flex flex-col items-center text-center space-y-4">
             <div className="flex items-center gap-2">
               {simEndResult === 'success' ? (
-                <span className="px-3.5 py-1.5 bg-[#3ECF8E] text-[#1C1C1C] rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
+                <span className="px-3.5 py-1.5 bg-[#FF6B5A] text-[#1C1C1C] rounded-full text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
                   🎉 SIMULATION RESOLVED : 대화 화해 & 합의 성공!
                 </span>
               ) : (
@@ -461,7 +461,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <button
                 type="button"
                 onClick={confirmEndChat}
-                className="px-5 py-2 bg-[#3ECF8E] text-[#1C1C1C] rounded-lg text-xs font-bold hover:bg-[#3ECF8E]/90 transition-colors cursor-pointer shadow-md font-mono"
+                className="px-5 py-2 bg-[#FF6B5A] text-[#1C1C1C] rounded-lg text-xs font-bold hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md font-mono"
               >
                 ✨ 시뮬레이션 완료 및 닫기
               </button>
@@ -476,12 +476,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="메시지를 입력하세요"
-              className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#3ECF8E]"
+              className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#FF6B5A]"
             />
             <button
               type="submit"
               disabled={!inputText.trim() || isLoading}
-              className="bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               보내기
             </button>

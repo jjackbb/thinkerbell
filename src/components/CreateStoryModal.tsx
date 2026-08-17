@@ -150,7 +150,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         {/* Modal Header */}
         <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
-            <span className="material-symbols-outlined text-[#3ECF8E] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
+            <span className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
           <button onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
@@ -169,7 +169,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           {/* Category Select & 19+ Checkbox */}
           <div>
             <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
-              카테고리 선택 <span className="text-[#3ECF8E]">*</span>
+              카테고리 선택 <span className="text-[#FF6B5A]">*</span>
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
@@ -208,7 +208,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs font-bold text-[#1C1C1C]">
-                사연 제목 <span className="text-[#3ECF8E]">*</span>
+                사연 제목 <span className="text-[#FF6B5A]">*</span>
               </label>
               <span className="text-[11px] text-[#5f5e5e]">{title.length}/30자</span>
             </div>
@@ -218,7 +218,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="예: 칼퇴 5분 전 일 던지고 나간 팀장님 진짜 이상하지 않나요?"
               maxLength={30}
-              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
             />
           </div>
 
@@ -226,7 +226,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs font-bold text-[#1C1C1C]">
-                사연 내용 <span className="text-[#3ECF8E]">*</span>
+                사연 내용 <span className="text-[#FF6B5A]">*</span>
               </label>
               <span className="text-[11px] text-[#5f5e5e]">{body.length}/1000자 (최소 20자)</span>
             </div>
@@ -239,7 +239,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 작성한 사연은 100% 완전한 익명으로 노출됩니다."
               rows={5}
               maxLength={1000}
-              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E] resize-none"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] resize-none"
             />
           </div>
 
@@ -257,14 +257,14 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               onChange={(e) => setOpponentPersonality(e.target.value)}
               placeholder="예: 뻔뻔하고 자기위주인 성격, 적반하장 스타일, 소심하고 돌려까는 성격 등"
               maxLength={100}
-              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#3ECF8E]"
+              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
             />
           </div>
 
           {/* AI Persona Auto Generation Policy Notice */}
           <div className="p-3.5 bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center font-bold shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center font-bold shrink-0">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>

@@ -54,14 +54,14 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
     return stories.slice(0, 3).map((story, idx) => {
       const total = story.votesA + story.votesB;
       const percentageA = total > 0 ? Math.round((story.votesA / total) * 100) : 50;
-      const rankColor = 'bg-[#FF5C00] text-white';
+      const rankColor = 'bg-[#B87514] text-white';
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
         <div
           key={`${bannerType}-${story.id}`}
           onClick={() => onSelectStory(story)}
-          className="bg-white border border-[#FF5C00] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"
+          className="bg-white border border-[#B87514] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"
         >
           <div>
             <div className="flex items-center justify-between mb-2 font-mono text-xs">
@@ -77,20 +77,22 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
           </div>
 
           <div>
+            {/* 왼쪽이 니 편, 오른쪽이 내 편 */}
             <div className="w-full bg-[#E5E7EB] h-2 rounded-full overflow-hidden flex mb-2">
               <div
-                className="bg-[#FF5C00] h-full transition-all duration-500"
-                style={{ width: `${percentageA}%` }}
+                className="bg-[#6C7BE8] h-full transition-all duration-500"
+                style={{ width: `${100 - percentageA}%` }}
               />
               <div
-                className="bg-[#5f5e5e]/20 h-full transition-all duration-500"
-                style={{ width: `${100 - percentageA}%` }}
+                className="bg-[#FF6B5A] h-full transition-all duration-500"
+                style={{ width: `${percentageA}%` }}
               />
             </div>
 
             <div className="flex items-center justify-between font-mono text-[11px] text-[#5f5e5e]">
-              <span className="text-[#FF5C00] font-bold">내편 {percentageA}%</span>
+              <span className="text-[#4553C4] font-bold">니편 {100 - percentageA}%</span>
               <span>{total}표</span>
+              <span className="text-[#D6452F] font-bold">내편 {percentageA}%</span>
             </div>
           </div>
         </div>
@@ -133,23 +135,23 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         <div className="flex items-center gap-2 relative h-8 w-full max-w-[450px] overflow-hidden">
           {/* Weekly Header */}
           <div className={`absolute inset-0 flex items-center gap-2 transition-transform duration-500 ${activeBanner === 'weekly' ? 'translate-y-0' : '-translate-y-full'}`}>
-            <div className="w-7 h-7 bg-[#FF5C00]/10 rounded flex items-center justify-center text-[#FF5C00] font-bold shrink-0">
+            <div className="w-7 h-7 bg-[#B87514]/10 rounded flex items-center justify-center text-[#B87514] font-bold shrink-0">
               <Trophy className="w-4 h-4" />
             </div>
             <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md whitespace-nowrap">
               주간 랭킹 TOP 3
-              <span className="text-xs px-2 py-0.5 bg-[#FF5C00] text-white font-mono rounded font-bold ml-1">{dateRangeStr}</span>
+              <span className="text-xs px-2 py-0.5 bg-[#B87514] text-white font-mono rounded font-bold ml-1">{dateRangeStr}</span>
             </h2>
           </div>
           
           {/* Realtime Header */}
           <div className={`absolute inset-0 flex items-center gap-2 transition-transform duration-500 ${activeBanner === 'realtime' ? 'translate-y-0' : 'translate-y-full'}`}>
-            <div className="w-7 h-7 bg-[#FF5C00]/10 rounded flex items-center justify-center text-[#FF5C00] font-bold shrink-0">
+            <div className="w-7 h-7 bg-[#B87514]/10 rounded flex items-center justify-center text-[#B87514] font-bold shrink-0">
               <Zap className="w-4 h-4" />
             </div>
             <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md whitespace-nowrap">
               실시간 랭킹 TOP 3
-              <span className="text-xs px-2 py-0.5 bg-[#FF5C00] text-white font-mono rounded font-bold ml-1">{realtimeHourStr}</span>
+              <span className="text-xs px-2 py-0.5 bg-[#B87514] text-white font-mono rounded font-bold ml-1">{realtimeHourStr}</span>
             </h2>
           </div>
         </div>
@@ -204,12 +206,12 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         <div className="flex items-center gap-1.5">
           <button 
             onClick={() => setActiveBanner('weekly')} 
-            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'weekly' ? 'bg-[#FF5C00] w-4' : 'bg-[#E5E7EB]'}`} 
+            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'weekly' ? 'bg-[#B87514] w-4' : 'bg-[#E5E7EB]'}`} 
             aria-label="주간 랭킹 보기"
           />
           <button 
             onClick={() => setActiveBanner('realtime')} 
-            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'realtime' ? 'bg-[#FF5C00] w-4' : 'bg-[#E5E7EB]'}`} 
+            className={`w-2 h-2 rounded-full transition-all cursor-pointer ${activeBanner === 'realtime' ? 'bg-[#B87514] w-4' : 'bg-[#E5E7EB]'}`} 
             aria-label="실시간 랭킹 보기"
           />
         </div>

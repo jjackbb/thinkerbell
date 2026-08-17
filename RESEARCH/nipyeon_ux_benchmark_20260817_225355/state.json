@@ -1,0 +1,67 @@
+{
+  "session_id": "nipyeon_ux_benchmark_20260817_225355",
+  "topic": "니편내편 서비스 성질 분석 및 유사 서비스 UX/UI 벤치마킹",
+  "created_at": "2026-08-17T13:53:55Z",
+  "updated_at": "2026-08-17T13:53:55Z",
+  "status": "PHASE_2_PLANNING",
+  "current_phase": 2,
+  "requirements": {
+    "focus": [
+      "서비스 성질 규정 (익명 커뮤니티 x 집단 판결 x AI 롤플레이 x 감정 케어 교차 좌표)",
+      "유사 서비스 발굴 및 UX/UI 패턴 분석",
+      "사연 카드 정보 위계",
+      "투표/판결 결과 시각화",
+      "익명성 안심 UI 장치",
+      "AI 대화 진입/종료 연출",
+      "리텐션 장치",
+      "적용 가능한 개선안 (우선순위 + 근거)",
+      "안티패턴"
+    ],
+    "output_format": "comprehensive_report",
+    "scope": {
+      "timeframe": { "note": "2023-2026, 최신 UX 패턴 위주" },
+      "geography": { "primary": "KR", "secondary": "Global(US/EN)" }
+    },
+    "sources": {
+      "required_types": ["product_docs", "ux_case_study", "news", "app_store", "design_system"],
+      "min_quality": "C",
+      "note": "UX 벤치마킹 특성상 1차 소스는 실제 제품 화면/공식 문서/앱스토어 설명. 학술보다 제품 관찰 우선."
+    },
+    "audience": "비개발자 서비스 기획자 (실행 가능한 구체성 요구)",
+    "language": "ko",
+    "special_requirements": [
+      "getdesign.md 에 분석된 서비스가 있으면 디자인 토큰 정리",
+      "기술 용어보다 '무엇을 어떻게 바꾸면 되는지' 중심 서술",
+      "따라 하면 안 되는 안티패턴 포함"
+    ],
+    "defaults_applied_without_asking": [
+      "focus: 사용자가 5개 축을 명시해 전부 커버 (질문 불필요)",
+      "output: comprehensive_report (개선안 도출이 목적이므로)",
+      "audience: 사용자가 '비개발자 기획자'로 명시",
+      "sources: UX 벤치마킹 성격상 제품 관찰/공식문서 우선으로 설정"
+    ]
+  },
+  "report_skeleton": {
+    "type": "Comparative",
+    "sections": [
+      "01_서비스_성질_규정",
+      "02_유사서비스_지형도",
+      "03_UXUI_패턴_해부",
+      "04_니편내편_개선안_우선순위",
+      "05_안티패턴과_결론"
+    ]
+  },
+  "plan": {},
+  "progress": {
+    "phase_1": "completed",
+    "phase_2": "in_progress",
+    "phase_3": "pending",
+    "phase_4": "pending",
+    "phase_5": "pending",
+    "phase_6": "pending",
+    "phase_7": "pending"
+  },
+  "sources_count": 0,
+  "artifacts": {},
+  "errors": []
+}

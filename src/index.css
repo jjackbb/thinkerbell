@@ -4,8 +4,19 @@
   :root {
     --color-background: #f8f9fa;
     --color-deep-onyx: #1C1C1C;
-    --color-action-emerald: #3ECF8E;
-    --color-primary-dark: #006c45;
+
+    /* 니편내편 진영 컬러 — '내 편'은 따뜻한 코랄, '니 편'은 서늘한 인디고.
+       각 진영마다 두 가지를 둔다:
+         *-fill : 버튼 배경·게이지 등 면을 채울 때 (어두운 배경에서 선명)
+         *-ink  : 흰 카드 위 글자색 (fill 색은 흰 배경에서 대비가 부족하다) */
+    --color-my-side: #FF6B5A;
+    --color-my-side-ink: #D6452F;
+    --color-your-side: #6C7BE8;
+    --color-your-side-ink: #4553C4;
+
+    /* 브랜드 액션색 = '내 편' 코랄. 서비스의 정체성이 편을 들어주는 것이므로 일치시킨다 */
+    --color-action-coral: #FF6B5A;
+    --color-primary-dark: #A32E1D;
     --color-secondary-grey: #5f5e5e;
     --color-border-subtle: #E5E7EB;
     --color-border-strong: #1C1C1C;
@@ -66,7 +77,7 @@
 }
 
 .chat-container::-webkit-scrollbar-thumb {
-  background: #3ECF8E;
+  background: #FF6B5A;
   border-radius: 4px;
 }
 
@@ -86,7 +97,7 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3ECF8E;
+  background: #FF6B5A;
 }
 
 

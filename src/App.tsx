@@ -952,7 +952,7 @@ ${stanceInstruction}
 
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#3ECF8E] selection:text-[#1C1C1C]">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
       
       {/* Header */}
       <Header
@@ -990,8 +990,8 @@ ${stanceInstruction}
                     onClick={() => setSelectedCategory(cat)}
                     className={`whitespace-nowrap px-5 py-2 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
                       selectedCategory === cat
-                        ? 'bg-[#3ECF8E] text-[#1C1C1C] shadow-xs'
-                        : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:border-[#3ECF8E] hover:text-[#3ECF8E]'
+                        ? 'bg-[#FF6B5A] text-[#1C1C1C] shadow-xs'
+                        : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:border-[#FF6B5A] hover:text-[#FF6B5A]'
                     }`}
                   >
                     {cat}
@@ -1005,7 +1005,7 @@ ${stanceInstruction}
                   onClick={() => setSortBy('latest')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'latest'
-                      ? 'bg-[#1C1C1C] text-[#3ECF8E]'
+                      ? 'bg-[#1C1C1C] text-[#FF6B5A]'
                       : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:text-[#1C1C1C]'
                   }`}
                 >
@@ -1015,11 +1015,11 @@ ${stanceInstruction}
                   onClick={() => setSortBy('votes')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'votes'
-                      ? 'bg-[#1C1C1C] text-[#3ECF8E]'
+                      ? 'bg-[#1C1C1C] text-[#FF6B5A]'
                       : 'bg-white border border-[#E5E7EB] text-[#5f5e5e] hover:text-[#1C1C1C]'
                   }`}
                 >
-                  <Flame className="w-3.5 h-3.5 text-[#3ECF8E]" /> HOT
+                  <Flame className="w-3.5 h-3.5 text-[#FF6B5A]" /> HOT
                 </button>
               </div>
             </div>
@@ -1028,14 +1028,14 @@ ${stanceInstruction}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredStories.length === 0 ? (
                 <div className="col-span-full text-center py-16 bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-3">
-                  <MessageSquareHeart className="w-10 h-10 text-[#3ECF8E] mx-auto opacity-80" />
+                  <MessageSquareHeart className="w-10 h-10 text-[#FF6B5A] mx-auto opacity-80" />
                   <h3 className="text-base font-bold text-[#1C1C1C]">
                     등록된 사연이 없습니다.
                   </h3>
                   <p className="font-mono text-xs text-[#5f5e5e]">첫 번째 사연을 등록해 논리 대결을 시작해보세요!</p>
                   <button
                     onClick={openCreateStory}
-                    className="mt-2 px-6 py-2.5 bg-[#3ECF8E] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#3ECF8E]/90 cursor-pointer"
+                    className="mt-2 px-6 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer"
                   >
                     사연 등록하기
                   </button>
@@ -1063,9 +1063,9 @@ ${stanceInstruction}
             </div>
 
             {/* Create Story Prompt Section */}
-            <div className="mt-16 p-8 border border-[#3ECF8E] bg-[#3ECF8E]/5 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="mt-16 p-8 border border-[#FF6B5A] bg-[#FF6B5A]/5 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-full bg-[#3ECF8E] flex items-center justify-center text-[#1C1C1C]">
+                <div className="w-14 h-14 rounded-full bg-[#FF6B5A] flex items-center justify-center text-[#1C1C1C]">
                   <MessageSquareHeart className="w-7 h-7" />
                 </div>
                 <div>
@@ -1147,7 +1147,7 @@ ${stanceInstruction}
       {/* Floating Write Button (Mobile) */}
       <button
         onClick={openCreateStory}
-        className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#3ECF8E]/90 active:scale-95 transition-all cursor-pointer md:hidden"
+        className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
         title="익명 사연 쓰기"
       >
         <MessageSquareHeart className="w-7 h-7" />
@@ -1282,7 +1282,7 @@ ${stanceInstruction}
       {/* Global Toast */}
       {toastMessage && (
         <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-[#1C1C1C] text-white px-6 py-3 rounded-full shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2 text-sm font-bold">
-          <MessageSquareHeart className="w-4 h-4 text-[#3ECF8E]" />
+          <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
           {toastMessage}
         </div>
       )}

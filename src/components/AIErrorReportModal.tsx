@@ -35,13 +35,13 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6">
           <p className="text-sm font-body-sm text-[#1C1C1C] mb-4">
-            <strong className="text-[#3ECF8E] font-bold">[{persona.name}]</strong> 와의 대화 중 발생한 오류를 자세히 적어주세요. 신속히 확인하여 개선하겠습니다.
+            <strong className="text-[#FF6B5A] font-bold">[{persona.name}]</strong> 와의 대화 중 발생한 오류를 자세히 적어주세요. 신속히 확인하여 개선하겠습니다.
           </p>
 
           <textarea
             value={errorContent}
             onChange={(e) => setErrorContent(e.target.value)}
-            className="w-full bg-[#f8f9fa] border border-[#E5E7EB] rounded px-4 py-3 font-body-sm text-sm focus:outline-none focus:border-[#3ECF8E] resize-none h-32"
+            className="w-full bg-[#f8f9fa] border border-[#E5E7EB] rounded px-4 py-3 font-body-sm text-sm focus:outline-none focus:border-[#FF6B5A] resize-none h-32"
             placeholder="예: AI가 문맥에 맞지 않는 엉뚱한 대답을 합니다."
             required
             autoFocus

@@ -72,13 +72,13 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg cursor-pointer transition-colors flex justify-between items-center"
         >
           <div>
-            <span className="font-mono text-[10px] px-2 py-0.5 bg-[#3ECF8E]/20 text-[#006c45] font-bold rounded mr-2">
+            <span className="font-mono text-[10px] px-2 py-0.5 bg-[#FF6B5A]/20 text-[#A32E1D] font-bold rounded mr-2">
               {s.category}
             </span>
             <h4 className="text-xs sm:text-sm font-bold text-[#1C1C1C] inline">{s.title}</h4>
             <p className="text-xs text-[#5f5e5e] mt-1 line-clamp-1">{s.body}</p>
           </div>
-          <span className="font-mono text-xs text-[#3ECF8E] font-bold whitespace-nowrap ml-3">
+          <span className="font-mono text-xs text-[#FF6B5A] font-bold whitespace-nowrap ml-3">
             {s.votesA + s.votesB}표
           </span>
         </div>
@@ -93,10 +93,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg flex justify-between items-center"
         >
           <p className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-1 flex-1 pr-2">{v.title}</p>
-          <span className={`font-mono text-xs font-bold px-3 py-1 rounded ${
-            v.option === 'A' ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+          <span className={`font-mono text-xs font-bold px-3 py-1 rounded text-white ${
+            v.option === 'A' ? 'bg-[#FF6B5A]' : 'bg-[#6C7BE8]'
           }`}>
-            {v.option === 'A' ? '내 편' : '남 편'}
+            {v.option === 'A' ? '내 편' : '니 편'}
           </span>
         </div>
       ));
@@ -109,7 +109,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           key={c.id}
           className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg space-y-1"
         >
-          <span className="font-mono text-[10px] text-[#3ECF8E] font-bold">{c.anonymousId}</span>
+          <span className="font-mono text-[10px] text-[#FF6B5A] font-bold">{c.anonymousId}</span>
           <p className="text-xs text-[#1C1C1C] font-medium leading-relaxed">{c.content}</p>
         </div>
       ));
@@ -138,7 +138,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             <button
               onClick={() => handleTabChange('stories')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+                activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
               작성한 사연 ({myStories.length})
@@ -146,7 +146,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             <button
               onClick={() => handleTabChange('votes')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+                activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
               참여한 투표 ({myVotes.length})
@@ -154,7 +154,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             <button
               onClick={() => handleTabChange('comments')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+                activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
               }`}
             >
               작성한 댓글 ({myComments.length})
@@ -172,7 +172,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   key={i}
                   onClick={() => setCurrentPage(i + 1)}
                   className={`w-8 h-8 flex items-center justify-center rounded font-mono text-xs font-bold transition-colors cursor-pointer ${
-                    currentPage === i + 1 ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB]'
+                    currentPage === i + 1 ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB]'
                   }`}
                 >
                   {i + 1}
@@ -205,10 +205,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div>
             <h3 className="text-xs font-bold text-[#5f5e5e] mb-2">비밀번호 변경</h3>
             <div className="space-y-3">
-              <input type="password" placeholder="기존 비밀번호" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#3ECF8E]" />
-              <input type="password" placeholder="새 비밀번호 (6자 이상)" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#3ECF8E]" />
-              <input type="password" placeholder="새 비밀번호 확인" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#3ECF8E]" />
-              <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] font-bold text-sm rounded-lg transition-colors cursor-pointer">
+              <input type="password" placeholder="기존 비밀번호" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              <input type="password" placeholder="새 비밀번호 (6자 이상)" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              <input type="password" placeholder="새 비밀번호 확인" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer">
                 비밀번호 변경
               </button>
             </div>
@@ -278,7 +278,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </div>
             <button 
               onClick={() => setNotifyBalanceGame(!notifyBalanceGame)}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyBalanceGame ? 'bg-[#3ECF8E]' : 'bg-[#E5E7EB]'}`}
+              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyBalanceGame ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyBalanceGame ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
@@ -290,7 +290,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </div>
             <button 
               onClick={() => setNotifyVotes(!notifyVotes)}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyVotes ? 'bg-[#3ECF8E]' : 'bg-[#E5E7EB]'}`}
+              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyVotes ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyVotes ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
@@ -302,7 +302,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </div>
             <button 
               onClick={() => setNotifyComments(!notifyComments)}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyComments ? 'bg-[#3ECF8E]' : 'bg-[#E5E7EB]'}`}
+              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyComments ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyComments ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
@@ -353,9 +353,9 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             onChange={(e) => setInquiryText(e.target.value)}
             placeholder="문의하실 내용을 상세히 적어주세요. (답변은 가입하신 이메일로 발송됩니다)"
             rows={5}
-            className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#3ECF8E] resize-none mb-4"
+            className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none mb-4"
           />
-          <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#3ECF8E] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50" disabled={!inquiryText.trim()}>
+          <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50" disabled={!inquiryText.trim()}>
             문의하기
           </button>
         </section>
@@ -372,13 +372,13 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-full bg-[#3ECF8E] text-[#1C1C1C] flex items-center justify-center font-bold text-2xl">
+            <div className="w-16 h-16 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center font-bold text-2xl">
               <User className="w-8 h-8" />
             </div>
 
             <div>
               <div className="flex items-center gap-2 mb-1 font-mono text-xs">
-                <span className="px-2 py-0.5 rounded bg-[#3ECF8E]/20 text-[#3ECF8E] font-bold border border-[#3ECF8E]/30 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded bg-[#FF6B5A]/20 text-[#FF6B5A] font-bold border border-[#FF6B5A]/30 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" />
                 </span>
               </div>
@@ -394,7 +394,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   />
                   <button
                     type="submit"
-                    className="p-1.5 bg-[#3ECF8E] text-[#1C1C1C] rounded text-xs font-bold cursor-pointer"
+                    className="p-1.5 bg-[#FF6B5A] text-[#1C1C1C] rounded text-xs font-bold cursor-pointer"
                   >
                     저장
                   </button>
@@ -415,7 +415,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                       setNicknameInput(user.nickname);
                       setIsEditingNickname(true);
                     }}
-                    className="px-4 py-1.5 bg-[#3ECF8E] hover:bg-[#3ECF8E]/90 text-[#1C1C1C] rounded-lg font-mono text-xs font-bold transition-all cursor-pointer"
+                    className="px-4 py-1.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] rounded-lg font-mono text-xs font-bold transition-all cursor-pointer"
                   >
                     EDIT
                   </button>
@@ -426,7 +426,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         </div>
 
         {successMessage && (
-          <div className="mt-4 p-2 bg-[#3ECF8E]/20 text-[#3ECF8E] font-mono text-xs font-bold rounded border border-[#3ECF8E]/30 flex items-center gap-2">
+          <div className="mt-4 p-2 bg-[#FF6B5A]/20 text-[#FF6B5A] font-mono text-xs font-bold rounded border border-[#FF6B5A]/30 flex items-center gap-2">
             <Check className="w-4 h-4" /> {successMessage}
           </div>
         )}
@@ -435,14 +435,14 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       {/* Stats Cards */}
       <section className="grid grid-cols-2 gap-4">
         <div className="bg-white border border-[#E5E7EB] p-5 rounded-lg flex flex-col justify-between">
-          <span className="font-mono text-xs text-[#3ECF8E] font-bold">내 사연</span>
+          <span className="font-mono text-xs text-[#FF6B5A] font-bold">내 사연</span>
           <div>
             <p className="font-mono text-3xl font-bold text-[#1C1C1C] mt-2">{myStories.length}</p>
           </div>
         </div>
 
         <div className="bg-white border border-[#E5E7EB] p-5 rounded-lg flex flex-col justify-between">
-          <span className="font-mono text-xs text-[#3ECF8E] font-bold">참여한 투표 수</span>
+          <span className="font-mono text-xs text-[#FF6B5A] font-bold">참여한 투표 수</span>
           <div>
             <p className="font-mono text-3xl font-bold text-[#1C1C1C] mt-2">{myVotes.length}</p>
           </div>
@@ -455,7 +455,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <button
             onClick={() => handleTabChange('stories')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-              activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+              activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
             작성한 사연 ({myStories.length})
@@ -463,7 +463,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <button
             onClick={() => handleTabChange('votes')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-              activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+              activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
             참여한 투표 ({myVotes.length})
@@ -471,7 +471,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <button
             onClick={() => handleTabChange('comments')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-              activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#3ECF8E]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+              activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
             }`}
           >
             작성한 댓글 ({myComments.length})
@@ -496,15 +496,15 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
       {/* Settings List */}
       <section className="space-y-3">
-        <button onClick={() => setViewMode('account')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <button onClick={() => setViewMode('account')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>계정 설정 및 정보</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button onClick={() => setViewMode('notifications')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <button onClick={() => setViewMode('notifications')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>알림 설정</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button onClick={() => setViewMode('support')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#3ECF8E] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <button onClick={() => setViewMode('support')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>도움말 및 문의</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
@@ -514,7 +514,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             onClick={() => supabase.auth.signOut()}
             className="w-full py-3.5 bg-[#1C1C1C] hover:bg-black text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
-            <LogOut className="w-4 h-4 text-[#3ECF8E]" />
+            <LogOut className="w-4 h-4 text-[#FF6B5A]" />
             <span>로그아웃</span>
           </button>
         </div>

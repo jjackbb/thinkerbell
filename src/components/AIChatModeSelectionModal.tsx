@@ -29,9 +29,9 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
         <div className="p-6 space-y-4">
           <button
             onClick={() => onSelectMode('simulation')}
-            className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#3ECF8E] hover:bg-[#3ECF8E]/5 transition-all group flex gap-4 items-start"
+            className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start"
           >
-            <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#3ECF8E]/20 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
               <MessageSquare className="w-5 h-5 text-[#1C1C1C]" />
             </div>
             <div>
@@ -44,9 +44,9 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
 
           <button
             onClick={() => onSelectMode('explanation')}
-            className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#3ECF8E] hover:bg-[#3ECF8E]/5 transition-all group flex gap-4 items-start"
+            className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start"
           >
-            <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#3ECF8E]/20 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
               <ListTree className="w-5 h-5 text-[#1C1C1C]" />
             </div>
             <div>

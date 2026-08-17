@@ -23,7 +23,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <h3 className="font-headline-md font-bold text-[#1C1C1C] text-sm flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-[#3ECF8E]" />
+            <Settings2 className="w-4 h-4 text-[#FF6B5A]" />
             공감 비율 설정
           </h3>
           <button 
@@ -43,13 +43,13 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
             </p>
             
             <div className="space-y-3">
-              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'High' ? 'border-[#3ECF8E] bg-[#3ECF8E]/5' : 'border-[#E5E7EB] hover:border-[#3ECF8E]/50'}`}>
+              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'High' ? 'border-[#FF6B5A] bg-[#FF6B5A]/5' : 'border-[#E5E7EB] hover:border-[#FF6B5A]/50'}`}>
                 <input 
                   type="radio" 
                   name="ratio" 
                   checked={ratio === 'High'} 
                   onChange={() => setRatio('High')}
-                  className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
+                  className="text-[#FF6B5A] focus:ring-[#FF6B5A]"
                 />
                 <div>
                   <div className="font-bold text-sm text-[#1C1C1C]">내 편 100%</div>
@@ -57,13 +57,13 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'Middle' ? 'border-[#3ECF8E] bg-[#3ECF8E]/5' : 'border-[#E5E7EB] hover:border-[#3ECF8E]/50'}`}>
+              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'Middle' ? 'border-[#FF6B5A] bg-[#FF6B5A]/5' : 'border-[#E5E7EB] hover:border-[#FF6B5A]/50'}`}>
                 <input 
                   type="radio" 
                   name="ratio" 
                   checked={ratio === 'Middle'} 
                   onChange={() => setRatio('Middle')}
-                  className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
+                  className="text-[#FF6B5A] focus:ring-[#FF6B5A]"
                 />
                 <div>
                   <div className="font-bold text-sm text-[#1C1C1C]">반반</div>
@@ -71,13 +71,13 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'Low' ? 'border-[#3ECF8E] bg-[#3ECF8E]/5' : 'border-[#E5E7EB] hover:border-[#3ECF8E]/50'}`}>
+              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${ratio === 'Low' ? 'border-[#FF6B5A] bg-[#FF6B5A]/5' : 'border-[#E5E7EB] hover:border-[#FF6B5A]/50'}`}>
                 <input 
                   type="radio" 
                   name="ratio" 
                   checked={ratio === 'Low'} 
                   onChange={() => setRatio('Low')}
-                  className="text-[#3ECF8E] focus:ring-[#3ECF8E]"
+                  className="text-[#FF6B5A] focus:ring-[#FF6B5A]"
                 />
                 <div>
                   <div className="font-bold text-sm text-[#1C1C1C]">상대편 100%</div>
@@ -89,7 +89,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
 
           <button
             onClick={() => onConfirm(ratio)}
-            className="w-full bg-[#1C1C1C] text-[#3ECF8E] font-bold text-sm py-3 rounded-lg hover:bg-black transition-colors"
+            className="w-full bg-[#1C1C1C] text-[#FF6B5A] font-bold text-sm py-3 rounded-lg hover:bg-black transition-colors"
           >
             확인
           </button>

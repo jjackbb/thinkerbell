@@ -89,9 +89,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           onSelect(story);
         }
       }}
-      className={`bg-white group hover:border-[#3ECF8E] transition-all duration-300 flex flex-col cursor-pointer rounded-lg overflow-hidden shadow-xs hover:-translate-y-1 relative ${
+      className={`bg-white group hover:border-[#FF6B5A] transition-all duration-300 flex flex-col cursor-pointer rounded-lg overflow-hidden shadow-xs hover:-translate-y-1 relative ${
         isMyStory
-          ? 'border-2 border-[#3ECF8E]'
+          ? 'border-2 border-[#FF6B5A]'
           : 'border border-[#E5E7EB]'
       }`}
     >
@@ -108,7 +108,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               {new Date(story.createdAt).toLocaleDateString()}
             </span>
             {isMyStory && (
-              <span className="inline-flex items-center gap-1 bg-[#3ECF8E]/10 border border-[#3ECF8E] text-[#3ECF8E] px-2 py-0.5 rounded text-xs font-mono font-medium ml-1 shrink-0">
+              <span className="inline-flex items-center gap-1 bg-[#FF6B5A]/10 border border-[#FF6B5A] text-[#FF6B5A] px-2 py-0.5 rounded text-xs font-mono font-medium ml-1 shrink-0">
                 <CheckCircle className="w-3.5 h-3.5" />
                 내 글
               </span>
@@ -157,7 +157,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
         {/* Title and Excerpt Body with conditional blur */}
         <div className="relative mb-6">
           <div className={isBlurRequired ? "blur-[6px] select-none pointer-events-none opacity-60 transition-all" : ""}>
-            <h4 className="font-headline-md text-base sm:text-lg font-bold text-[#1C1C1C] mb-3 group-hover:text-[#3ECF8E] transition-colors leading-snug">
+            <h4 className="font-headline-md text-base sm:text-lg font-bold text-[#1C1C1C] mb-3 group-hover:text-[#FF6B5A] transition-colors leading-snug">
               {story.title}
             </h4>
             <p className={`text-[#5f5e5e] font-body-sm text-xs sm:text-sm leading-relaxed ${!isExpanded ? 'line-clamp-3' : ''}`}>
@@ -188,9 +188,10 @@ export const StoryCard: React.FC<StoryCardProps> = ({
 
         {/* Live Vote Gauge */}
         <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+          {/* 서비스 이름 순서대로 왼쪽이 '니 편'(상대방), 오른쪽이 '내 편'(작성자) */}
           <div className="flex justify-between font-label-sm text-xs mb-2">
-            <span className="text-[#3ECF8E] font-bold">내 편 ({percentA}%)</span>
-            <span className="text-[#5f5e5e]">남 편 ({percentB}%)</span>
+            <span className="text-[#4553C4] font-bold">니 편 ({percentB}%)</span>
+            <span className="text-[#D6452F] font-bold">내 편 ({percentA}%)</span>
           </div>
 
           <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] mb-3">
@@ -198,36 +199,14 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               <div className="bg-[#E5E7EB] w-full h-full"></div>
             ) : (
               <>
-                <div className="bg-[#3ECF8E] h-full vote-bar-progress" style={{ width: `${percentA}%` }}></div>
-                <div className="bg-[#5f5e5e]/20 h-full vote-bar-progress" style={{ width: `${percentB}%` }}></div>
+                <div className="bg-[#6C7BE8] h-full vote-bar-progress" style={{ width: `${percentB}%` }}></div>
+                <div className="bg-[#FF6B5A] h-full vote-bar-progress" style={{ width: `${percentA}%` }}></div>
               </>
             )}
           </div>
 
-          {/* Quick Vote Buttons */}
+          {/* Quick Vote Buttons — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
           <div className="grid grid-cols-2 gap-2 mb-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isBlurRequired && onRequireAdultVerification) {
-                  onRequireAdultVerification();
-                  return;
-                }
-                handleVoteClick(e, 'A');
-              }}
-              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
-              className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
-                isBlurRequired
-                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
-                  : votedOption === 'A'
-                  ? 'bg-[#3ECF8E] text-[#1C1C1C] cursor-default'
-                  : isMyStory
-                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
-                  : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#3ECF8E]/20 cursor-pointer'
-              }`}
-            >
-              내 편
-            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -242,13 +221,35 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 isBlurRequired
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
                   : votedOption === 'B'
-                  ? 'bg-[#1C1C1C] text-white cursor-default'
+                  ? 'bg-[#6C7BE8] text-white cursor-default'
                   : isMyStory
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
-                  : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#1C1C1C]/10 cursor-pointer'
+                  : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
               }`}
             >
-              남 편
+              니 편
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isBlurRequired && onRequireAdultVerification) {
+                  onRequireAdultVerification();
+                  return;
+                }
+                handleVoteClick(e, 'A');
+              }}
+              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
+              className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
+                isBlurRequired
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
+                  : votedOption === 'A'
+                  ? 'bg-[#FF6B5A] text-white cursor-default'
+                  : isMyStory
+                  ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
+                  : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
+              }`}
+            >
+              내 편
             </button>
           </div>
 
@@ -308,7 +309,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               </button>
               <button 
                 onClick={() => setActiveCommentTab('A')} 
-                className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'A' ? 'text-[#3ECF8E] border-b-2 border-[#3ECF8E]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
+                className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'A' ? 'text-[#FF6B5A] border-b-2 border-[#FF6B5A]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
               >
                 내 편
               </button>
@@ -316,7 +317,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 onClick={() => setActiveCommentTab('B')} 
                 className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'B' ? 'text-[#1C1C1C] border-b-2 border-[#1C1C1C]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
               >
-                남 편
+                니 편
               </button>
             </div>
             <button onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
@@ -345,11 +346,11 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                           </span>
                         ) : (
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold leading-none ml-1 ${
-                            displayVote === 'A' ? 'bg-[#3ECF8E] text-[#1C1C1C]' : 
-                            displayVote === 'B' ? 'bg-[#1C1C1C] text-white' : 
+                            displayVote === 'A' ? 'bg-[#FF6B5A] text-white' : 
+                            displayVote === 'B' ? 'bg-[#6C7BE8] text-white' : 
                             'bg-[#9ca3af] text-white'
                           }`}>
-                            {displayVote === 'A' ? '내 편' : displayVote === 'B' ? '남 편' : '미투표'}
+                            {displayVote === 'A' ? '내 편' : displayVote === 'B' ? '니 편' : '미투표'}
                           </span>
                         )
                       )}

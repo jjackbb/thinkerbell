@@ -133,7 +133,7 @@ export const BalanceGameSection: React.FC = () => {
     >
       {/* 화살표 및 타이틀 상단 바 */}
       <div className="absolute top-4 left-6 right-6 flex items-center justify-between z-20">
-        <div className="inline-block px-3 py-1 bg-[#3ECF8E]/10 border border-[#3ECF8E]/20 rounded text-[#3ECF8E] font-mono text-xs">
+        <div className="inline-block px-3 py-1 bg-[#FF6B5A]/10 border border-[#FF6B5A]/20 rounded text-[#FF6B5A] font-mono text-xs">
           오늘의 밸런스 게임
         </div>
         
@@ -176,12 +176,12 @@ export const BalanceGameSection: React.FC = () => {
               {/* 결과 비율 바 + 투표 버튼 (사연 피드 카드와 동일한 구성) */}
               <div className="w-full md:w-72 z-10 font-mono">
                 <div className="flex justify-between text-xs font-bold mb-2">
-                  <span className="text-[#3ECF8E]">{game.optA} ({percentA}%)</span>
+                  <span className="text-[#FF6B5A]">{game.optA} ({percentA}%)</span>
                   <span className="text-white/50">{game.optB} ({percentB}%)</span>
                 </div>
 
                 <div className="flex w-full h-2 rounded-full overflow-hidden bg-white/10 mb-3">
-                  <div className="bg-[#3ECF8E] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
+                  <div className="bg-[#FF6B5A] h-full transition-all duration-500" style={{ width: `${percentA}%` }}></div>
                   <div className="bg-white/40 h-full transition-all duration-500" style={{ width: `${percentB}%` }}></div>
                 </div>
 
@@ -191,8 +191,8 @@ export const BalanceGameSection: React.FC = () => {
                     aria-pressed={state.selectedOption === 'A'}
                     className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       state.selectedOption === 'A'
-                        ? 'bg-[#3ECF8E] text-[#1C1C1C]'
-                        : 'bg-white/10 text-white hover:bg-[#3ECF8E]/20'
+                        ? 'bg-[#FF6B5A] text-[#1C1C1C]'
+                        : 'bg-white/10 text-white hover:bg-[#FF6B5A]/20'
                     }`}
                   >
                     {game.optA}
@@ -222,7 +222,7 @@ export const BalanceGameSection: React.FC = () => {
             <button 
               key={idx}
               onClick={() => setCurrentIndex(idx)} 
-              className={`h-2 rounded-full transition-all cursor-pointer ${currentIndex === idx ? 'bg-[#3ECF8E] w-4' : 'bg-white/20 w-2'}`} 
+              className={`h-2 rounded-full transition-all cursor-pointer ${currentIndex === idx ? 'bg-[#FF6B5A] w-4' : 'bg-white/20 w-2'}`} 
               aria-label={`밸런스 게임 ${idx + 1} 보기`}
             />
           ))}

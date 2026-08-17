@@ -19,8 +19,8 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col p-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-[#3ECF8E]/15 flex items-center justify-center mx-auto mb-4">
-          <Lock className="w-5 h-5 text-[#3ECF8E]" />
+        <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/15 flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-5 h-5 text-[#FF6B5A]" />
         </div>
 
         <h2 className="text-lg font-bold text-[#1C1C1C] mb-2">로그인이 필요합니다</h2>

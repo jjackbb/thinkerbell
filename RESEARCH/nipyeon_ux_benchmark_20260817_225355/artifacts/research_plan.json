@@ -1,0 +1,104 @@
+{
+  "subtopics": [
+    {
+      "id": "ST1",
+      "name": "익명 사연 + 집단 판결/투표 서비스",
+      "targets": ["Reddit r/AmItheAsshole", "네이트판", "Judgment/판결 앱", "Perspective apps"],
+      "questions": [
+        "사연 카드에 무엇을 노출하고 무엇을 접는가",
+        "판결/투표 결과를 어떤 시각 언어로 보여주는가 (배지, 판결문, 게이지)",
+        "투표 참여 전후 UI가 어떻게 달라지는가",
+        "판결이 작성자에게 상처가 될 때 완충 장치가 있는가"
+      ],
+      "queries": [
+        "r/AmItheAsshole verdict UI YTA NTA badge design 2026",
+        "AmItheAsshole app judgment card UX",
+        "네이트판 사연 UI 2026",
+        "anonymous story judgment app UX design 2026"
+      ]
+    },
+    {
+      "id": "ST2",
+      "name": "익명 커뮤니티 (익명성 안심 장치 중심)",
+      "targets": ["블라인드", "에브리타임", "Whisper", "대나무숲", "Yik Yak"],
+      "questions": [
+        "익명성을 UI로 어떻게 안심시키는가 (뱃지, 문구, 온보딩)",
+        "익명 ID 부여 방식 (익명1/랜덤 닉네임/직장 인증)",
+        "신고·블라인드 정책을 UI에서 어떻게 드러내는가",
+        "익명 커뮤니티의 실패 사례와 원인"
+      ],
+      "queries": [
+        "Blind app anonymity UX verification badge 2026",
+        "에브리타임 익명 UI 설계",
+        "Whisper app shutdown anonymous community failure",
+        "anonymous social app trust signals UX 2026"
+      ]
+    },
+    {
+      "id": "ST3",
+      "name": "AI 페르소나 롤플레이 대화",
+      "targets": ["Character.AI", "제타(Zeta)", "Replika", "뤼튼 캐릭터"],
+      "questions": [
+        "캐릭터 대화 진입 화면 구성",
+        "대화 세션을 어떻게 마무리시키는가 (종료 연출, 요약, 리포트)",
+        "감정 강도가 높은 대화에서 안전 장치",
+        "리텐션 장치 (알림, 기억, 관계 지수)"
+      ],
+      "queries": [
+        "Character.AI chat UI design persona entry screen 2026",
+        "제타 Zeta 캐릭터챗 UX 2026",
+        "Replika relationship level UI retention",
+        "AI roleplay chat session ending summary UX"
+      ]
+    },
+    {
+      "id": "ST4",
+      "name": "감정 케어 / 멘탈 헬스",
+      "targets": ["Wysa", "Youper", "마인드카페", "트로스트", "Calm/Headspace 감정기록"],
+      "questions": [
+        "감정 배출 후 '마무리' 경험을 어떻게 설계하는가",
+        "세션 종료 시 리포트/요약 카드 형태",
+        "위기 신호 감지 및 안전 안내 UI",
+        "데일리 리텐션 장치 (체크인, 스트릭)"
+      ],
+      "queries": [
+        "Wysa app UX emotional venting session end 2026",
+        "mental health app mood check-in UI pattern 2026",
+        "마인드카페 트로스트 UX",
+        "emotional release app session summary card design"
+      ]
+    },
+    {
+      "id": "ST5",
+      "name": "밸런스 게임 / 이지선다 여론조사 + 결과 시각화",
+      "targets": ["밸런스게임 앱", "Polls (Instagram/Twitter)", "이상형 월드컵", "Slido/Mentimeter"],
+      "questions": [
+        "이지선다 결과를 보여주는 시각 패턴 카탈로그",
+        "투표 전/후 전환 애니메이션",
+        "공유 유도 장치 (결과 카드 공유)"
+      ],
+      "queries": [
+        "poll result visualization UI pattern mobile 2026",
+        "Instagram story poll result UI design",
+        "balance game app korea UX 2026",
+        "two option vote bar chart UI best practice"
+      ]
+    },
+    {
+      "id": "ST6",
+      "name": "getdesign.md 디자인 토큰",
+      "targets": ["getdesign.md"],
+      "questions": [
+        "어떤 서비스가 분석되어 있는가",
+        "유사 서비스 중 분석된 것이 있는가",
+        "design.md 포맷과 토큰 구조"
+      ],
+      "queries": ["getdesign.md design system analysis list"]
+    }
+  ],
+  "agent_batches": [
+    { "batch": 1, "agents": ["ST1", "ST2"] },
+    { "batch": 2, "agents": ["ST3", "ST4"] },
+    { "batch": 3, "agents": ["ST5", "ST6"] }
+  ]
+}

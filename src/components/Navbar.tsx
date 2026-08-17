@@ -17,7 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'feed'
             ? 'text-white font-bold'
-            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
+            : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">home_storage</span>
@@ -29,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'ai-chat'
             ? 'text-white font-bold'
-            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
+            : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">memory</span>
@@ -41,7 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'mypage'
             ? 'text-white font-bold'
-            : 'text-[#9CA3AF] hover:text-[#3ECF8E] font-medium'
+            : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
         <span className="material-symbols-outlined text-[24px]">person_pin</span>
