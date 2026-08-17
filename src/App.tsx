@@ -58,6 +58,7 @@ export default function App() {
   // 위기 표현이 감지되면 상담 안내를 띄운다. 글쓰기나 대화는 막지 않는다 —
   // 막으면 다른 앱으로 옮겨갈 뿐이라, 리소스만 보여주고 흐름은 그대로 둔다.
   const [isCrisisOpen, setIsCrisisOpen] = useState<boolean>(false);
+  const [appealTargetId, setAppealTargetId] = useState<string | null>(null);
   const notifyIfCrisis = (...texts: (string | undefined)[]) => {
     if (texts.some(t => detectCrisis(t ?? ''))) setIsCrisisOpen(true);
   };
@@ -864,64 +865,69 @@ ${stanceInstruction}
   const handleSubmitReport = async (targetId: string, reason: string) => {
     if (blockedForGuest('신고하려면 로그인이 필요해요.')) return;
 
-    let storyUpdateNeeded = false;
-    let newReportsCount = 0;
-    let newIsBlind = false;
+    const isStory = stories.some(s => s.id === targetId);
 
-    // Check if it's a story
-    setStories(prev => prev.map(s => {
-      if (s.id === targetId) {
-        const reportsCount = s.reportsCount + 1;
-        storyUpdateNeeded = true;
-        newReportsCount = reportsCount;
-        newIsBlind = reportsCount >= 5;
-        return {
-          ...s,
-          reportsCount,
-          isBlind: newIsBlind // Auto blind policy after 5 reports
-        };
-      }
-      return s;
-    }));
-
-    if (storyUpdateNeeded) {
-      // 신고 누적과 5회 자동 블라인드 판정은 서버 함수가 처리한다
-      await supabase.rpc('report_story', { p_story_id: targetId });
-    }
-    
-    // Check if it's a comment
-    let commentUpdateNeeded = false;
-    let commentNewReportsCount = 0;
-    let commentNewIsBlind = false;
-
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      Object.keys(updatedMap).forEach(storyId => {
-        updatedMap[storyId] = updatedMap[storyId].map(c => {
-          if (c.id === targetId) {
-            const reportsCount = c.reportsCount + 1;
-            commentUpdateNeeded = true;
-            commentNewReportsCount = reportsCount;
-            commentNewIsBlind = reportsCount >= 5;
-            return {
-              ...c,
-              reportsCount,
-              isBlind: commentNewIsBlind
-            };
-          }
-          return c;
-        });
-      });
-      return updatedMap;
+    // 중복 신고 차단, 1일 한도, 블라인드 판정은 전부 서버가 결정한다.
+    // 거절될 수 있으므로 화면을 먼저 바꾸지 않고 결과를 받아 반영한다.
+    const { data, error } = await supabase.rpc('submit_report', {
+      p_target_type: isStory ? 'story' : 'comment',
+      p_target_id: targetId,
+      p_reason: reason,
     });
 
-    if (commentUpdateNeeded) {
-      await supabase.rpc('report_comment', { p_comment_id: targetId });
+    if (error) {
+      setToastMessage(error.message || '신고를 처리하지 못했습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
     }
+
+    const result = data as { reports: number; blinded: boolean };
+
+    if (isStory) {
+      setStories(prev => prev.map(s =>
+        s.id === targetId ? { ...s, reportsCount: result.reports, isBlind: result.blinded } : s
+      ));
+    } else {
+      setCommentsMap(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(sid => {
+          updated[sid] = updated[sid].map(c =>
+            c.id === targetId ? { ...c, reportsCount: result.reports, isBlind: result.blinded } : c
+          );
+        });
+        return updated;
+      });
+    }
+
+    setToastMessage(result.blinded
+      ? '신고가 접수되었고, 검토를 위해 가려졌습니다.'
+      : '신고가 접수되었습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // 가려진 글의 작성자가 이의를 제기한다
+  const handleSubmitAppeal = async (targetId: string, text: string) => {
+    const { error } = await supabase.rpc('submit_appeal', {
+      p_target_type: 'story',
+      p_target_id: targetId,
+      p_text: text,
+    });
+
+    if (error) {
+      setToastMessage(error.message || '이의 제기를 접수하지 못했습니다.');
+    } else {
+      setStories(prev => prev.map(s =>
+        s.id === targetId ? { ...s, appealStatus: 'pending', appealText: text } : s
+      ));
+      setToastMessage('이의 제기가 접수되었습니다. 검토 후 안내드릴게요.');
+    }
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const baseFilteredStories = stories.filter(s => {
-    if (s.isBlind) return false;
+    // 가려진 글도 작성자에게는 보인다. 왜 가려졌는지 모르는 채로 사라지면
+    // 이의를 제기할 방법이 없기 때문 — 본문 대신 상태 카드가 뜬다.
+    if (s.isBlind && s.authorId !== user.id) return false;
     if (s.isHidden) return false;
     if (selectedCategory === '전체') return true;
     return s.category === selectedCategory;
@@ -974,6 +980,15 @@ ${stanceInstruction}
   const openStoryDetail = (story: Story) => {
     if (blockedForGuest('사연 전체 내용을 보려면 로그인이 필요해요.')) return;
     setSelectedStory(story);
+
+    // 조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.
+    // 본인 글은 세지 않는다.
+    if (story.authorId !== user.id) {
+      supabase.rpc('increment_story_view', { p_story_id: story.id });
+      setStories(prev => prev.map(s =>
+        s.id === story.id ? { ...s, viewCount: (s.viewCount ?? 0) + 1 } : s
+      ));
+    }
   };
 
   const openCreateStory = () => {
@@ -1088,6 +1103,7 @@ ${stanceInstruction}
                     onHide={handleHideStory}
                     comments={commentsMap[story.id] || []}
                     isGuest={isGuest}
+                    onAppeal={(id) => setAppealTargetId(id)}
                   />
                 ))
               )}
@@ -1210,6 +1226,45 @@ ${stanceInstruction}
         isOpen={isCrisisOpen}
         onClose={() => setIsCrisisOpen(false)}
       />
+
+      {/* 이의 제기 입력 */}
+      {appealTargetId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 flex flex-col gap-3">
+            <h2 className="text-base font-bold text-[#1C1C1C]">이의 제기</h2>
+            <p className="text-xs text-[#5f5e5e] leading-relaxed">
+              이 글이 왜 규칙에 어긋나지 않는지 알려주세요. 검토 후 다시 공개될 수 있습니다.
+            </p>
+            <textarea
+              id="appeal-text"
+              rows={4}
+              maxLength={300}
+              placeholder="예: 특정인을 비방한 내용이 아니라 제 상황을 설명한 글입니다."
+              className="w-full p-3 text-xs border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:border-[#FF6B5A]"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAppealTargetId(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('appeal-text') as HTMLTextAreaElement | null;
+                  const text = el?.value.trim() ?? '';
+                  if (!text) return;
+                  handleSubmitAppeal(appealTargetId, text);
+                  setAppealTargetId(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#1C1C1C] text-white text-sm font-bold hover:bg-black cursor-pointer"
+              >
+                제출하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <LoginPromptModal
         isOpen={loginPromptMessage !== null}

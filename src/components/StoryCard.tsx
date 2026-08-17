@@ -15,6 +15,8 @@ interface StoryCardProps {
   onRequireAdultVerification?: () => void;
   comments?: Comment[];
   isGuest?: boolean;
+  /** 가려진 내 글에 이의를 제기할 때 */
+  onAppeal?: (storyId: string) => void;
 }
 
 export const StoryCard: React.FC<StoryCardProps> = ({
@@ -30,6 +32,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   onRequireAdultVerification,
   comments = [],
   isGuest = false,
+  onAppeal,
 }) => {
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story.userVoted || null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -78,6 +81,54 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const percentA = totalVotes > 0 ? Math.round((story.votesA / totalVotes) * 100) : 0;
   const percentB = totalVotes > 0 ? 100 - percentA : 0;
   const isZeroVotes = totalVotes === 0;
+
+  // 신고로 가려진 내 글은 본문 대신 상태 카드로 보여준다.
+  // 왜 가려졌는지 모르는 채 사라지는 것이 이탈을 만든다.
+  if (story.isBlind && isMyStory) {
+    const appealed = story.appealStatus === 'pending';
+    return (
+      <article className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden shadow-xs p-6 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-label-sm text-xs px-2.5 py-0.5 bg-[#f3f4f5] border border-[#E5E7EB] text-[#5f5e5e] font-semibold rounded">
+            {story.category}
+          </span>
+          <span className="font-label-sm text-[11px] text-[#5f5e5e]/60">
+            {new Date(story.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+
+        <div>
+          <p className="text-sm font-bold text-[#1C1C1C] mb-1">
+            신고가 접수되어 검토 중인 글입니다
+          </p>
+          <p className="text-xs text-[#5f5e5e] leading-relaxed">
+            여러 사람이 신고해 지금은 다른 사람에게 보이지 않습니다.
+            내용이 규칙에 어긋나지 않는다고 생각하시면 이의를 제기해 주세요.
+          </p>
+        </div>
+
+        <p className="text-xs text-[#5f5e5e]/70 line-clamp-2 bg-[#f9fafb] rounded-lg p-3">
+          {story.title}
+        </p>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono text-[11px] text-[#5f5e5e]">
+            신고 {story.reportsCount}건 · 조회 {story.viewCount ?? 0}회
+          </span>
+          {appealed ? (
+            <span className="text-xs font-bold text-[#4553C4]">이의 제기 검토 중</span>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAppeal?.(story.id); }}
+              className="px-3 py-1.5 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
+            >
+              이의 제기
+            </button>
+          )}
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article

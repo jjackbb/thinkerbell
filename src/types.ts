@@ -30,6 +30,9 @@ export interface Story {
   isBlind: boolean;
   isAdult?: boolean;
   voteChanged?: boolean;
+  /** 신고로 가려진 글에 작성자가 낸 이의 제기 상태 */
+  appealStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
+  appealText?: string;
   isHidden?: boolean;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
