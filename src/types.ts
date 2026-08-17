@@ -33,6 +33,9 @@ export interface Story {
   /** 신고로 가려진 글에 작성자가 낸 이의 제기 상태 */
   appealStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
   appealText?: string;
+  /** 사연을 다 읽지 않고도 투표할 수 있게 AI가 뽑은 양측 논점 */
+  issueMySide?: string;
+  issueYourSide?: string;
   isHidden?: boolean;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }

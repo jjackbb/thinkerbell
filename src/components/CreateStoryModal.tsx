@@ -12,6 +12,8 @@ interface CreateStoryModalProps {
     opponentPersonality?: string;
     createAIPersona: boolean;
     isAdult: boolean;
+    issueMySide?: string;
+    issueYourSide?: string;
   }) => void;
   initialData?: Story | null;
 }
@@ -95,6 +97,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         opponentPersonality: opponentPersonality.trim(),
         createAIPersona: true,
         isAdult: isAdultCheck,
+        issueMySide: data.issueMySide || '',
+        issueYourSide: data.issueYourSide || '',
       });
 
       // Reset Form

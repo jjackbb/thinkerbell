@@ -579,6 +579,8 @@ export default function App() {
     opponentPersonality?: string;
     createAIPersona: boolean;
     isAdult: boolean;
+    issueMySide?: string;
+    issueYourSide?: string;
   }) => {
     notifyIfCrisis(storyData.title, storyData.body);
 
@@ -602,6 +604,8 @@ export default function App() {
       isBlind: false,
       isAdult: storyData.isAdult,
       cardColor: editingStory ? editingStory.cardColor : randomColor,
+      issueMySide: storyData.issueMySide || undefined,
+      issueYourSide: storyData.issueYourSide || undefined,
     };
 
     if (editingStory) {

@@ -228,13 +228,15 @@ app.post("/api/check-adult-content", async (req: Request, res: Response) => {
 2. hasProfanity: 심한 욕설, 비하 발언, 비속어 포함 여부 (true/false)
 3. sanitizedTitle: 제목에 비속어가 있다면 해당 단어만 '***'로 치환. 비속어가 없거나 제목이 없으면 원문 그대로 출력.
 4. sanitizedText: 본문에 비속어나 심한 욕설이 있다면 해당 단어만 '***'로 치환. 비속어가 없으면 원문 그대로 출력.
+5. issueMySide: 이 사연에서 '작성자 편'을 들 만한 근거를 한 문장(40자 이내)으로. 작성자를 주어로 쓰지 말고 상황 중심으로.
+6. issueYourSide: 반대로 '상대방 편'을 들 만한 근거를 한 문장(40자 이내)으로. 반드시 5번과 대칭이 되게, 억지스럽더라도 상대 입장에서 가능한 해석을 쓴다.
 
 ${titlePart}본문: "${body.replace(/"/g, '\\"')}"
 
 응답 포맷(이 형식만 출력):
-{"isAdult": false, "hasProfanity": true, "sanitizedTitle": "제목 예시", "sanitizedText": "본문 *** 예시"}`;
+{"isAdult": false, "hasProfanity": true, "sanitizedTitle": "제목 예시", "sanitizedText": "본문 *** 예시", "issueMySide": "약속을 일방적으로 어긴 쪽은 상대다", "issueYourSide": "미리 사정을 설명할 기회가 없었을 수 있다"}`;
 
-    let result: any = { isAdult: false, hasProfanity: false, sanitizedTitle: title || '', sanitizedText: body };
+    let result: any = { isAdult: false, hasProfanity: false, sanitizedTitle: title || '', sanitizedText: body, issueMySide: '', issueYourSide: '' };
 
     if (effectiveApiKey) {
       try {
@@ -291,7 +293,7 @@ ${titlePart}본문: "${body.replace(/"/g, '\\"')}"
     res.json(result);
   } catch (error: any) {
     console.error("Check adult content error:", error);
-    res.json({ isAdult: false, hasProfanity: false, sanitizedTitle: req.body?.title || '', sanitizedText: req.body?.body || "" });
+    res.json({ isAdult: false, hasProfanity: false, sanitizedTitle: req.body?.title || '', sanitizedText: req.body?.body || "", issueMySide: '', issueYourSide: '' });
   }
 });
 

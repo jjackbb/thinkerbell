@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Story, UserProfile, Comment } from '../types';
 import { VoteResult } from './VoteResult';
+import { IssueSummary } from './IssueSummary';
 import { ShieldAlert, Share2, Heart, MoreVertical, Edit2, EyeOff, Trash2, CheckCircle } from 'lucide-react';
 
 interface StoryCardProps {
@@ -240,6 +241,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
 
         {/* Live Vote Gauge */}
         <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+          <IssueSummary mySide={story.issueMySide} yourSide={story.issueYourSide} />
+
           <VoteResult
             votesA={story.votesA}
             votesB={story.votesB}
