@@ -102,8 +102,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             <span className="font-label-sm text-xs px-2.5 py-0.5 bg-[#f3f4f5] border border-[#E5E7EB] text-[#1C1C1C] font-semibold rounded">
               {story.category}
             </span>
-            <span className="font-label-md text-xs text-[#5f5e5e]">{story.authorNickname}</span>
-            <span className="text-[#5f5e5e]/40">•</span>
+            {/* 작성자 닉네임은 노출하지 않는다 — 여러 사연이 같은 닉네임으로 묶이면
+                조합만으로 신원이 좁혀지기 때문. 닉네임은 마이페이지에서만 쓴다 */}
             <span className="font-label-sm text-[11px] text-[#5f5e5e]/60">
               {new Date(story.createdAt).toLocaleDateString()}
             </span>
