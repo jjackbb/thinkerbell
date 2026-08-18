@@ -687,16 +687,20 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
       return prev;
     });
 
-    setPersonas(prev => prev.map(p => {
-      if (p.id === personaId) {
-        return {
-          ...p,
-          chatHistory: updates.messages !== undefined ? updates.messages : p.chatHistory,
-          empathyScore: updates.empathyScore !== undefined ? updates.empathyScore : p.empathyScore
-        };
-      }
-      return p;
-    }));
+    // 값이 그대로면 배열/객체를 새로 만들지 않는다. 새로 만들면 personas가
+    // 매번 새 참조가 되어 자식 effect가 다시 돌고, 그게 불필요한 렌더로 이어진다.
+    setPersonas(prev => {
+      let changed = false;
+      const next = prev.map(p => {
+        if (p.id !== personaId) return p;
+        const chatHistory = updates.messages !== undefined ? updates.messages : p.chatHistory;
+        const empathyScore = updates.empathyScore !== undefined ? updates.empathyScore : p.empathyScore;
+        if (p.chatHistory === chatHistory && p.empathyScore === empathyScore) return p;
+        changed = true;
+        return { ...p, chatHistory, empathyScore };
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
   const handleStartAIChatWithStory = (story: Story, bypassPremium: boolean = false) => {

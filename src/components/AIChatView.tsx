@@ -39,7 +39,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [empathyScore, setEmpathyScore] = useState(64);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   // 아직 대화를 시작하지 않은 채 나갈 때, 지울지 남길지 사용자가 고르게 한다
@@ -65,26 +64,29 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     if (activeSession) {
       const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
       setSelectedPersona(persona);
-      if (activeSession.empathyScore !== undefined) {
-        setEmpathyScore(activeSession.empathyScore);
-      }
     }
-  }, [activeSession?.personaId, activeSession?.empathyScore, activeSession?.explanationRatio, personas]);
+  }, [activeSession?.personaId, activeSession?.explanationRatio, personas]);
 
   useEffect(() => {
     if (activeSession) {
       setShowChat(true);
       setMessages(activeSession.messages || []);
-      setEmpathyScore(activeSession.empathyScore || 64);
       setSimEndResult(null);
     }
   }, [activeSession?.id]);
 
+  /**
+   * 주고받은 대화만 위(App)로 올려 보관한다.
+   *
+   * empathyScore는 여기서 함께 올리면 안 된다. 그 값은 App이 소유하는데,
+   * 위 effect가 내려받고 이 effect가 다시 올려보내면 두 값이 서로를 계속
+   * 덮어써서 렌더가 무한히 반복된다.
+   */
   useEffect(() => {
     if (activeSession && onUpdateSession) {
-      onUpdateSession(activeSession.id, activeSession.personaId, { messages, empathyScore });
+      onUpdateSession(activeSession.id, activeSession.personaId, { messages });
     }
-  }, [messages, empathyScore, activeSession?.id, activeSession?.personaId, onUpdateSession]);
+  }, [messages, activeSession?.id, activeSession?.personaId, onUpdateSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -442,7 +444,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <div key={msg.id} className="flex flex-col items-start max-w-[85%] space-y-1">
                 <div className="flex items-center space-x-2 mb-1 font-mono text-xs">
                   <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span>
-                  <span className="text-[#5f5e5e] font-medium">{selectedPersona.role}</span>
+                  <span className="text-[#5f5e5e] font-medium">{selectedPersona.name}</span>
                 </div>
                 <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
                   <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">
