@@ -14,6 +14,41 @@ type MoodId = typeof MOODS[number]['id'];
 
 const moodOf = (id: MoodId | null) => MOODS.find(m => m.id === id);
 
+/**
+ * 기분 칩 한 줄.
+ *
+ * 컴포넌트 바깥에 둔다. 안에 두면 렌더마다 새 타입이 되어 React가 DOM을
+ * 통째로 다시 만들고, 그러면 선택 상태가 튀거나 클릭이 씹힌다.
+ */
+const MoodRow: React.FC<{
+  value: MoodId | null;
+  onPick: (id: MoodId) => void;
+  accent: 'muted' | 'coral';
+}> = ({ value, onPick, accent }) => (
+  <div className="flex flex-wrap gap-1">
+    {MOODS.map(m => {
+      const on = value === m.id;
+      return (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onPick(m.id)}
+          aria-pressed={on}
+          className={`px-2 py-1 rounded-full text-[11px] border transition-colors cursor-pointer ${
+            on
+              ? accent === 'coral'
+                ? 'bg-[#FF6B5A] text-[#1C1C1C] border-[#FF6B5A] font-bold'
+                : 'bg-white text-[#1C1C1C] border-white font-bold'
+              : 'bg-white/5 text-[#E5E7EB] border-white/20 hover:bg-white/10'
+          }`}
+        >
+          {m.emoji} {m.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
 interface SessionSummaryCardProps {
   result: 'success' | 'fail';
   /** 대화 전체. 여기서 내가 한 말만 뽑아 쓴다 */
@@ -49,7 +84,6 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
   const [moodBefore, setMoodBefore] = useState<MoodId | null>(null);
   const [moodAfter, setMoodAfter] = useState<MoodId | null>(null);
   const [takeaway, setTakeaway] = useState('');
-  const [step, setStep] = useState<'before' | 'after'>('before');
   // 원문을 보러 갈 때는 카드를 접는다. 카드가 화면을 덮은 채로 스크롤하면
   // 정작 그때 무슨 대화였는지가 안 보인다.
   const [collapsed, setCollapsed] = useState(false);
@@ -63,25 +97,6 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
 
   const before = moodOf(moodBefore);
   const after = moodOf(moodAfter);
-
-  const MoodRow: React.FC<{ value: MoodId | null; onPick: (id: MoodId) => void }> = ({ value, onPick }) => (
-    <div className="flex flex-wrap gap-1.5">
-      {MOODS.map(m => (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => onPick(m.id)}
-          className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-            value === m.id
-              ? 'bg-[#FF6B5A] text-[#1C1C1C] border-[#FF6B5A] font-bold'
-              : 'bg-white/5 text-[#E5E7EB] border-white/20 hover:bg-white/10'
-          }`}
-        >
-          {m.emoji} {m.label}
-        </button>
-      ))}
-    </div>
-  );
 
   if (collapsed) {
     return (
@@ -127,26 +142,16 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
             )}
           </div>
 
-          {step === 'before' ? (
-            <div className="space-y-2">
-              <p className="text-[11px] text-[#5f5e5e]">대화를 시작하기 전 마음은</p>
-              <MoodRow value={moodBefore} onPick={(id) => { setMoodBefore(id); setStep('after'); }} />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-[#5f5e5e]">그리고 지금은</p>
-                <button
-                  type="button"
-                  onClick={() => setStep('before')}
-                  className="text-[11px] text-[#5f5e5e] hover:text-white underline underline-offset-2 cursor-pointer"
-                >
-                  이전 기분 다시 고르기
-                </button>
-              </div>
-              <MoodRow value={moodAfter} onPick={setMoodAfter} />
-            </div>
-          )}
+          {/* 두 줄을 동시에 보여준다. 한 줄씩 넘기면 칩 모양이 같아서
+              방금 고른 게 사라진 것처럼 보인다 */}
+          <div className="space-y-2">
+            <p className="text-[11px] text-[#5f5e5e]">대화 전에는</p>
+            <MoodRow value={moodBefore} onPick={setMoodBefore} accent="muted" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-[11px] text-[#5f5e5e]">지금은</p>
+            <MoodRow value={moodAfter} onPick={setMoodAfter} accent="coral" />
+          </div>
         </section>
 
         {/* 2. 내가 실제로 한 말. 누르면 그 자리로 올라간다 */}
