@@ -3,6 +3,7 @@ import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
 import { VoteResult } from './VoteResult';
 import { IssueSummary } from './IssueSummary';
+import { ShareResultBar } from './ShareResultBar';
 import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
@@ -52,6 +53,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editingCommentText, setEditingCommentText] = useState('');
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
   const [showSensitiveBody, setShowSensitiveBody] = useState(false);
+
+  /** 이 사연으로 바로 열리는 주소 */
+  const shareUrl = story
+    ? `${window.location.origin}${window.location.pathname}?story=${encodeURIComponent(story.id)}`
+    : '';
 
   // 서버에서 내 투표 기록을 불러오면 모달 상태도 따라가야 한다
   useEffect(() => {
@@ -465,6 +471,20 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
             </aside>
           </div>
         </div>
+
+        {/* 결과를 본 사람에게만 공유를 연다. 투표 전에는 결과 자체가 가려져 있으므로
+            공유 버튼이 먼저 나오면 그 가림이 무의미해진다 */}
+        {(!!votedOption || isMyStory) && (
+          <ShareResultBar
+            input={{
+              title: story.title,
+              votesA: story.votesA,
+              votesB: story.votesB,
+              myChoice: votedOption,
+            }}
+            url={shareUrl}
+          />
+        )}
       </div>
     </div>
   );

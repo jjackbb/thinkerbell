@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession } from './types';
 import { INITIAL_STORIES, INITIAL_PERSONAS, INITIAL_COMMENTS } from './data/mockData';
 import { Header } from './components/Header';
@@ -294,6 +294,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('potens_api_key', potensApiKey);
   }, [potensApiKey]);
+
+  // 공유 링크(?story=)로 들어온 경우 해당 사연을 연다. 사연이 다 불러와진
+  // 뒤에 한 번만 시도한다
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current || stories.length === 0) return;
+    const id = new URLSearchParams(window.location.search).get('story');
+    if (!id) { deepLinkHandled.current = true; return; }
+    const target = stories.find(s => s.id === id);
+    deepLinkHandled.current = true;
+    if (target) openStoryDetail(target);
+    else syncStoryUrl(null);
+  }, [stories]);
 
   // Handlers
   const handleCompleteWelcome = (nickname: string, provider: 'kakao' | 'apple' | 'google') => {
@@ -1014,9 +1027,26 @@ ${stanceInstruction}
   const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
 
   // 게스트는 홈 피드 탐색만 가능하므로, 나머지 진입점은 로그인 안내로 대체한다
+  /**
+   * 공유 링크가 해당 사연으로 바로 열려야 공유가 의미를 갖는다.
+   * 라우터를 들이지 않고 쿼리 하나(?story=)만 주소에 남긴다.
+   */
+  const syncStoryUrl = (storyId: string | null) => {
+    const url = new URL(window.location.href);
+    if (storyId) url.searchParams.set('story', storyId);
+    else url.searchParams.delete('story');
+    window.history.replaceState(null, '', url.toString());
+  };
+
+  const closeStoryDetail = () => {
+    setSelectedStory(null);
+    syncStoryUrl(null);
+  };
+
   const openStoryDetail = (story: Story) => {
     if (blockedForGuest('사연 전체 내용을 보려면 로그인이 필요해요.')) return;
     setSelectedStory(story);
+    syncStoryUrl(story.id);
 
     // 조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.
     // 본인 글은 세지 않는다.
@@ -1319,7 +1349,7 @@ ${stanceInstruction}
         story={selectedStory} 
         comments={selectedStory ? (commentsMap[selectedStory.id] || []) : []}
         currentUser={user}
-        onClose={() => setSelectedStory(null)} 
+        onClose={closeStoryDetail} 
         onVote={handleVote}
         onAddComment={handleAddComment}
         onLikeComment={handleLikeComment}
