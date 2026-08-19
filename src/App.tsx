@@ -711,10 +711,9 @@ export default function App() {
       const next = prev.map(p => {
         if (p.id !== personaId) return p;
         const chatHistory = updates.messages !== undefined ? updates.messages : p.chatHistory;
-        const empathyScore = updates.empathyScore !== undefined ? updates.empathyScore : p.empathyScore;
-        if (p.chatHistory === chatHistory && p.empathyScore === empathyScore) return p;
+        if (p.chatHistory === chatHistory) return p;
         changed = true;
-        return { ...p, chatHistory, empathyScore };
+        return { ...p, chatHistory };
       });
       return changed ? next : prev;
     });
@@ -793,7 +792,6 @@ export default function App() {
         storyId: story.id,
         storyTitle: story.title,
         messages,
-        empathyScore: 50,
         createdAt: new Date().toISOString(),
         status: 'active',
         chatMode: 'simulation'
@@ -816,7 +814,6 @@ export default function App() {
     });
     const roleLabel = ratioLabel(ratio);
     const describe = `사연에 대해 ${roleLabel}으로 공감하며 위로하는 AI입니다.`;
-    const score = ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10;
 
     // 사연 피드나 모달에서 신규 공감 모드를 시작한 경우 (우선 처리)
     if (aiExplainSettingsStory) {
@@ -861,7 +858,6 @@ export default function App() {
         storyId: target.id,
         storyTitle: target.title,
         messages,
-        empathyScore: score,
         createdAt: new Date().toISOString(),
         status: 'active',
         chatMode: 'explanation',
@@ -875,7 +871,6 @@ export default function App() {
         ...prev,
         explanationRatio: ratio,
         personaRole: roleLabel,
-        empathyScore: score,
       } : null);
 
       setPersonas(prev => prev.map(p =>
@@ -1212,7 +1207,6 @@ export default function App() {
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       }
                     ],
-                empathyScore: persona.empathyScore !== undefined ? persona.empathyScore : (ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : ratio === 'Low' ? 10 : 50),
                 createdAt: new Date().toISOString(),
                 status: 'active',
                 chatMode: isExplanation ? 'explanation' : 'simulation',

@@ -165,8 +165,6 @@ CreateStoryModal (opponentPersonality)
 
 - `GEMINI_API_KEY` 비어 있음 → 폴백 없음. **보류 결정** (2026-08-20): Potens가 무료라
   당분간 그대로 간다
-- `empathyScore`(내편지수)는 상태만 있고 화면에 안 쓰인다. 지금은 공감 비율을 숫자로
-  베낀 값(High 90 / Middle 50 / Low 10)일 뿐이라 정보가 중복이다. 살릴지 지울지 결정 필요
 - 대화 히스토리는 최근 8개만 보낸다 (`AIChatView.tsx`의 `messages.slice(-8)`).
   긴 대화에서 앞부분을 잊는다 — 프롬프트 다듬기 단계에서 같이 손볼 예정
 
@@ -174,3 +172,5 @@ CreateStoryModal (opponentPersonality)
 
 - ~~`[SIM_END:*]` 양쪽 하드코딩~~ → `prompts.ts`의 `SIM_END` 상수로 통합 (2026-08-20)
 - ~~무료 횟수가 localStorage 기반~~ → Supabase `ai_chat_usage`로 이관 (2026-08-20)
+- ~~`empathyScore` 살릴지 지울지~~ → 제거 결정. 공감 비율과 정보가 중복이었고 화면에
+  쓰이지도 않았다 (2026-08-20)

@@ -79,9 +79,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   /**
    * 주고받은 대화만 위(App)로 올려 보관한다.
    *
-   * empathyScore는 여기서 함께 올리면 안 된다. 그 값은 App이 소유하는데,
-   * 위 effect가 내려받고 이 effect가 다시 올려보내면 두 값이 서로를 계속
-   * 덮어써서 렌더가 무한히 반복된다.
+   * 여기서 다른 값까지 같이 올리지 말 것. App이 소유한 값을 위 effect가
+   * 내려받고 이 effect가 다시 올려보내면 두 값이 서로를 계속 덮어써서
+   * 렌더가 무한히 반복된다. 실제로 empathyScore가 그 사고를 냈다.
    */
   useEffect(() => {
     if (activeSession && onUpdateSession) {

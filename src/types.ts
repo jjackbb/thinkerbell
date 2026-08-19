@@ -69,7 +69,6 @@ export interface AIPersona {
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
   sampleFirstMessage: string;
   chatHistory?: ChatMessage[];
-  empathyScore?: number;
   /** 어느 사연에서 만들어졌는지. 같은 사연·같은 조건이면 다시 만들지 않고 재사용한다 */
   storyId?: string;
   /** 상황 모드에서 고른 대화 시작점 */
@@ -93,7 +92,6 @@ export interface ChatSession {
   storyId?: string;
   storyTitle?: string;
   messages: ChatMessage[];
-  empathyScore: number; // 내편지수 0~100%
   createdAt: string;
   status: 'active' | 'ended';
   chatMode?: 'simulation' | 'explanation';
