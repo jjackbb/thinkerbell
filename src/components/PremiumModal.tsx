@@ -5,9 +5,11 @@ interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDemoClick?: () => void;
+  /** 하루에 주어지는 무료 체험 횟수 */
+  dailyQuota?: number;
 }
 
-export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onDemoClick }) => {
+export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onDemoClick, dailyQuota = 3 }) => {
   if (!isOpen) return null;
 
   return (
@@ -16,14 +18,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
         <div className="px-5 py-4 border-b border-[#ebe6d6] flex items-center justify-between bg-[#faf5e8]">
           <h2 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2">
             <Crown className="w-5 h-5 text-[#ffd700]" /> 프리미엄 기능
-            {onDemoClick && (
-              <button 
-                onClick={onDemoClick}
-                className="px-2 py-0.5 text-[10px] font-bold bg-[#ffd700] text-black rounded-md active:scale-95 transition-transform"
-              >
-                데모
-              </button>
-            )}
+
           </h2>
           <button
             onClick={onClose}
@@ -39,10 +34,13 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
           </div>
           
           <div>
-            <h3 className="text-lg font-black text-[#0a0a0a] mb-2">유료 구독 회원 전용</h3>
+            <h3 className="text-lg font-black text-[#0a0a0a] mb-2">오늘 무료 체험을 다 쓰셨어요</h3>
             <p className="text-sm text-[#6a6a6a] leading-relaxed font-medium">
-              AI 시뮬레이션(갈등 상대방과의 1:1 디베이트)은<br/>
-              <strong className="text-[#0a0a0a]">프리미엄 구독 회원</strong>만 이용 가능합니다.
+              다른 사람의 사연으로 여는 AI 대화는 하루 <strong className="text-[#0a0a0a]">{dailyQuota}회</strong>까지 무료예요.<br/>
+              <strong className="text-[#0a0a0a]">내일 다시 {dailyQuota}회</strong>가 충전됩니다.
+            </p>
+            <p className="text-xs text-[#8a8a8a] mt-3">
+              내가 쓴 사연은 횟수 제한 없이 대화할 수 있어요.
             </p>
           </div>
 
@@ -53,6 +51,14 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
             >
               구독 알아보기
             </button>
+            {onDemoClick && (
+              <button
+                onClick={onDemoClick}
+                className="w-full px-5 py-3.5 bg-transparent border border-[#e8e2d0] text-[#0a0a0a] font-bold rounded-xl active:scale-95 transition-all cursor-pointer hover:bg-[#f5f0e0]"
+              >
+                지금 한 번 둘러보기
+              </button>
+            )}
             <button
               onClick={onClose}
               className="w-full px-5 py-3.5 bg-transparent text-[#6a6a6a] font-bold rounded-xl active:scale-95 transition-all cursor-pointer hover:bg-[#f5f0e0]"

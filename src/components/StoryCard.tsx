@@ -327,10 +327,10 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               setActiveCommentTab(activeCommentTab === null ? 'all' : null);
             }}
           >
-            <span className="material-symbols-outlined text-[18px]">forum</span> {comments.length}
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span> {comments.length}
           </span>
           <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-            <span className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
           </span>
         </div>
 
@@ -366,7 +366,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               </button>
             </div>
             <button onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
           <div className="space-y-2 pt-1">

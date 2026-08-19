@@ -15,6 +15,8 @@ interface StoryDetailModalProps {
   onAddComment: (storyId: string, content: string) => void;
   onLikeComment: (commentId: string) => void;
   onStartAIChat: (story: Story) => void;
+  /** 오늘 남은 무료 AI 대화 횟수 (내 사연이면 무제한이라 표시하지 않는다) */
+  freeChatsLeft?: number;
   onReportStory: (storyId: string) => void;
   onReportComment: (commentId: string) => void;
   onEditStory?: (storyId: string) => void;
@@ -33,6 +35,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onAddComment,
   onLikeComment,
   onStartAIChat,
+  freeChatsLeft,
   onReportStory,
   onReportComment,
   onEditStory,
@@ -156,7 +159,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         {/* Modal Top Bar */}
         <header className="sticky top-0 z-40 bg-[#1C1C1C] text-white flex justify-between items-center px-6 py-4 border-b border-[#1C1C1C]">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span>
             <h1 className="font-headline-md text-base font-bold text-[#FF6B5A]">니편내편</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -208,7 +211,6 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <span className="w-2 h-2 rounded-full bg-[#FF6B5A] animate-pulse"></span>
                 {story.category}
               </span>
-              <span className="font-mono text-xs text-[#5f5e5e]">POST ID: #{story.id.slice(-6)}</span>
               {currentUser?.id === story.authorId && (
                 <span className="inline-flex items-center gap-1 text-[#FF6B5A] text-xs font-mono font-medium ml-1">
                   <CheckCircle className="w-3.5 h-3.5" />
@@ -217,7 +219,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               )}
             </div>
             
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
               <div>
                 <h2 className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
                   {story.title}
@@ -227,20 +229,6 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   <span>{story.viewCount} Views</span>
                   <span>{comments.length} Comments</span>
                 </div>
-              </div>
-              
-              {/* AI Chat CTA */}
-              <div className="p-4 sm:p-5 bg-white text-[#1C1C1C] rounded-xl flex items-center justify-between gap-4 w-full md:w-[350px] shrink-0 border border-[#E5E7EB] shadow-sm self-end">
-                <div>
-                  <h4 className="font-bold text-sm text-[#FF6B5A]">AI 시뮬레이션 대화</h4>
-                  <p className="text-xs text-[#5f5e5e] font-mono mt-1 leading-tight">AI와의 시뮬레이션 대화를 시작 해보세요.</p>
-                </div>
-                <button
-                  onClick={() => onStartAIChat(story)}
-                  className="px-4 py-2 bg-[#FF6B5A] text-[#1C1C1C] font-mono font-bold text-xs sm:text-sm rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer shrink-0 transition-all"
-                >
-                  시작하기
-                </button>
               </div>
             </div>
           </section>
@@ -342,6 +330,36 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 )}
               </div>
 
+              {/* AI 대화 CTA.
+                  사연을 읽고 편을 고른 다음에 권해야 맥락이 맞다. 예전에는 제목
+                  바로 아래(히어로)에 있어서, 읽으러 온 사람에게 읽기도 전에 다른
+                  걸 먼저 권하는 꼴이었다. */}
+              <div className="pt-4 border-t border-[#E5E7EB]">
+                <div className="p-4 sm:p-5 bg-[#1C1C1C] text-white rounded-xl flex items-center justify-between gap-4 border border-[#1C1C1C]">
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-sm text-[#FF6B5A]">AI로 이 상황을 다시 겪어보기</h4>
+                    <p className="text-xs text-[#5f5e5e] mt-1 leading-relaxed">
+                      {isMyStory
+                        ? '사연 속 상대방과 직접 대화해 보세요. 내 사연은 횟수 제한이 없어요.'
+                        : '사연 속 상대방과 직접 대화해 보세요.'}
+                    </p>
+                    {!isMyStory && typeof freeChatsLeft === 'number' && (
+                      <p className="text-[11px] font-mono text-[#5f5e5e] mt-1.5">
+                        {freeChatsLeft > 0
+                          ? `오늘 무료로 ${freeChatsLeft}번 더 열 수 있어요`
+                          : '오늘 무료 횟수를 다 썼어요 · 내일 다시 충전돼요'}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => onStartAIChat(story)}
+                    className="px-4 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs sm:text-sm rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer shrink-0 transition-all"
+                  >
+                    시작하기
+                  </button>
+                </div>
+              </div>
+
             </div>
 
             {/* Right Comments */}
@@ -351,10 +369,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-                      <span className="material-symbols-outlined text-[18px]">forum</span> {filteredComments.length}
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span> {filteredComments.length}
                     </span>
                     <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-                      <span className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
                     </span>
                   </div>
                   <div className="flex gap-2 text-xs font-mono">

@@ -127,7 +127,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">작성 활동 내역</h2>
@@ -190,7 +190,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">계정 설정 및 정보</h2>
@@ -265,7 +265,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">알림 설정</h2>
@@ -316,7 +316,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">도움말 및 문의</h2>

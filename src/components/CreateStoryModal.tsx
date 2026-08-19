@@ -154,7 +154,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         {/* Modal Header */}
         <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
-            <span className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
+            <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
           <button onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />

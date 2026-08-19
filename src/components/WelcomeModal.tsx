@@ -86,7 +86,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         {/* Header Branding */}
         <div className="space-y-2">
           <div className="text-center mb-2">
-            <span className="material-symbols-outlined text-[#FF6B5A] text-5xl font-bold">terminal</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-5xl font-bold">terminal</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#1C1C1C] font-display">
             니편내편에 오신 것을 환영합니다!

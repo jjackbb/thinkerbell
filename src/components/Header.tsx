@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="w-full top-0 sticky z-50 bg-[#1C1C1C] flex items-center justify-between px-4 sm:px-8 h-16 border-b border-[#1C1C1C] shadow-sm">
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => { onGoHome(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-        <span className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span>
         <div>
           <h1 className="font-headline-lg text-xl sm:text-2xl font-black tracking-tighter text-[#FF6B5A] flex items-center gap-2">
             니편내편

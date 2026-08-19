@@ -25,6 +25,7 @@ export interface Story {
   isWeeklyTop?: boolean;
   weeklyRank?: number;
   personaName?: string;
+  /** 작성자가 적어둔 상대방 성격. AI 대화에서 상대를 이 성격으로 연기시킨다 */
   personaInstruction?: string;
   reportsCount: number;
   isBlind: boolean;
@@ -69,6 +70,12 @@ export interface AIPersona {
   sampleFirstMessage: string;
   chatHistory?: ChatMessage[];
   empathyScore?: number;
+  /** 어느 사연에서 만들어졌는지. 같은 사연·같은 조건이면 다시 만들지 않고 재사용한다 */
+  storyId?: string;
+  /** 상황 모드에서 고른 대화 시작점 */
+  opening?: 'apology' | 'oblivious' | 'meFirst';
+  /** 공감 모드에서 고른 공감 비율 */
+  ratio?: 'High' | 'Middle' | 'Low';
 }
 
 export interface ChatMessage {

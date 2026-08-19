@@ -367,7 +367,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
+          <button aria-label="대화창 나가기" onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
@@ -381,11 +381,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </div>
         <div className="flex items-center gap-4">
           {(activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
-            <button onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
+            <button aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
           )}
           <button
+            aria-label="대화 끝내기"
             onClick={() => (notStartedYet ? setShowExitChoice(true) : setShowDeleteModal(true))}
             className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer"
           >

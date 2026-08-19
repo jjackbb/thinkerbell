@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
-        <span className="material-symbols-outlined text-[24px]">home_storage</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[24px]">home_storage</span>
         <span className="font-label-sm text-[11px]">Home</span>
       </button>
 
@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
-        <span className="material-symbols-outlined text-[24px]">memory</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[24px]">memory</span>
         <span className="font-label-sm text-[11px]">Ai 대화</span>
       </button>
 
@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             : 'text-[#9CA3AF] hover:text-[#FF6B5A] font-medium'
         }`}
       >
-        <span className="material-symbols-outlined text-[24px]">person_pin</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[24px]">person_pin</span>
         <span className="font-label-sm text-[11px]">마이</span>
       </button>
     </nav>

@@ -23,6 +23,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
@@ -35,6 +36,32 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
   '가족': '가족',
   '기타': '상대방',
 };
+
+/**
+ * 남의 사연으로 AI 대화를 열 수 있는 하루 무료 횟수.
+ *
+ * 평생 1회로 막으면 맛도 보기 전에 벽을 만나 아예 안 쓰게 된다. 매일 조금씩
+ * 열어줘야 "이거 더 하고 싶다"는 마음이 생기고, 그때 구독이 의미가 생긴다.
+ * 내가 쓴 사연은 횟수를 쓰지 않는다.
+ */
+const DAILY_AI_QUOTA = 3;
+const AI_QUOTA_KEY = 'nipyeon_ai_quota';
+
+/** 로컬 시간 기준 날짜 키. 이 값이 바뀌면 횟수가 자동으로 리셋된다 */
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
+const readAiQuotaUsed = (): number => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(AI_QUOTA_KEY) || '{}');
+    return raw.date === todayKey() ? Number(raw.used) || 0 : 0;
+  } catch {
+    return 0;
+  }
+};
+
 
 export default function App() {
   // User Profile State
@@ -239,6 +266,15 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
+  /** 오늘 쓴 무료 AI 대화 횟수 (자정이 지나면 저장값이 스스로 무효가 된다) */
+  const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(() => readAiQuotaUsed());
+  const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
+
+  const consumeAiQuota = () => {
+    const used = readAiQuotaUsed() + 1;
+    localStorage.setItem(AI_QUOTA_KEY, JSON.stringify({ date: todayKey(), used }));
+    setAiQuotaUsed(used);
+  };
   const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
@@ -619,6 +655,9 @@ export default function App() {
       cardColor: editingStory ? editingStory.cardColor : randomColor,
       issueMySide: storyData.issueMySide || undefined,
       issueYourSide: storyData.issueYourSide || undefined,
+      // 작성자가 적어둔 상대방 성격. 저장해 두어야 나중에 AI 대화를 열 때
+      // 그 성격대로 상대를 연기시킬 수 있다
+      personaInstruction: storyData.opponentPersonality || undefined,
     };
 
     if (editingStory) {
@@ -652,26 +691,10 @@ export default function App() {
         category: storyData.category,
         avatarIcon: 'Bot',
         description: `사연: "${storyData.title}" 의 상대방 AI 페르소나입니다.${storyData.opponentPersonality ? ` (성격: ${storyData.opponentPersonality})` : ''}`,
-        systemInstruction: `[역할 몰입 시뮬레이션 - 절대 이탈 금지]
-
-너는 아래 사연 속 작성자(유저)와 실제로 갈등을 겪고 있는 '상대방 본인'이다.
-너는 AI나 챗봇이 아니며, 지금 유저와 1:1 카카오톡/문자로 대화하고 있는 실제 사람이다.
-
-■ 사연 내용 (네가 유저에게 한 행동/상황):
-"${storyData.body}"
-
-■ 너의 성격 및 특징:
-${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반으로 성격을 분석하여 적용된 인물'}
-
-■ 대화 수칙 (반드시 준수):
-1. [AI 정체 완벽 차단]: 너는 절대로 'AI', '챗봇', '인공지능', '모델'이라는 단어를 언급하거나 인정해서는 안 된다.
-2. [메타 발언 금지]: "사연에서 지시된 바와 같이", "상처를 줄 수 있어서" 같은 지시문 인용이나 윤리적 조언을 일절 하지 마라.
-3. [상대방 본인 연기 & 50:50 화해·결렬 심사 수칙]:
-   - 초반 1~2턴은 네 입장을 방어하고 서운함이나 억울함을 항변해라.
-   - [🟢 화해 수용 조건]: 유저가 ① 구체적인 해결·타협 대안을 제시하거나, ② 네 입장을 조금이라도 먼저 공감·인정해주거나, ③ 감정적인 비난 없이 차분하고 온화한 근거로 설득할 때에만 서서히 마음을 풀고 화해/수용의 태도로 변경해라.
-   - [🔴 결렬 거부 조건]: 유저가 본인의 서운함만 일방적으로 주장하거나, 너의 핑계를 비난하며 자존심을 건드리면 끝까지 양보 없이 단호하게 맞서라.
-4. [출력 지침]: 인사말이나 설명, 부연 텍스트 없이 오직 상대방의 실제 대사만 출력해라.
-5. [대화 종결 기호 (최중요)]: 대화가 3~5턴 내외로 이어지며 🟢 화해 조건이 충족되어 화기애애하거나 원만히 합의될 때 오직 답변 끝에 [SIM_END:SUCCESS] 를 붙여라. 🔴 결렬 조건에 해당되어 도저히 협상 여지가 없는 평행선 상태로 결렬 선언할 때는 오직 답변 끝에 [SIM_END:FAIL] 을 붙여라. 아직 판단하기 이르다면 아무 기호도 쓰지 마라.`,
+        systemInstruction: buildSimulationPrompt({
+          storyBody: storyData.body,
+          opponentPersonality: storyData.opponentPersonality,
+        }),
         cardColor: randomColor,
         sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
       };
@@ -704,7 +727,12 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
   }, []);
 
   const handleStartAIChatWithStory = (story: Story, bypassPremium: boolean = false) => {
-    if (story.authorId === user.id || bypassPremium) {
+    // 탭을 켜둔 채 자정을 넘겼을 수 있으므로 저장값을 다시 읽어 화면 숫자를 맞춘다
+    const used = readAiQuotaUsed();
+    if (used !== aiQuotaUsed) setAiQuotaUsed(used);
+
+    const isMine = story.authorId === user.id;
+    if (isMine || bypassPremium || used < DAILY_AI_QUOTA) {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
@@ -712,83 +740,60 @@ ${storyData.opponentPersonality || '사연 내용과 상대방 성격을 기반�
     }
   };
 
-  /** 시작점별 첫 대사와 태도 지시. 같은 갈등을 다른 온도로 재생하게 한다 */
-  const OPENING_SCRIPTS: Record<ChatOpening, { scene: string; first: string | null; stance: string }> = {
-    apology: {
-      scene: '상대가 먼저 연락해 사과를 건네온 참이다.',
-      first: '저기… 그때 일은 내가 좀 심했던 것 같아. 미안해.',
-      stance: '너는 이미 한 번 사과를 건넨 상태다. 다만 완전히 수긍한 것은 아니어서, 유저가 몰아붙이면 방어적으로 돌아설 수 있다.',
-    },
-    oblivious: {
-      scene: '상대는 아무 일도 없었다는 듯 평소처럼 굴고 있다.',
-      first: '어 왔어? 별일 없지?',
-      stance: '너는 갈등이 있었다는 사실 자체를 대수롭지 않게 여긴다. 유저가 문제를 꺼내면 처음엔 "그게 그렇게 기분 나빴어?" 하는 식으로 반응한다.',
-    },
-    meFirst: {
-      scene: '아직 아무 말도 오가지 않았다. 유저가 먼저 말을 꺼내려는 참이다.',
-      first: null,
-      stance: '유저가 먼저 말을 꺼낼 때까지 기다린다. 첫 마디에 담긴 어조를 그대로 받아 반응해라.',
-    },
-  };
-
   const handleSelectAiChatMode = (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
-    
+    const story = aiChatModeStory;
+
     if (mode === 'simulation') {
-      const newPersona: AIPersona = {
+      // 같은 사연을 같은 시작점으로 다시 열면 새로 만들지 않고 이어서 한다.
+      // 매번 새로 만들면 AI 대화 탭이 똑같은 카드로 뒤덮인다.
+      const existing = personas.find(p => p.storyId === story.id && p.opening === opening);
+      const persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
-        name: OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방',
+        name: OPPONENT_LABELS[story.category] ?? '상대방',
         role: '상황',
-        category: aiChatModeStory.category,
+        category: story.category,
         avatarIcon: 'Bot',
-        description: `사연: "${aiChatModeStory.title}" 의 상대방 AI 페르소나입니다.`,
-        systemInstruction: `[역할 몰입 시뮬레이션 - 절대 이탈 금지]
-
-너는 아래 사연 속 작성자(유저)와 실제로 갈등을 겪고 있는 '상대방 본인'이다.
-너는 AI나 챗봇이 아니며, 지금 유저와 1:1 카카오톡/문자로 대화하고 있는 실제 사람이다.
-
-■ 사연 내용 (네가 유저에게 한 행동/상황):
-"${aiChatModeStory.body}"
-
-■ 지금 상황 (대화가 시작되는 지점):
-${OPENING_SCRIPTS[opening].scene}
-
-■ 이 상황에서 너의 태도:
-${OPENING_SCRIPTS[opening].stance}
-
-■ 너의 성격 및 특징:
-사연 내용과 상대방 성격을 기반으로 성격을 분석하여 적용된 인물
-
-■ 대화 수칙 (반드시 준수):
-1. [AI 정체 완벽 차단]: 너는 절대로 'AI', '챗봇', '인공지능', '모델'이라는 단어를 언급하거나 인정해서는 안 된다.
-2. [메타 발언 금지]: "사연에서 지시된 바와 같이", "상처를 줄 수 있어서" 같은 지시문 인용이나 윤리적 조언을 일절 하지 마라.
-3. [상대방 본인 연기 & 50:50 화해·결렬 심사 수칙]:
-   - 초반 1~2턴은 네 입장을 방어하고 서운함이나 억울함을 항변해라.
-   - [🟢 화해 수용 조건]: 유저가 ① 구체적인 해결·타협 대안을 제시하거나, ② 네 입장을 조금이라도 먼저 공감·인정해주거나, ③ 감정적인 비난 없이 차분하고 온화한 근거로 설득할 때에만 서서히 마음을 풀고 화해/수용의 태도로 변경해라.
-   - [🔴 결렬 거부 조건]: 유저가 본인의 서운함만 일방적으로 주장하거나, 너의 핑계를 비난하며 자존심을 건드리면 끝까지 양보 없이 단호하게 맞서라.
-4. [출력 지침]: 인사말이나 설명, 부연 텍스트 없이 오직 상대방의 실제 대사만 출력해라.
-5. [대화 종결 기호 (최중요)]: 대화가 3~5턴 내외로 이어지며 🟢 화해 조건이 충족되어 화기애애하거나 원만히 합의될 때 오직 답변 끝에 [SIM_END:SUCCESS] 를 붙여라. 🔴 결렬 조건에 해당되어 도저히 협상 여지가 없는 평행선 상태로 결렬 선언할 때는 오직 답변 끝에 [SIM_END:FAIL] 을 붙여라. 아직 판단하기 이르다면 아무 기호도 쓰지 마라.`,
+        description: `사연: "${story.title}" 의 상대방 AI 페르소나입니다.`,
+        systemInstruction: buildSimulationPrompt({
+          storyBody: story.body,
+          opponentPersonality: story.personaInstruction,
+          opening,
+        }),
         createdAt: new Date().toISOString(),
         cardColor: 'pink',
-        sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
+        sampleFirstMessage: OPENING_SCRIPTS[opening].first ?? '너 나한테 사연 올린 거 진짜 너무하다...',
+        storyId: story.id,
+        opening,
       };
-      setPersonas(prev => [newPersona, ...prev]);
+
+      if (!existing) {
+        setPersonas(prev => [persona, ...prev]);
+        // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
+        if (story.authorId !== user.id) consumeAiQuota();
+      }
+
+      // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
+      const opener = OPENING_SCRIPTS[opening].first;
+      const messages = existing?.chatHistory?.length
+        ? existing.chatHistory
+        : opener
+        ? [{
+            id: `msg-${Date.now()}`,
+            sender: 'ai' as const,
+            text: opener,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          }]
+        : [];
+
       setActiveChatSession({
         id: `session-${Date.now()}`,
-        personaId: newPersona.id,
-        personaName: newPersona.name,
-        personaRole: newPersona.role,
-        storyId: aiChatModeStory.id,
-        storyTitle: aiChatModeStory.title,
-        // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
-        messages: OPENING_SCRIPTS[opening].first
-          ? [{
-              id: `msg-${Date.now()}`,
-              sender: 'ai' as const,
-              text: OPENING_SCRIPTS[opening].first as string,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            }]
-          : [],
+        personaId: persona.id,
+        personaName: persona.name,
+        personaRole: persona.role,
+        storyId: story.id,
+        storyTitle: story.title,
+        messages,
         empathyScore: 50,
         createdAt: new Date().toISOString(),
         status: 'active',
@@ -797,88 +802,67 @@ ${OPENING_SCRIPTS[opening].stance}
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
-      setAiExplainSettingsStory(aiChatModeStory);
+      setAiExplainSettingsStory(story);
       setIsExplainSettingsModalOpen(true);
       setAiChatModeStory(null);
     }
   };
 
   const handleConfirmExplainSettings = (ratio: ExplainRatio) => {
-    const empathyRatioStr = ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 입장 100%';
-    
-    // Fallback if aiExplainSettingsStory is somehow null in activeChatSession case
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
-    const storyBody = story?.body || '';
-    const personalityText = story?.opponentPersonality || '사연 속 상대방의 성격 및 행동 특성';
-
-    const stanceInstruction = ratio === 'High' 
-      ? `[공감 스탠스 지침: '내 편 100%']
-- 무조건 유저의 편이 되어준다. 유저가 힘들어하거나 서운해할 때 200% 격하게 공감해 주며 든든한 아군이 되어라.
-- 단, 사연 본문의 세부 사항을 한꺼번에 쏟아내며 나열하지 말고, 현재 유저가 던진 말의 감정에 먼저 집중해서 따뜻하게 공감해라.
-- 유저의 속상함을 달래주는 맞장구와 함께 "진짜 고생 많았어 ㅠㅠ 지금 기분은 어때?", "무슨 일 있었길래 그렇게까지 지쳤어..." 같이 부드러운 핑퐁(반문)으로 대화를 이끌어라.`
-      : ratio === 'Middle' 
-      ? `[공감 스탠스 지침: '반반 (공감 50% + 중립 50%)']
-- ① 첫 1~2문장은 유저의 마음에 다정하고 친근하게 충분히 공감하며 다독여주어라.
-- ② 이어서 "하지만 그 사람 입장에서도 그런 마음이나 사정이 있었을 수 있어"라고 객관적·중립적 시선을 1문장 내외로 간결히 짚어주어라.
-- [분량 압축 및 TMI 금지]: 사연 내용을 통째로 길게 요약하거나 주저리주저리 설명하지 마라. 답변 전체를 딱 2~3문장(최대 4문장) 이내의 깔끔하고 짧은 호흡으로 압축하여 친구랑 카톡하듯 간결하게 답해라.
-- 어느 한쪽으로 치우치지 않는 균형(50:50)을 지키며 부드러운 반문으로 부담 없이 대화해라.`
-      : `[공감 스탠스 지침: '상대편 입장 100% (다정한 해설 및 상대 속마음 대변)']
-- [최중요 금지 수칙]: 절대로 "얄밉다", "어이없다", "말이 안 된다", "이기적이다", "편리하게 쓴다"처럼 상대방을 욕하거나 깎아내려 유저 맞장구만 치지 마라! 너는 '상대편 100%' 스탠스다!
-- 유저를 공격하지는 않되, 차분하고 지혜로운 조언자로서 오직 '상대방이 왜 그랬을지 의도와 속마음, 그리고 업무적 고충'을 100% 진심으로 대변하고 통역해주듯 풀어주어라.
-- "부장님(상대방) 입장에서는 퇴근 직전에 본인도 급하게 지시를 받았거나, 가장 신뢰하는 사람에게 맡겨야 했던 사정이 있었을 수 있어"처럼 상대 입장의 배경을 다정히 설명해라.
-- [분량 압축 및 TMI 금지]: 주저리주저리 설교하거나 훈계하듯 길게 늘어놓지 마라! 답변 전체를 딱 2~3문장(최대 4문장) 이내로 깔끔하게 축약해서, 실제 카톡처럼 부담 없이 짧은 호흡으로 전달해라.
-- 설명 후에는 "물론 네 마음이 화날 만해 ㅠㅠ 내일 출근해서 조심스럽게 이야기해 볼 생각 있어?" 같은 부드러운 질문으로 끝내라.`;
-
-    const systemInstruction = `[상황 이해 & 위로 대화 시뮬레이션 - 절대 이탈 금지]
-
-너는 아래 사연을 읽고 유저의 이야기를 진심으로 들어주며, 지정된 '공감 스탠스'에 맞춰 대화를 나누는 솔직하고 지혜로운 대화 상대(친구 또는 조언자)이다.
-너는 AI나 챗봇이 아니며, 지금 유저의 고민을 1:1 카카오톡/문자로 함께 나누고 있는 실제 사람이다.
-
-■ 사연 내용:
-"${storyBody}"
-
-■ 갈등 상대방의 특징/성격 (참고용):
-${personalityText}
-
-■ 적용해야 할 절대 스탠스:
-"${empathyRatioStr}"
-
-■ 스탠스별 대화 필수 지침 (엄격히 준수):
-${stanceInstruction}
-
-■ 대화 수칙 (반드시 준수):
-1. [AI 정체 완벽 차단]: 너는 절대로 'AI', '챗봇', '인공지능', '모델'이라는 단어를 언급하거나 인정해서는 안 된다.
-2. [메타 발언 및 교조적 태도 금지]: "지침에 따라", "공감 모드로서" 같은 메타 발언이나, 가르치려 드는 훈계조의 말을 일절 하지 마라.
-3. [카톡 호흡 & 분량 압축 수칙 (최중요)]: 
-   - 주저리주저리 길게 설명하거나 연극 대본 같은 장황한 글(TMI)은 절대 금지된다. 무조건 간결하게 압축해라!
-   - 실제 친구나 선배와 1:1 카카오톡을 나눌 때처럼 딱 2~3문장(최대 4문장) 이내로 편안하고 부담 없는 단문 호흡을 사용해라.
-   - 사연의 세부 사항을 한 번에 다 쏟아내지 말고, 유저의 발언 분량과 흐름에 맞춰 자연스럽게 짧게 대응해라.
-4. [출력 지침]: 인사말, 설명, 부연 텍스트 없이 오직 유저에게 보낼 실제 대사 메시지만을 출력해라.`;
+    const systemInstruction = buildEmpathyPrompt({
+      storyBody: story?.body || '',
+      opponentPersonality: story?.personaInstruction,
+      ratio,
+    });
+    const roleLabel = ratioLabel(ratio);
+    const describe = `사연에 대해 ${roleLabel}으로 공감하며 위로하는 AI입니다.`;
+    const score = ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10;
 
     // 사연 피드나 모달에서 신규 공감 모드를 시작한 경우 (우선 처리)
     if (aiExplainSettingsStory) {
-      const newPersona: AIPersona = {
+      const target = aiExplainSettingsStory;
+      // 같은 사연을 같은 비율로 다시 열면 이어서 한다
+      const existing = personas.find(p => p.storyId === target.id && p.ratio === ratio);
+      const persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
-        name: aiExplainSettingsStory.title,
-        role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
-        category: aiExplainSettingsStory.category,
+        name: target.title,
+        role: roleLabel,
+        category: target.category,
         avatarIcon: 'ListTree',
-        description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
+        description: describe,
         systemInstruction,
         createdAt: new Date().toISOString(),
         cardColor: 'teal',
-        sampleFirstMessage: `상황에 대한 이야기를 들려주세요. 편하게 감정을 털어놓으셔도 좋습니다.`
+        sampleFirstMessage: EMPATHY_OPENERS[ratio],
+        storyId: target.id,
+        ratio,
       };
-      setPersonas(prev => [newPersona, ...prev]);
+
+      if (!existing) {
+        setPersonas(prev => [persona, ...prev]);
+        if (target.authorId !== user.id) consumeAiQuota();
+      }
+
+      // 공감 모드도 AI가 먼저 말을 건다. 빈 화면에 대고 먼저 털어놓기는 어렵다.
+      const messages = existing?.chatHistory?.length
+        ? existing.chatHistory
+        : [{
+            id: `msg-${Date.now()}`,
+            sender: 'ai' as const,
+            text: EMPATHY_OPENERS[ratio],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          }];
+
       setActiveChatSession({
         id: `session-${Date.now()}`,
-        personaId: newPersona.id,
-        personaName: newPersona.name,
-        personaRole: newPersona.role,
-        storyId: aiExplainSettingsStory.id,
-        storyTitle: aiExplainSettingsStory.title,
-        messages: [],
-        empathyScore: ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10,
+        personaId: persona.id,
+        personaName: persona.name,
+        personaRole: persona.role,
+        storyId: target.id,
+        storyTitle: target.title,
+        messages,
+        empathyScore: score,
         createdAt: new Date().toISOString(),
         status: 'active',
         chatMode: 'explanation',
@@ -891,23 +875,17 @@ ${stanceInstruction}
       setActiveChatSession(prev => prev ? {
         ...prev,
         explanationRatio: ratio,
-        personaRole: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
-        empathyScore: ratio === 'High' ? 90 : ratio === 'Middle' ? 50 : 10,
+        personaRole: roleLabel,
+        empathyScore: score,
       } : null);
-      
-      setPersonas(prev => prev.map(p => {
-        if (p.id === activeChatSession.personaId) {
-          return {
-            ...p,
-            role: ratio === 'High' ? '내 편 100%' : ratio === 'Middle' ? '반반' : '상대편 100%',
-            description: `사연에 대해 ${ratio === 'High' ? '내 편 100%로' : ratio === 'Middle' ? '반반으로' : '상대편 100%로'} 공감하며 위로하는 AI입니다.`,
-            systemInstruction
-          };
-        }
-        return p;
-      }));
+
+      setPersonas(prev => prev.map(p =>
+        p.id === activeChatSession.personaId
+          ? { ...p, role: roleLabel, description: describe, systemInstruction, ratio }
+          : p
+      ));
     }
-    
+
     setIsExplainSettingsModalOpen(false);
   };
 
@@ -1358,6 +1336,7 @@ ${stanceInstruction}
         onAddComment={handleAddComment}
         onLikeComment={handleLikeComment}
         onStartAIChat={handleStartAIChatWithStory}
+        freeChatsLeft={freeChatsLeft}
         onReportStory={handleReport}
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}
@@ -1407,6 +1386,7 @@ ${stanceInstruction}
 
       <PremiumModal
         isOpen={!!premiumModalStory}
+        dailyQuota={DAILY_AI_QUOTA}
         onClose={() => setPremiumModalStory(null)}
         onDemoClick={() => {
           if (premiumModalStory) {
