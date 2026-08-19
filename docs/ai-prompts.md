@@ -3,7 +3,7 @@
 니편내편의 AI 대화 기능을 손볼 때 읽는 문서. 어디를 고치면 되는지와, 지금 구조가
 왜 이렇게 됐는지를 적어둔다.
 
-최종 수정: 2026-08-19
+최종 수정: 2026-08-20
 
 ---
 
@@ -67,8 +67,17 @@ AIChatView → POST /api/chat-stream → Potens(claude-4-6-sonnet) → 실패 �
 - 기호는 화면에 보이기 전에 정규식으로 지워진다
 - 4턴 이상 오가면 사용자가 직접 끝낼 수 있는 바도 따로 뜬다
 
-**프롬프트에서 종결 기호 문구를 바꾸면 `AIChatView.tsx`의 정규식도 같이 고쳐야
-한다.** 지금은 양쪽에 하드코딩돼 있다 (개선 여지 있음).
+**기호 문자열은 `prompts.ts`의 `SIM_END` 상수 하나에서만 온다.** 프롬프트도, 화면
+쪽 파싱도 전부 그 상수를 쓴다. 문구를 바꿀 일이 있으면 거기만 고치면 된다.
+
+| export | 하는 일 |
+|---|---|
+| `SIM_END.SUCCESS` / `SIM_END.FAIL` | 실제 기호 문자열 |
+| `detectSimEnd(text)` | `'success' \| 'fail' \| null` 반환 |
+| `stripSimEnd(text)` | 화면에 내보내기 전 기호 제거 |
+
+예전에는 양쪽에 따로 하드코딩돼 있어서, 한쪽만 고치면 대화가 영영 안 끝나거나
+기호가 그대로 화면에 새어 나왔다.
 
 ---
 
@@ -124,14 +133,21 @@ CreateStoryModal (opponentPersonality)
 
 ## 7. 무료 체험 횟수
 
-- 상수: `App.tsx`의 `DAILY_AI_QUOTA = 3`
-- 저장: `localStorage['nipyeon_ai_quota'] = { date: 'YYYY-M-D', used: n }`
-- 날짜 키가 바뀌면 자동으로 0이 된다 (별도 리셋 로직 없음)
+세는 코드는 전부 `src/lib/aiQuota.ts` 한 곳에 있다.
+
+- 상수: `DAILY_AI_QUOTA = 3`
+- **로그인 상태**: Supabase `ai_chat_usage` 테이블에 한 줄씩 쌓고, 오늘 날짜 행을 센다
+- **로그인 전 / 서버 응답 실패**: 예전처럼 `localStorage['nipyeon_ai_quota']`
+- 하루 경계는 **한국 시간(Asia/Seoul)** 기준. DB `usedOn` 기본값과 클라이언트가
+  같은 기준을 써야 자정 무렵에 숫자가 어긋나지 않는다
 - **내가 쓴 사연은 횟수를 쓰지 않는다.** 재진입도 안 쓴다
 - 소진 시 `PremiumModal`
 
-> 지금은 localStorage라서 브라우저를 지우면 초기화된다. 실제 과금으로 갈 거면
-> 서버(Supabase) 카운터로 옮겨야 한다.
+`ai_chat_usage`의 RLS는 **SELECT·INSERT만 본인 것으로 허용하고 UPDATE·DELETE 정책은
+일부러 만들지 않았다.** 사용 기록을 지워서 횟수를 되돌리는 길을 막기 위해서다.
+
+> 서버가 응답하지 않으면 로컬 카운트로 내려간다. 서버 장애 때 쓰던 사람을 통째로
+> 막아버리는 것보다 낫다고 봤지만, 실제 과금이 붙으면 이 폴백은 다시 봐야 한다.
 
 ---
 
@@ -147,9 +163,14 @@ CreateStoryModal (opponentPersonality)
 
 ## 9. 알려진 숙제
 
-- `[SIM_END:*]` 문자열이 `prompts.ts`와 `AIChatView.tsx` 양쪽에 하드코딩 — 상수로 뺄 것
-- `GEMINI_API_KEY` 비어 있음 → 폴백 없음
-- 무료 횟수가 localStorage 기반 → 우회 가능
-- `empathyScore`(내편지수)는 상태만 있고 화면에 안 쓰인다. 살릴지 지울지 결정 필요
+- `GEMINI_API_KEY` 비어 있음 → 폴백 없음. **보류 결정** (2026-08-20): Potens가 무료라
+  당분간 그대로 간다
+- `empathyScore`(내편지수)는 상태만 있고 화면에 안 쓰인다. 지금은 공감 비율을 숫자로
+  베낀 값(High 90 / Middle 50 / Low 10)일 뿐이라 정보가 중복이다. 살릴지 지울지 결정 필요
 - 대화 히스토리는 최근 8개만 보낸다 (`AIChatView.tsx`의 `messages.slice(-8)`).
-  긴 대화에서 앞부분을 잊는다
+  긴 대화에서 앞부분을 잊는다 — 프롬프트 다듬기 단계에서 같이 손볼 예정
+
+### 정리된 것
+
+- ~~`[SIM_END:*]` 양쪽 하드코딩~~ → `prompts.ts`의 `SIM_END` 상수로 통합 (2026-08-20)
+- ~~무료 횟수가 localStorage 기반~~ → Supabase `ai_chat_usage`로 이관 (2026-08-20)

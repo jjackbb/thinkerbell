@@ -25,6 +25,30 @@ const KAKAO_LENGTH_RULE = `[카톡 호흡 (최중요)]: 주저리주저리 길�
    - 실제 카카오톡처럼 2~3문장(최대 4문장) 이내의 짧은 호흡으로만 답해라.
    - 사연의 세부 사항을 한 번에 다 쏟아내지 말고, 유저가 꺼낸 만큼만 받아서 대응해라.`;
 
+/**
+ * 상황 모드 종결 기호.
+ *
+ * 기호를 붙이라고 시키는 쪽(프롬프트)과 그걸 읽고 지우는 쪽(AIChatView)이
+ * 반드시 같은 문자열을 봐야 한다. 예전에는 양쪽에 따로 하드코딩돼 있어서,
+ * 한쪽만 고치면 대화가 영영 안 끝나거나 기호가 화면에 그대로 새어 나갔다.
+ * 문구를 바꿀 일이 있으면 여기만 고치면 된다.
+ */
+export const SIM_END = {
+  SUCCESS: '[SIM_END:SUCCESS]',
+  FAIL: '[SIM_END:FAIL]',
+} as const;
+
+export type SimEndResult = 'success' | 'fail';
+
+const SIM_END_PATTERN = /\[SIM_END:(SUCCESS|FAIL)\]/g;
+
+/** 답변에 종결 기호가 붙었는지 본다 */
+export const detectSimEnd = (text: string): SimEndResult | null =>
+  text.includes(SIM_END.SUCCESS) ? 'success' : text.includes(SIM_END.FAIL) ? 'fail' : null;
+
+/** 화면에 내보내기 전에 종결 기호를 지운다 */
+export const stripSimEnd = (text: string): string => text.replace(SIM_END_PATTERN, '').trim();
+
 /** 시작점별 첫 대사와 태도. 같은 갈등을 다른 온도로 다시 재생하게 한다 */
 export const OPENING_SCRIPTS: Record<
   ChatOpening,
@@ -108,8 +132,8 @@ ${BASE_RULES}
 - [결렬은 실패가 아니다]: 억지로 화해로 몰아가지 마라. 실제로는 풀리지 않는 갈등이 훨씬 많고, 어디서 부딪히는지 확인하는 것 자체가 유저에게 필요한 결과다.
 
 ■ 종결 기호 (최중요):
-- 화해로 마무리될 때만 답변 맨 끝에 [SIM_END:SUCCESS] 를 붙여라.
-- 결렬로 마무리될 때만 답변 맨 끝에 [SIM_END:FAIL] 을 붙여라.
+- 화해로 마무리될 때만 답변 맨 끝에 ${SIM_END.SUCCESS} 를 붙여라.
+- 결렬로 마무리될 때만 답변 맨 끝에 ${SIM_END.FAIL} 을 붙여라.
 - 아직 판단하기 이르다면 아무 기호도 쓰지 마라. 기호를 붙이는 순간 대화가 끝나므로 성급하게 붙이지 마라.`;
 }
 

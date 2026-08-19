@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 import { SessionSummaryCard } from './SessionSummaryCard';
+import { detectSimEnd, stripSimEnd } from '../lib/prompts';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -164,13 +165,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               const data = JSON.parse(trimmedLine.slice(6));
               if (data.type === 'text' && data.text) {
                 aiResponseText += data.text;
-                let displayText = aiResponseText;
-                if (displayText.includes('[SIM_END:SUCCESS]')) {
-                  setSimEndResult('success');
-                } else if (displayText.includes('[SIM_END:FAIL]')) {
-                  setSimEndResult('fail');
-                }
-                displayText = displayText.replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim();
+                const ended = detectSimEnd(aiResponseText);
+                if (ended) setSimEndResult(ended);
+                const displayText = stripSimEnd(aiResponseText);
                 setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
               }
             } catch (err) {
@@ -181,13 +178,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       }
 
       if (aiResponseText) {
-        let finalText = aiResponseText;
-        if (finalText.includes('[SIM_END:SUCCESS]')) {
-          setSimEndResult('success');
-        } else if (finalText.includes('[SIM_END:FAIL]')) {
-          setSimEndResult('fail');
-        }
-        finalText = finalText.replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim();
+        const ended = detectSimEnd(aiResponseText);
+        if (ended) setSimEndResult(ended);
+        const finalText = stripSimEnd(aiResponseText);
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
       } else {
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 논리적으로 다시 설명해 보세요.` } : m));
@@ -449,7 +442,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 </div>
                 <div className="bg-white border border-[#E5E7EB] text-[#1C1C1C] p-4 rounded-lg shadow-2xs">
                   <p className="font-body-sm text-xs sm:text-sm font-medium leading-relaxed">
-                    {(msg.text || '...').replace(/\[SIM_END:(SUCCESS|FAIL)\]/g, '').trim()}
+                    {stripSimEnd(msg.text || '...')}
                   </p>
                 </div>
                 <span className="font-mono text-[10px] text-[#5f5e5e] px-1">{msg.timestamp}</span>

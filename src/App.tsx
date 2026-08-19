@@ -25,6 +25,7 @@ import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react
 import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
+import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -43,24 +44,10 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
  * 평생 1회로 막으면 맛도 보기 전에 벽을 만나 아예 안 쓰게 된다. 매일 조금씩
  * 열어줘야 "이거 더 하고 싶다"는 마음이 생기고, 그때 구독이 의미가 생긴다.
  * 내가 쓴 사연은 횟수를 쓰지 않는다.
+ *
+ * 세는 일 자체는 src/lib/aiQuota.ts 가 한다. 로그인했으면 서버(Supabase),
+ * 로그인 전이면 예전처럼 로컬에서 센다.
  */
-const DAILY_AI_QUOTA = 3;
-const AI_QUOTA_KEY = 'nipyeon_ai_quota';
-
-/** 로컬 시간 기준 날짜 키. 이 값이 바뀌면 횟수가 자동으로 리셋된다 */
-const todayKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-};
-
-const readAiQuotaUsed = (): number => {
-  try {
-    const raw = JSON.parse(localStorage.getItem(AI_QUOTA_KEY) || '{}');
-    return raw.date === todayKey() ? Number(raw.used) || 0 : 0;
-  } catch {
-    return 0;
-  }
-};
 
 
 export default function App() {
@@ -146,6 +133,13 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 로그인 상태가 바뀌면 오늘 쓴 무료 횟수를 서버에서 다시 받아온다
+  useEffect(() => {
+    let alive = true;
+    fetchAiQuotaUsed().then(used => { if (alive) setAiQuotaUsed(used); });
+    return () => { alive = false; };
+  }, [user.id]);
 
   // Potens API Key
   const [potensApiKey, setPotensApiKey] = useState<string>(() => {
@@ -266,14 +260,14 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
-  /** 오늘 쓴 무료 AI 대화 횟수 (자정이 지나면 저장값이 스스로 무효가 된다) */
-  const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(() => readAiQuotaUsed());
+  /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
+  const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
 
-  const consumeAiQuota = () => {
-    const used = readAiQuotaUsed() + 1;
-    localStorage.setItem(AI_QUOTA_KEY, JSON.stringify({ date: todayKey(), used }));
-    setAiQuotaUsed(used);
+  /** 한 번 쓰고 나면 서버가 세어준 숫자로 화면을 맞춘다 */
+  const spendAiQuota = (storyId: string) => {
+    setAiQuotaUsed(prev => prev + 1);
+    consumeAiQuota(storyId).then(setAiQuotaUsed);
   };
   const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
@@ -726,13 +720,18 @@ export default function App() {
     });
   }, []);
 
-  const handleStartAIChatWithStory = (story: Story, bypassPremium: boolean = false) => {
-    // 탭을 켜둔 채 자정을 넘겼을 수 있으므로 저장값을 다시 읽어 화면 숫자를 맞춘다
-    const used = readAiQuotaUsed();
-    if (used !== aiQuotaUsed) setAiQuotaUsed(used);
+  const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
+    if (story.authorId === user.id || bypassPremium) {
+      setAiChatModeStory(story);
+      setSelectedStory(null);
+      return;
+    }
 
-    const isMine = story.authorId === user.id;
-    if (isMine || bypassPremium || used < DAILY_AI_QUOTA) {
+    // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 열기 직전에 다시 센다
+    const used = await fetchAiQuotaUsed();
+    setAiQuotaUsed(used);
+
+    if (used < DAILY_AI_QUOTA) {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
@@ -770,7 +769,7 @@ export default function App() {
       if (!existing) {
         setPersonas(prev => [persona, ...prev]);
         // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
-        if (story.authorId !== user.id) consumeAiQuota();
+        if (story.authorId !== user.id) spendAiQuota(story.id);
       }
 
       // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
@@ -841,7 +840,7 @@ export default function App() {
 
       if (!existing) {
         setPersonas(prev => [persona, ...prev]);
-        if (target.authorId !== user.id) consumeAiQuota();
+        if (target.authorId !== user.id) spendAiQuota(target.id);
       }
 
       // 공감 모드도 AI가 먼저 말을 건다. 빈 화면에 대고 먼저 털어놓기는 어렵다.
