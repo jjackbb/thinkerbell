@@ -125,7 +125,9 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
     ctx.fillRect(pad, barY, wB, barH);
     ctx.restore();
 
-    // 한쪽이 아주 작으면 숫자가 막대를 넘친다. 그때는 막대 바깥에 쓴다
+    // 한쪽이 아주 작으면 숫자가 자기 칸을 넘친다. 그때는 옆 칸 위에 얹히는데,
+    // 자기 색으로 쓰면 상대 색 위라 글자가 안 읽힌다(파랑 위 코랄, 코랄 위 파랑).
+    // 얹히는 바탕에 맞춰 글자색을 고른다.
     const baseline = barY + barH / 2 + 16;
     ctx.font = `800 44px ${FONT}`;
     const fits = (label: string, seg: number) => ctx.measureText(label).width + 56 <= seg;
@@ -135,7 +137,7 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(lb, pad + 28, baseline);
     } else {
-      ctx.fillStyle = YOUR_SIDE;
+      ctx.fillStyle = INK; // 코랄 막대 위 — '내 편' 숫자와 같은 색으로 읽힌다
       ctx.fillText(lb, pad + wB + 24, baseline);
     }
 
@@ -145,7 +147,7 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
       ctx.fillStyle = INK;
       ctx.fillText(ra, W - pad - 28, baseline);
     } else {
-      ctx.fillStyle = MY_SIDE;
+      ctx.fillStyle = '#FFFFFF'; // 파란 막대 위 — '니 편' 숫자와 같은 색으로 읽힌다
       ctx.fillText(ra, pad + wB - 24, baseline);
     }
     ctx.textAlign = 'left';
