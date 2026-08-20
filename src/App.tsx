@@ -51,8 +51,18 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
  *
  * 예전 카드에 쌓인 대화 내용도 함께 사라진다. 되돌릴 수 없다.
  */
-const PERSONAS_KEY = 'nipyeon_personas_v2';
-const LEGACY_PERSONA_KEYS = ['nipyeon_personas'];
+/**
+ * 페르소나는 계정별로 따로 담는다.
+ *
+ * 예전에는 키가 하나뿐이라 같은 브라우저를 쓰면 **로그아웃해도 대화방이 남고,
+ * 다른 계정으로 로그인하면 앞사람의 대화 내용까지 그대로 보였다.** 익명으로
+ * 속마음을 털어놓는 서비스에서 공용 PC라면 그게 그대로 유출이다.
+ */
+const PERSONAS_KEY_PREFIX = 'nipyeon_personas_v2';
+const personasKeyFor = (userId: string) => `${PERSONAS_KEY_PREFIX}:${userId}`;
+
+/** 계정 구분이 없던 시절의 키. 발견하면 지운다 */
+const LEGACY_PERSONA_KEYS = ['nipyeon_personas', 'nipyeon_personas_v2'];
 
 /**
  * 기본 제공 페르소나는 두지 않는다.
@@ -65,18 +75,17 @@ const LEGACY_PERSONA_KEYS = ['nipyeon_personas'];
  * (나중에 인기 드라마 주인공 같은 큐레이션 페르소나를 따로 얹는 건 별개 기능으로
  *  다룬다. 그때는 사연에서 만들어진 것과 구분해서 보여줘야 한다.)
  */
-const loadPersonas = (): AIPersona[] => {
-  const saved = localStorage.getItem(PERSONAS_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return [];
-    }
-  }
-  // 처음 v2로 넘어오는 브라우저: 예전 키를 정리하고 빈 상태에서 시작한다
+const loadPersonasFor = (userId: string): AIPersona[] => {
+  // 계정 구분이 없던 시절의 저장분은 남의 것일 수 있으므로 무조건 버린다
   LEGACY_PERSONA_KEYS.forEach(k => localStorage.removeItem(k));
-  return [];
+
+  const saved = localStorage.getItem(personasKeyFor(userId));
+  if (!saved) return [];
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return [];
+  }
 };
 
 /**
@@ -91,20 +100,31 @@ const loadPersonas = (): AIPersona[] => {
  */
 
 
+/** 로그인 전 / 로그아웃 직후의 기본 프로필 */
+const makeDefaultUser = (): UserProfile => ({
+  id: `usr-${Date.now()}`,
+  nickname: '속뚫리는고구마',
+  socialProvider: 'kakao',
+  createdAt: new Date().toISOString(),
+});
+
 export default function App() {
   // User Profile State
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('nipyeon_user');
-    return saved ? JSON.parse(saved) : {
-      id: `usr-${Date.now()}`,
-      nickname: '속뚫리는고구마',
-      socialProvider: 'kakao',
-      createdAt: new Date().toISOString()
-    };
+    return saved ? JSON.parse(saved) : makeDefaultUser();
   });
 
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(true);
   const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+
+  /**
+   * 실제로 로그인된 계정의 id. 로그아웃 상태면 null.
+   *
+   * user.id는 로그인 전에도 임시값이 들어 있어 로그인 여부의 근거가 못 된다.
+   * 대화방을 어느 계정 것으로 담고 비울지는 이 값으로만 판단한다.
+   */
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(false);
@@ -144,6 +164,7 @@ export default function App() {
         setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
+        setAuthUserId(session.user.id);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -159,6 +180,7 @@ export default function App() {
         setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
+        setAuthUserId(session.user.id);
         setUser(prev => ({
           ...prev,
           id: session.user.id,
@@ -166,7 +188,22 @@ export default function App() {
         }));
         loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
+        /*
+          로그아웃하면 이 사람이 시작하지도 않은 대화가 목록에 남아서는 안 된다.
+          닉네임도 마찬가지다. 예전에는 둘 다 남아서, 같은 브라우저에서 다른
+          계정으로 들어가면 앞사람의 대화 내용과 닉네임이 그대로 보였다.
+
+          로그인 전에는 게스트와 같은 제약(투표·AI 대화 차단)을 받아야 하므로
+          isGuest도 함께 켠다.
+        */
+        setAuthUserId(null);
+        setPersonas([]);
+        setActiveChatSession(null);
+        setActiveTab('feed');
+        setIsGuest(true);
         setShowWelcomeModal(true);
+        localStorage.removeItem('nipyeon_user');
+        setUser(makeDefaultUser());
         setMyVoteRecords([]);
         setStories(prev => prev.map(s => ({ ...s, userVoted: undefined, voteChanged: false })));
       }
@@ -174,6 +211,11 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 로그인한 계정의 대화방을 싣는다. 로그아웃 상태면 비운다.
+  useEffect(() => {
+    setPersonas(authUserId ? loadPersonasFor(authUserId) : []);
+  }, [authUserId]);
 
   // 로그인 상태가 바뀌면 오늘 쓴 무료 횟수를 서버에서 다시 받아온다
   useEffect(() => {
@@ -280,7 +322,11 @@ export default function App() {
     };
   }, []);
 
-  const [personas, setPersonas] = useState<AIPersona[]>(loadPersonas);
+  /**
+   * 로그인한 사람의 대화방만 담는다. 로그인 전에는 비어 있어야 한다.
+   * 내가 시작하지도 않은 대화가 목록에 보이면 안 된다.
+   */
+  const [personas, setPersonas] = useState<AIPersona[]>([]);
 
   // Filters & Tabs
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
@@ -328,8 +374,9 @@ export default function App() {
   // (Removed comments localStorage sync as it is now in Supabase)
 
   useEffect(() => {
-    localStorage.setItem(PERSONAS_KEY, JSON.stringify(personas));
-  }, [personas]);
+    if (!authUserId) return; // 로그아웃 상태에서는 아무것도 남기지 않는다
+    localStorage.setItem(personasKeyFor(authUserId), JSON.stringify(personas));
+  }, [personas, authUserId]);
 
   // 내 투표 기록을 서버에서 불러와 화면 상태에 반영한다.
   // (RLS가 본인 행만 내려주므로 별도 필터가 필요 없다)
