@@ -38,6 +38,24 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
   '기타': '상대방',
 };
 
+/** 공감 모드 페르소나가 쓰는 역할 라벨 3종 */
+const EMPATHY_ROLE_LABELS: string[] = (['High', 'Middle', 'Low'] as const).map(ratioLabel);
+const EMPATHY_NAMES: string[] = Object.values(EMPATHY_PERSONA_NAMES);
+
+/**
+ * 옛날 공감 페르소나를 걸러낸다.
+ *
+ * 예전에는 공감 모드 페르소나의 이름을 사연 제목으로 달았다. 그래서 목록에서
+ * "명절마다 차별하시는 부모님"이 위로를 건네는 것처럼 보였다. 지금은 비율별
+ * 호칭(내 편 친구 / 들어주는 친구 / 짚어주는 친구)을 쓰는데, 예전 카드가 남아
+ * 있으면 두 규칙이 섞여 더 헷갈린다.
+ *
+ * 대화 내용까지 같이 사라지므로 되돌릴 수 없다. 지금은 실제 사용자가 없는
+ * 단계라 한 번 정리하고 넘어간다.
+ */
+const dropLegacyEmpathyPersonas = (list: AIPersona[]): AIPersona[] =>
+  list.filter(p => !(EMPATHY_ROLE_LABELS.includes(p.role) && !EMPATHY_NAMES.includes(p.name)));
+
 /**
  * 남의 사연으로 AI 대화를 열 수 있는 하루 무료 횟수.
  *
@@ -241,7 +259,12 @@ export default function App() {
 
   const [personas, setPersonas] = useState<AIPersona[]>(() => {
     const saved = localStorage.getItem('nipyeon_personas');
-    return saved ? JSON.parse(saved) : INITIAL_PERSONAS;
+    if (!saved) return INITIAL_PERSONAS;
+    try {
+      return dropLegacyEmpathyPersonas(JSON.parse(saved));
+    } catch {
+      return INITIAL_PERSONAS;
+    }
   });
 
   // Filters & Tabs
