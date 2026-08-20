@@ -10,6 +10,18 @@ export const OPENINGS: { id: ChatOpening; label: string; desc: string; recommend
   { id: 'meFirst',   label: '내가 먼저 말을 꺼내는 상황',  desc: '내 첫 마디로 시작해요' },
 ];
 
+/**
+ * 받침 유무에 따라 '와/과'를 고른다.
+ *
+ * 호칭이 카테고리마다 달라서(연인·직장 상대·친구·가족·상대방) 한쪽으로 고정하면
+ * 반드시 어색해진다. "상대방와의 대화" 같은 문장이 실제로 나가고 있었다.
+ */
+const gwaWa = (word: string): string => {
+  const last = word.trim().slice(-1).charCodeAt(0);
+  const isHangul = last >= 0xac00 && last <= 0xd7a3;
+  return isHangul && (last - 0xac00) % 28 !== 0 ? '과' : '와';
+};
+
 interface AIChatModeSelectionModalProps {
   onClose: () => void;
   onSelectMode: (mode: 'simulation' | 'explanation', opening?: ChatOpening) => void;
@@ -81,7 +93,7 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
              사연 하나가 한 번 쓰고 끝나지 않게 만드는 장치다. */
           <div className="p-6 space-y-3">
             <p className="text-xs text-[#5f5e5e] leading-relaxed mb-1">
-              {opponentLabel}와의 대화를 어느 지점부터 시작할지 고르세요.
+              {opponentLabel}{gwaWa(opponentLabel)}의 대화를 어느 지점부터 시작할지 고르세요.
               같은 갈등이라도 시작점에 따라 완전히 다르게 흘러갑니다.
             </p>
 
