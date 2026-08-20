@@ -38,23 +38,35 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
   '기타': '상대방',
 };
 
-/** 공감 모드 페르소나가 쓰는 역할 라벨 3종 */
-const EMPATHY_ROLE_LABELS: string[] = (['High', 'Middle', 'Low'] as const).map(ratioLabel);
-const EMPATHY_NAMES: string[] = Object.values(EMPATHY_PERSONA_NAMES);
-
 /**
- * 옛날 공감 페르소나를 걸러낸다.
+ * 페르소나 저장 키.
  *
- * 예전에는 공감 모드 페르소나의 이름을 사연 제목으로 달았다. 그래서 목록에서
- * "명절마다 차별하시는 부모님"이 위로를 건네는 것처럼 보였다. 지금은 비율별
- * 호칭(내 편 친구 / 들어주는 친구 / 짚어주는 친구)을 쓰는데, 예전 카드가 남아
- * 있으면 두 규칙이 섞여 더 헷갈린다.
+ * 페르소나의 이름 규칙이나 구조가 바뀌면 뒤 번호를 올린다. 그러면 예전 키에
+ * 쌓여 있던 목록은 아예 읽지 않으므로, 모든 브라우저가 한 번씩 깨끗한 상태에서
+ * 다시 시작한다.
  *
- * 대화 내용까지 같이 사라지므로 되돌릴 수 없다. 지금은 실제 사용자가 없는
- * 단계라 한 번 정리하고 넘어간다.
+ * v2로 올린 이유: 공감 모드 페르소나 이름이 사연 제목에서 비율별 호칭으로
+ * 바뀌었고(PATCH-007), 그 전에 만들어진 카드들이 새 규칙과 섞여 목록이
+ * 뒤죽박죽이었다. 사라진 사연을 가리키는 옛 카드도 남아 있었다.
+ *
+ * 예전 카드에 쌓인 대화 내용도 함께 사라진다. 되돌릴 수 없다.
  */
-const dropLegacyEmpathyPersonas = (list: AIPersona[]): AIPersona[] =>
-  list.filter(p => !(EMPATHY_ROLE_LABELS.includes(p.role) && !EMPATHY_NAMES.includes(p.name)));
+const PERSONAS_KEY = 'nipyeon_personas_v2';
+const LEGACY_PERSONA_KEYS = ['nipyeon_personas'];
+
+const loadPersonas = (): AIPersona[] => {
+  const saved = localStorage.getItem(PERSONAS_KEY);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return INITIAL_PERSONAS;
+    }
+  }
+  // 처음 v2로 넘어오는 브라우저: 예전 키를 정리하고 기본값에서 시작한다
+  LEGACY_PERSONA_KEYS.forEach(k => localStorage.removeItem(k));
+  return INITIAL_PERSONAS;
+};
 
 /**
  * 남의 사연으로 AI 대화를 열 수 있는 하루 무료 횟수.
@@ -257,15 +269,7 @@ export default function App() {
     };
   }, []);
 
-  const [personas, setPersonas] = useState<AIPersona[]>(() => {
-    const saved = localStorage.getItem('nipyeon_personas');
-    if (!saved) return INITIAL_PERSONAS;
-    try {
-      return dropLegacyEmpathyPersonas(JSON.parse(saved));
-    } catch {
-      return INITIAL_PERSONAS;
-    }
-  });
+  const [personas, setPersonas] = useState<AIPersona[]>(loadPersonas);
 
   // Filters & Tabs
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
@@ -313,7 +317,7 @@ export default function App() {
   // (Removed comments localStorage sync as it is now in Supabase)
 
   useEffect(() => {
-    localStorage.setItem('nipyeon_personas', JSON.stringify(personas));
+    localStorage.setItem(PERSONAS_KEY, JSON.stringify(personas));
   }, [personas]);
 
   // 내 투표 기록을 서버에서 불러와 화면 상태에 반영한다.
