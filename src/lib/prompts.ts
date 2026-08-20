@@ -168,6 +168,19 @@ export const EMPATHY_OPENERS: Record<ExplainRatio, string> = {
   Low: '사연 봤어. 많이 속상했겠다. 근데 그쪽 입장도 한번 같이 짚어볼까?',
 };
 
+/**
+ * 공감 모드에서 말풍선에 찍히는 대화 상대 이름.
+ *
+ * 예전에는 사연 제목을 그대로 썼다. 그래서 "명절마다 차별하시는 부모님"이
+ * 위로를 건네는 것처럼 보였다. 공감 모드의 AI는 갈등 상대가 아니라 사연을
+ * 같이 읽어주는 사람이므로, 사람 이름처럼 읽히는 호칭이어야 한다.
+ */
+export const EMPATHY_PERSONA_NAMES: Record<ExplainRatio, string> = {
+  High: '내 편 친구',
+  Middle: '들어주는 친구',
+  Low: '짚어주는 친구',
+};
+
 export interface EmpathyPromptInput {
   storyBody: string;
   opponentPersonality?: string;

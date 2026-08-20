@@ -37,7 +37,6 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6">
           <div>
-            <h4 className="font-bold text-[#1C1C1C] mb-2 text-sm">공감 비율 설정</h4>
             <p className="text-xs text-[#5f5e5e] mb-4 leading-relaxed">
               AI가 누구의 입장에 서서 상황을 분석하고 위로할지 선택하세요.
             </p>

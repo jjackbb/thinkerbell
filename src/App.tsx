@@ -23,7 +23,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, ratioLabel } from './lib/prompts';
+import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 
@@ -374,53 +374,47 @@ export default function App() {
   const handleVote = async (storyId: string, option: 'A' | 'B') => {
     if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
 
-    let updateNeeded = false;
+    /**
+     * 판정을 먼저 하고, 그 다음에 화면을 바꾼다.
+     *
+     * 예전에는 setStories 콜백 안에서 '보낼 필요 있음' 플래그를 세우고 바로
+     * 다음 줄에서 읽었다. 그 콜백은 렌더 때 실행되므로 읽는 시점에는 늘
+     * false였고, 결과적으로 **투표가 화면에만 반영되고 서버로는 한 번도
+     * 가지 않았다.** 새로고침하면 표가 사라졌다.
+     */
+    const story = stories.find(s => s.id === storyId);
+    if (!story) return;
+    if (story.userVoted === option) return; // 같은 쪽에 다시 누른 경우
 
-    setStories(prev => prev.map(story => {
-      if (story.id === storyId) {
-        // 이미 같은 옵션에 투표했다면 무시
-        if (story.userVoted === option) return story;
+    const isChange = Boolean(story.userVoted);
+    if (isChange && story.voteChanged) {
+      setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
 
-        // 이미 다른 옵션에 투표한 적이 있다면 (투표 변경 시도)
-        if (story.userVoted) {
-          if (story.voteChanged) {
-            setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
-            setTimeout(() => setToastMessage(null), 3000);
-            return story;
-          }
-          // 변경 허용 (기존표 -1, 새 표 +1, 변경 상태 true)
-          const updated = {
-            ...story,
-            userVoted: option,
-            votesA: option === 'A' ? story.votesA + 1 : story.votesA - 1,
-            votesB: option === 'B' ? story.votesB + 1 : story.votesB - 1,
-            voteChanged: true,
-          };
-          if (selectedStory?.id === storyId) setSelectedStory(updated);
-          
-          setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
-          setTimeout(() => setToastMessage(null), 3000);
-
-          updateNeeded = true;
-          return updated;
+    const updated: Story = isChange
+      ? {
+          ...story,
+          userVoted: option,
+          votesA: option === 'A' ? story.votesA + 1 : story.votesA - 1,
+          votesB: option === 'B' ? story.votesB + 1 : story.votesB - 1,
+          voteChanged: true,
         }
-
-        // 최초 투표
-        const updated = {
+      : {
           ...story,
           userVoted: option,
           votesA: option === 'A' ? story.votesA + 1 : story.votesA,
           votesB: option === 'B' ? story.votesB + 1 : story.votesB,
         };
-        if (selectedStory?.id === storyId) setSelectedStory(updated);
 
-        updateNeeded = true;
-        return updated;
-      }
-      return story;
-    }));
+    setStories(prev => prev.map(s => (s.id === storyId ? updated : s)));
+    if (selectedStory?.id === storyId) setSelectedStory(updated);
 
-    if (!updateNeeded) return;
+    if (isChange) {
+      setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
 
     // 중복·재투표 판정은 서버의 votes 테이블이 최종 결정한다.
     // 화면은 먼저 바꿔두고, 거절당하면 서버 기준으로 되돌린다.
@@ -813,7 +807,9 @@ export default function App() {
       ratio,
     });
     const roleLabel = ratioLabel(ratio);
-    const describe = `사연에 대해 ${roleLabel}으로 공감하며 위로하는 AI입니다.`;
+    const personaName = EMPATHY_PERSONA_NAMES[ratio];
+    // 목록에서 어느 사연의 대화인지 구분되도록 제목은 설명에 둔다 (상황 모드와 같은 구조)
+    const describe = story ? `사연: "${story.title}" 의 공감 대화 상대입니다.` : '사연을 함께 읽어주는 AI입니다.';
 
     // 사연 피드나 모달에서 신규 공감 모드를 시작한 경우 (우선 처리)
     if (aiExplainSettingsStory) {
@@ -822,7 +818,7 @@ export default function App() {
       const existing = personas.find(p => p.storyId === target.id && p.ratio === ratio);
       const persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
-        name: target.title,
+        name: personaName,
         role: roleLabel,
         category: target.category,
         avatarIcon: 'ListTree',
@@ -870,12 +866,13 @@ export default function App() {
       setActiveChatSession(prev => prev ? {
         ...prev,
         explanationRatio: ratio,
+        personaName,
         personaRole: roleLabel,
       } : null);
 
       setPersonas(prev => prev.map(p =>
         p.id === activeChatSession.personaId
-          ? { ...p, role: roleLabel, description: describe, systemInstruction, ratio }
+          ? { ...p, name: personaName, role: roleLabel, description: describe, systemInstruction, ratio }
           : p
       ));
     }
