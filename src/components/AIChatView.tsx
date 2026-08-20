@@ -354,9 +354,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     );
   }
 
-  // Active Chatroom View
+  /**
+   * 대화방 화면.
+   *
+   * 높이를 vh 어림값으로 잡으면 안 된다. 예전에는 h-[82vh]에 mb-24까지 붙어
+   * 있었는데, 상단 헤더(64px)·main의 상하 패딩(각 32px)·하단 네비게이션(80px)을
+   * 계산에 넣지 않아 입력창이 네비게이션에 가렸다. 타자를 치려면 페이지 전체를
+   * 스크롤해야 했고, 스크롤하면 대화 헤더가 상단 헤더 밑으로 말려 들어갔다.
+   *
+   * 빼는 값: 헤더 64 + 위 패딩 32 + 네비 80 = 176, 여기에 여백 8을 더해 184.
+   * dvh를 쓰는 건 모바일에서 주소창이 접히고 펴져도 맞추기 위해서다.
+   */
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[82vh] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden mb-24 relative shadow-sm">
+    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">

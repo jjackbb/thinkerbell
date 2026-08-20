@@ -1265,14 +1265,22 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Write Button (Mobile) */}
-      <button
-        onClick={openCreateStory}
-        className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
-        title="익명 사연 쓰기"
-      >
-        <MessageSquareHeart className="w-7 h-7" />
-      </button>
+      {/*
+        사연 쓰기 플로팅 버튼 (모바일)
+
+        피드에서만 띄운다. 다른 탭에도 떠 있으면 그 탭과 상관없는 동작인 데다,
+        AI 대화 탭에서는 페르소나 카드의 '시작하기' 버튼을 실제로 덮고 있었다.
+      */}
+      {activeTab === 'feed' && (
+        <button
+          onClick={openCreateStory}
+          aria-label="익명 사연 쓰기"
+          className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
+          title="익명 사연 쓰기"
+        >
+          <MessageSquareHeart className="w-7 h-7" aria-hidden="true" />
+        </button>
+      )}
 
       {/* Bottom Navigation */}
       <Navbar
