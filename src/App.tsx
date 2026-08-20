@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession } from './types';
+import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession, ChatMessage } from './types';
 import { INITIAL_STORIES, INITIAL_COMMENTS } from './data/mockData';
 import { Header } from './components/Header';
 import { Navbar } from './components/Navbar';
@@ -26,6 +26,7 @@ import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
+import { fetchPersonas, createPersona, savePersona, deletePersona } from './lib/aiPersonas';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -52,40 +53,17 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
  * 예전 카드에 쌓인 대화 내용도 함께 사라진다. 되돌릴 수 없다.
  */
 /**
- * 페르소나는 계정별로 따로 담는다.
+ * 예전에 브라우저에 대화방을 담아두던 키들.
  *
- * 예전에는 키가 하나뿐이라 같은 브라우저를 쓰면 **로그아웃해도 대화방이 남고,
- * 다른 계정으로 로그인하면 앞사람의 대화 내용까지 그대로 보였다.** 익명으로
- * 속마음을 털어놓는 서비스에서 공용 PC라면 그게 그대로 유출이다.
+ * 이제 대화방은 서버(ai_personas)에만 있다. 기기에 남은 흔적은 지운다 —
+ * 공용 PC라면 그 자체가 남의 눈에 띄는 기록이다.
  */
-const PERSONAS_KEY_PREFIX = 'nipyeon_personas_v2';
-const personasKeyFor = (userId: string) => `${PERSONAS_KEY_PREFIX}:${userId}`;
+const OBSOLETE_PERSONA_KEYS = ['nipyeon_personas', 'nipyeon_personas_v2'];
 
-/** 계정 구분이 없던 시절의 키. 발견하면 지운다 */
-const LEGACY_PERSONA_KEYS = ['nipyeon_personas', 'nipyeon_personas_v2'];
-
-/**
- * 기본 제공 페르소나는 두지 않는다.
- *
- * 예전에는 사연과 무관한 데모 캐릭터(김부장·민우·지은)가 미리 깔려 있었다.
- * 이 서비스의 AI 대화는 '내 사연 속 그 사람'과 나누는 것이 핵심인데, 아무
- * 관련 없는 캐릭터가 먼저 보이면 그 연결이 흐려진다. 지금은 사연에서 대화를
- * 열었을 때만 페르소나가 생긴다.
- *
- * (나중에 인기 드라마 주인공 같은 큐레이션 페르소나를 따로 얹는 건 별개 기능으로
- *  다룬다. 그때는 사연에서 만들어진 것과 구분해서 보여줘야 한다.)
- */
-const loadPersonasFor = (userId: string): AIPersona[] => {
-  // 계정 구분이 없던 시절의 저장분은 남의 것일 수 있으므로 무조건 버린다
-  LEGACY_PERSONA_KEYS.forEach(k => localStorage.removeItem(k));
-
-  const saved = localStorage.getItem(personasKeyFor(userId));
-  if (!saved) return [];
-  try {
-    return JSON.parse(saved);
-  } catch {
-    return [];
-  }
+const purgeLocalPersonas = () => {
+  Object.keys(localStorage)
+    .filter(k => OBSOLETE_PERSONA_KEYS.includes(k) || k.startsWith('nipyeon_personas_v2:'))
+    .forEach(k => localStorage.removeItem(k));
 };
 
 /**
@@ -212,9 +190,16 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 로그인한 계정의 대화방을 싣는다. 로그아웃 상태면 비운다.
+  // 로그인한 계정의 대화방을 서버에서 싣는다. 로그아웃 상태면 비운다.
   useEffect(() => {
-    setPersonas(authUserId ? loadPersonasFor(authUserId) : []);
+    purgeLocalPersonas();
+    if (!authUserId) {
+      setPersonas([]);
+      return;
+    }
+    let alive = true;
+    fetchPersonas().then(list => { if (alive) setPersonas(list); });
+    return () => { alive = false; };
   }, [authUserId]);
 
   // 로그인 상태가 바뀌면 오늘 쓴 무료 횟수를 서버에서 다시 받아온다
@@ -373,10 +358,7 @@ export default function App() {
 
   // (Removed comments localStorage sync as it is now in Supabase)
 
-  useEffect(() => {
-    if (!authUserId) return; // 로그아웃 상태에서는 아무것도 남기지 않는다
-    localStorage.setItem(personasKeyFor(authUserId), JSON.stringify(personas));
-  }, [personas, authUserId]);
+
 
   // 내 투표 기록을 서버에서 불러와 화면 상태에 반영한다.
   // (RLS가 본인 행만 내려주므로 별도 필터가 필요 없다)
@@ -700,11 +682,15 @@ export default function App() {
 
 
   const handleTogglePinPersona = (personaId: string) => {
-    setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: !p.isPinned } : p));
+    const next = !personas.find(p => p.id === personaId)?.isPinned;
+    setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: next } : p));
+    savePersona(personaId, { isPinned: next });
   };
 
   const handleDeletePersona = (personaId: string) => {
     setPersonas(prev => prev.filter(p => p.id !== personaId));
+    if (activeChatSession?.personaId === personaId) setActiveChatSession(null);
+    deletePersona(personaId);
     setToastMessage('AI 대화가 삭제되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
   };
@@ -801,8 +787,24 @@ export default function App() {
         sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
       };
       setPersonas(prev => [newPersona, ...prev]);
+      if (authUserId) createPersona(newPersona, authUserId);
     }
   };
+
+  /**
+   * 대화 내용을 서버에 저장한다. 잦은 호출은 묶어서 한 번만 보낸다.
+   *
+   * AI 답변은 한 글자씩 흘러 들어오고 그때마다 이 경로가 불린다. 그대로
+   * 서버에 붙이면 글자 수만큼 DB 쓰기가 나간다.
+   */
+  const saveTimers = useRef<Record<string, number>>({});
+  const queuePersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]) => {
+    window.clearTimeout(saveTimers.current[personaId]);
+    saveTimers.current[personaId] = window.setTimeout(() => {
+      savePersona(personaId, { chatHistory });
+      delete saveTimers.current[personaId];
+    }, 800);
+  }, []);
 
   const handleUpdateSession = useCallback((sessionId: string, personaId: string, updates: Partial<ChatSession>) => {
     setActiveChatSession(prev => {
@@ -821,11 +823,12 @@ export default function App() {
         const chatHistory = updates.messages !== undefined ? updates.messages : p.chatHistory;
         if (p.chatHistory === chatHistory) return p;
         changed = true;
+        queuePersonaSave(personaId, chatHistory ?? []);
         return { ...p, chatHistory };
       });
       return changed ? next : prev;
     });
-  }, []);
+  }, [queuePersonaSave]);
 
   const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
     if (story.authorId === user.id || bypassPremium) {
@@ -875,6 +878,7 @@ export default function App() {
 
       if (!existing) {
         setPersonas(prev => [persona, ...prev]);
+        if (authUserId) createPersona(persona, authUserId);
         // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
         if (story.authorId !== user.id) spendAiQuota(story.id);
       }
@@ -947,6 +951,7 @@ export default function App() {
 
       if (!existing) {
         setPersonas(prev => [persona, ...prev]);
+        if (authUserId) createPersona(persona, authUserId);
         if (target.authorId !== user.id) spendAiQuota(target.id);
       }
 
@@ -989,6 +994,9 @@ export default function App() {
           ? { ...p, name: personaName, role: roleLabel, description: describe, systemInstruction, ratio }
           : p
       ));
+      savePersona(activeChatSession.personaId, {
+        name: personaName, role: roleLabel, description: describe, systemInstruction, ratio,
+      });
     }
 
     setIsExplainSettingsModalOpen(false);
