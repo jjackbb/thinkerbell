@@ -19,12 +19,15 @@ interface AIChatViewProps {
   onTogglePinPersona?: (personaId: string) => void;
   onDeletePersona?: (personaId: string) => void;
   onReportErrorPersona?: (personaId: string) => void;
+  /** 대화가 하나도 없을 때 사연을 보러 가는 길 */
+  onGoToFeed?: () => void;
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
   onCrisisDetected,
   supporterCount,
   personas,
+  onGoToFeed,
   activeSession,
   onStartSession,
   onEndSession,
@@ -274,6 +277,36 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           <h3 className="font-label-md text-xs font-bold text-[#5f5e5e] uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span> SELECT PERSONA
           </h3>
+
+          {/*
+            기본 제공 페르소나가 없으므로 처음 온 사람은 이 탭이 비어 있다.
+            빈 화면만 두면 고장 난 것처럼 보이므로, 대화가 어디서 시작되는지
+            알려주고 곧장 갈 길을 준다.
+          */}
+          {personas.length === 0 ? (
+            <div className="bg-white border border-dashed border-[#E5E7EB] rounded-lg px-6 py-12 text-center">
+              <span aria-hidden="true" className="material-symbols-outlined text-[40px] text-[#FF6B5A]">
+                forum
+              </span>
+              <h4 className="font-headline-md text-base font-bold text-[#1C1C1C] mt-3">
+                아직 나눈 대화가 없어요
+              </h4>
+              <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed mt-2">
+                사연을 열고 <span className="font-bold text-[#1C1C1C]">'AI로 이 상황을 다시 겪어보기'</span>를
+                누르면
+                <br />
+                그 사연 속 상대방과의 대화가 여기에 쌓입니다.
+              </p>
+              {onGoToFeed && (
+                <button
+                  onClick={onGoToFeed}
+                  className="mt-5 px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
+                >
+                  사연 보러 가기
+                </button>
+              )}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {personas.map((persona) => (

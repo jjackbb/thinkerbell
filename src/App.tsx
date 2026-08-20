@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession } from './types';
-import { INITIAL_STORIES, INITIAL_PERSONAS, INITIAL_COMMENTS } from './data/mockData';
+import { INITIAL_STORIES, INITIAL_COMMENTS } from './data/mockData';
 import { Header } from './components/Header';
 import { Navbar } from './components/Navbar';
 import { WeeklyTopBanner } from './components/WeeklyTopBanner';
@@ -54,18 +54,29 @@ const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
 const PERSONAS_KEY = 'nipyeon_personas_v2';
 const LEGACY_PERSONA_KEYS = ['nipyeon_personas'];
 
+/**
+ * 기본 제공 페르소나는 두지 않는다.
+ *
+ * 예전에는 사연과 무관한 데모 캐릭터(김부장·민우·지은)가 미리 깔려 있었다.
+ * 이 서비스의 AI 대화는 '내 사연 속 그 사람'과 나누는 것이 핵심인데, 아무
+ * 관련 없는 캐릭터가 먼저 보이면 그 연결이 흐려진다. 지금은 사연에서 대화를
+ * 열었을 때만 페르소나가 생긴다.
+ *
+ * (나중에 인기 드라마 주인공 같은 큐레이션 페르소나를 따로 얹는 건 별개 기능으로
+ *  다룬다. 그때는 사연에서 만들어진 것과 구분해서 보여줘야 한다.)
+ */
 const loadPersonas = (): AIPersona[] => {
   const saved = localStorage.getItem(PERSONAS_KEY);
   if (saved) {
     try {
       return JSON.parse(saved);
     } catch {
-      return INITIAL_PERSONAS;
+      return [];
     }
   }
-  // 처음 v2로 넘어오는 브라우저: 예전 키를 정리하고 기본값에서 시작한다
+  // 처음 v2로 넘어오는 브라우저: 예전 키를 정리하고 빈 상태에서 시작한다
   LEGACY_PERSONA_KEYS.forEach(k => localStorage.removeItem(k));
-  return INITIAL_PERSONAS;
+  return [];
 };
 
 /**
@@ -1275,6 +1286,7 @@ export default function App() {
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
             onReportErrorPersona={handleReportErrorPersona}
+            onGoToFeed={() => setActiveTab('feed')}
           />
         )}
 
