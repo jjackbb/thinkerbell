@@ -91,3 +91,17 @@ export async function deletePersona(personaId: string): Promise<boolean> {
   const { error } = await supabase.from('ai_personas').delete().eq('id', personaId);
   return !error;
 }
+
+/**
+ * 이 계정의 대화방을 전부 지운다.
+ *
+ * 속마음을 털어놓는 서비스라 "그동안 한 말 전부 없애기"가 한 번에 가능해야 한다.
+ * 대화방을 하나씩 지우게 하면, 정작 급할 때 다 못 지운다.
+ *
+ * RLS가 본인 행만 지우도록 막고 있으므로 조건 없이 지워도 남의 것은 건드리지 않는다.
+ * 그래도 의도를 코드에 남기려고 userId를 명시한다.
+ */
+export async function deleteAllPersonas(userId: string): Promise<boolean> {
+  const { error } = await supabase.from('ai_personas').delete().eq('userId', userId);
+  return !error;
+}

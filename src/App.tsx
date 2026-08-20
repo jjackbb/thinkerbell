@@ -26,7 +26,7 @@ import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
-import { fetchPersonas, createPersona, savePersona, deletePersona } from './lib/aiPersonas';
+import { fetchPersonas, createPersona, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -695,6 +695,21 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  /** AI 대화 전체 삭제. 되돌릴 수 없다 */
+  const handleDeleteAllAiChats = async () => {
+    if (!authUserId) return;
+    const ok = await deleteAllPersonas(authUserId);
+    if (!ok) {
+      setToastMessage('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    setPersonas([]);
+    setActiveChatSession(null);
+    setToastMessage('AI 대화를 모두 지웠습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleReportErrorPersona = (personaId: string) => {
     const persona = personas.find(p => p.id === personaId);
     if (persona) {
@@ -1355,6 +1370,8 @@ export default function App() {
             onUpdateNickname={handleUpdateNickname}
             onGenerateRandomNickname={handleGenerateRandomNickname}
             onSelectStory={(s) => setSelectedStory(s)}
+            aiChatCount={personas.length}
+            onDeleteAllAiChats={handleDeleteAllAiChats}
           />
         )}
       </main>

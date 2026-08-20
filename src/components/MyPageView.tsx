@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, Story, Comment } from '../types';
-import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface MyPageViewProps {
@@ -11,6 +11,10 @@ interface MyPageViewProps {
   onUpdateNickname: (nickname: string) => void;
   onGenerateRandomNickname: () => void;
   onSelectStory: (story: Story) => void;
+  /** 지금 남아 있는 AI 대화방 수 */
+  aiChatCount?: number;
+  /** AI 대화 전체 삭제. 되돌릴 수 없다 */
+  onDeleteAllAiChats?: () => Promise<void> | void;
 }
 
 export const MyPageView: React.FC<MyPageViewProps> = ({
@@ -21,7 +25,12 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   onUpdateNickname,
   onGenerateRandomNickname,
   onSelectStory,
+  aiChatCount = 0,
+  onDeleteAllAiChats,
 }) => {
+  /** 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const [wiping, setWiping] = useState(false);
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
   const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support'>('summary');
   const [currentPage, setCurrentPage] = useState(1);
@@ -521,6 +530,59 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           </span>
           <span className="font-mono text-lg font-bold text-[#D6452F]">109</span>
         </a>
+
+        {/*
+          털어놓은 이야기를 한 번에 없앨 수 있어야 한다. 대화방을 하나씩 지우게 하면
+          정작 급할 때 다 못 지운다. 되돌릴 수 없으므로 확인을 한 단계 둔다.
+        */}
+        {onDeleteAllAiChats && (
+          <div className="p-4 bg-white border border-[#E5E7EB] rounded-lg space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Trash2 className="w-4 h-4 text-[#A32E1D] mt-0.5 shrink-0" aria-hidden="true" />
+              <div className="text-left">
+                <p className="font-bold text-sm text-[#1C1C1C]">AI 대화 전체 삭제</p>
+                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-0.5">
+                  {aiChatCount > 0
+                    ? `지금 ${aiChatCount}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.`
+                    : '지울 대화가 없어요.'}
+                </p>
+              </div>
+            </div>
+
+            {aiChatCount > 0 && (
+              confirmWipe ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmWipe(false)}
+                    disabled={wiping}
+                    className="flex-1 py-2.5 border border-[#E5E7EB] text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    그만두기
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setWiping(true);
+                      await onDeleteAllAiChats();
+                      setWiping(false);
+                      setConfirmWipe(false);
+                    }}
+                    disabled={wiping}
+                    className="flex-1 py-2.5 bg-[#A32E1D] text-white font-bold text-xs rounded-lg hover:bg-[#8d2718] transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {wiping ? '지우는 중…' : '정말 전부 지우기'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmWipe(true)}
+                  className="w-full py-2.5 border border-[#A32E1D] text-[#A32E1D] font-bold text-xs rounded-lg hover:bg-[#A32E1D]/5 transition-colors cursor-pointer"
+                >
+                  전부 지우기
+                </button>
+              )
+            )}
+          </div>
+        )}
 
         <div className="pt-4">
           <button 
