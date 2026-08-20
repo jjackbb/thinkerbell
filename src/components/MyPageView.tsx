@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, Story, Comment } from '../types';
 import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { checkIsAdmin, fetchMyInquiries, submitInquiry, fetchAllInquiries, replyToInquiry, type Inquiry } from '../lib/inquiries';
 
 interface MyPageViewProps {
   user: UserProfile;
@@ -32,7 +33,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
-  const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support'>('summary');
+  const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support' | 'inquiryAdmin'>('summary');
   const [currentPage, setCurrentPage] = useState(1);
   
   const [isEditingNickname, setIsEditingNickname] = useState(false);
@@ -51,6 +52,13 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [inquiryText, setInquiryText] = useState('');
   const [inquirySending, setInquirySending] = useState(false);
   const [inquiryDone, setInquiryDone] = useState(false);
+  const [myInquiries, setMyInquiries] = useState<Inquiry[]>([]);
+
+  /** 운영자에게만 '문의 관리' 메뉴가 보인다 */
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [allInquiries, setAllInquiries] = useState<Inquiry[]>([]);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replyingId, setReplyingId] = useState<string | null>(null);
 
   /** 로그인한 계정의 이메일. 화면에는 가려서 보여준다 */
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -91,6 +99,16 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       if (typeof n.notifyComments === 'boolean') setNotifyComments(n.notifyComments);
     });
   }, []);
+
+  useEffect(() => {
+    checkIsAdmin().then(setIsAdmin);
+  }, []);
+
+  // 문의 화면에 들어올 때마다 최신 답변을 받아온다
+  useEffect(() => {
+    if (viewMode === 'support') fetchMyInquiries().then(setMyInquiries);
+    if (viewMode === 'inquiryAdmin') fetchAllInquiries().then(setAllInquiries);
+  }, [viewMode]);
 
   /** 토글을 누르면 화면을 먼저 바꾸고 계정에도 저장한다 */
   const saveNotify = (patch: Record<string, boolean>) => {
@@ -372,6 +390,83 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     );
   }
 
+  if (viewMode === 'inquiryAdmin') {
+    const waiting = allInquiries.filter(q => !q.reply);
+    return (
+      <div className="max-w-3xl mx-auto space-y-4 pb-28">
+        <header className="flex items-center gap-3 py-4">
+          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+            arrow_back
+          </button>
+          <h2 className="text-lg font-bold font-headline-md">문의 관리</h2>
+          {waiting.length > 0 && (
+            <span className="px-2 py-0.5 rounded bg-[#FF6B5A] text-white text-[11px] font-bold">
+              답변 대기 {waiting.length}
+            </span>
+          )}
+        </header>
+
+        {allInquiries.length === 0 ? (
+          <section className="bg-white border border-dashed border-[#E5E7EB] rounded-lg p-10 text-center">
+            <p className="text-sm text-[#5f5e5e]">들어온 문의가 없습니다.</p>
+          </section>
+        ) : (
+          <section className="space-y-3">
+            {allInquiries.map(q => (
+              <div key={q.id} className="bg-white border border-[#E5E7EB] rounded-lg p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] text-[#5f5e5e]">
+                    {new Date(q.createdAt).toLocaleString('ko-KR')}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                    q.reply ? 'bg-[#f3f4f5] text-[#5f5e5e]' : 'bg-[#FF6B5A]/10 text-[#D6452F]'
+                  }`}>
+                    {q.reply ? '답변 완료' : '답변 대기'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.content}</p>
+
+                {q.reply ? (
+                  <div className="pt-3 border-t border-[#E5E7EB]">
+                    <p className="text-[11px] font-bold text-[#D6452F] mb-1">보낸 답변</p>
+                    <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.reply}</p>
+                  </div>
+                ) : (
+                  <div className="pt-3 border-t border-[#E5E7EB] space-y-2">
+                    <textarea
+                      value={replyDraft[q.id] ?? ''}
+                      onChange={e => setReplyDraft(d => ({ ...d, [q.id]: e.target.value }))}
+                      rows={3}
+                      placeholder="답변을 적어주세요."
+                      className="w-full p-3 text-xs bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none"
+                    />
+                    <button
+                      onClick={async () => {
+                        const text = (replyDraft[q.id] ?? '').trim();
+                        if (!text) return;
+                        setReplyingId(q.id);
+                        const ok = await replyToInquiry(q.id, text);
+                        setReplyingId(null);
+                        if (!ok) { alert('답변을 저장하지 못했습니다.'); return; }
+                        setReplyDraft(d => ({ ...d, [q.id]: '' }));
+                        fetchAllInquiries().then(setAllInquiries);
+                      }}
+                      disabled={!(replyDraft[q.id] ?? '').trim() || replyingId === q.id}
+                      className="w-full py-2.5 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {replyingId === q.id ? '보내는 중…' : '답변 보내기'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+      </div>
+    );
+  }
+
   if (viewMode === 'notifications') {
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
@@ -462,7 +557,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <textarea 
             value={inquiryText}
             onChange={(e) => setInquiryText(e.target.value)}
-            placeholder="문의하실 내용을 상세히 적어주세요. (답변은 가입하신 이메일로 발송됩니다)"
+            placeholder="문의하실 내용을 상세히 적어주세요. 답변은 아래 '내 문의 내역'에서 확인하실 수 있습니다."
             rows={5}
             className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none mb-4"
           />
@@ -472,13 +567,13 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               const { data: sess } = await supabase.auth.getUser();
               const uid = sess?.user?.id;
               if (!uid) { setInquirySending(false); return; }
-              const { error } = await supabase.from('inquiries')
-                .insert({ userId: uid, category: '1:1 문의', content: inquiryText.trim() });
+              const ok = await submitInquiry(uid, inquiryText.trim());
               setInquirySending(false);
-              if (error) { alert('문의를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'); return; }
+              if (!ok) { alert('문의를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'); return; }
               setInquiryText('');
               setInquiryDone(true);
               setTimeout(() => setInquiryDone(false), 4000);
+              fetchMyInquiries().then(setMyInquiries);
             }}
             disabled={!inquiryText.trim() || inquirySending}
             className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
@@ -491,6 +586,34 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </p>
           )}
         </section>
+
+        {/* 보낸 뒤 아무것도 안 보이면 접수됐는지 알 수 없다. 답변도 여기서 받는다 */}
+        {myInquiries.length > 0 && (
+          <section className="bg-white border border-[#E5E7EB] rounded-lg p-5 mt-6 space-y-4">
+            <h3 className="font-bold text-sm text-[#1C1C1C]">내 문의 내역</h3>
+            {myInquiries.map(q => (
+              <div key={q.id} className="border border-[#E5E7EB] rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] text-[#5f5e5e]">
+                    {new Date(q.createdAt).toLocaleDateString('ko-KR')}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                    q.reply ? 'bg-[#FF6B5A]/10 text-[#D6452F]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
+                  }`}>
+                    {q.reply ? '답변 완료' : '답변 대기'}
+                  </span>
+                </div>
+                <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.content}</p>
+                {q.reply && (
+                  <div className="mt-2 pt-3 border-t border-[#E5E7EB]">
+                    <p className="text-[11px] font-bold text-[#D6452F] mb-1">운영자 답변</p>
+                    <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.reply}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
       </div>
     );
   }
@@ -640,6 +763,14 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <span>도움말 및 문의</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
+
+        {/* 운영자에게만 보인다. 권한은 admins 테이블로 판정한다 */}
+        {isAdmin && (
+          <button onClick={() => setViewMode('inquiryAdmin')} className="w-full flex items-center justify-between p-4 bg-[#1C1C1C] border border-[#1C1C1C] rounded-lg hover:opacity-90 transition-opacity font-bold text-sm text-white cursor-pointer">
+            <span>문의 관리 <span className="text-[#FF6B5A]">(운영자)</span></span>
+            <ChevronRight className="w-5 h-5 text-[#FF6B5A]" />
+          </button>
+        )}
 
         {/* 위기 상담은 어느 화면에서든 1~2번 터치로 닿아야 한다.
             깊은 메뉴에 묻어두면 정작 필요한 순간에 못 찾는다 */}
