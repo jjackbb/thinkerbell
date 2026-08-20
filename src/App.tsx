@@ -338,6 +338,33 @@ export default function App() {
     else syncStoryUrl(null);
   }, [stories]);
 
+  /**
+   * 열려 있는 사연 상세를 목록의 최신 값과 맞춰둔다.
+   *
+   * selectedStory는 목록에서 복사해 온 스냅샷이라 목록이 갱신돼도 따라가지
+   * 않았다. 특히 공유 링크(?story=)로 들어오면 투표 기록이 반영되기 전에
+   * 스냅샷이 떠서, **이미 투표한 사람에게도 "투표하면 결과가 열려요"가**
+   * 뜨고 공유 바도 나타나지 않았다.
+   *
+   * 값이 그대로면 prev를 그대로 돌려준다. 매번 새 객체를 만들면 렌더가
+   * 계속 돈다.
+   */
+  useEffect(() => {
+    setSelectedStory(prev => {
+      if (!prev) return prev;
+      const fresh = stories.find(s => s.id === prev.id);
+      if (!fresh) return prev;
+      const same =
+        fresh.userVoted === prev.userVoted &&
+        fresh.voteChanged === prev.voteChanged &&
+        fresh.votesA === prev.votesA &&
+        fresh.votesB === prev.votesB &&
+        fresh.isBlind === prev.isBlind &&
+        fresh.commentCount === prev.commentCount;
+      return same ? prev : { ...prev, ...fresh };
+    });
+  }, [stories]);
+
   // Handlers
   const handleCompleteWelcome = (nickname: string, provider: 'kakao' | 'apple' | 'google') => {
     const updatedUser: UserProfile = {

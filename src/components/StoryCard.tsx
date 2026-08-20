@@ -327,10 +327,12 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               setActiveCommentTab(activeCommentTab === null ? 'all' : null);
             }}
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span> {comments.length}
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
+            <span className="sr-only">댓글 </span>{comments.length}
           </span>
           <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span>
+            <span className="sr-only">투표 </span>{totalVotes}
           </span>
         </div>
 
