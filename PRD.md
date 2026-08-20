@@ -168,11 +168,8 @@
   두었다. RLS상 운영자만 전체 문의를 읽고 답변을 쓸 수 있다.
 - **확인:** 일반 계정에는 '문의 관리' 메뉴가 안 보임 → 운영자 등록 후 메뉴 노출·대기 배지
   1건 → 답변 작성 → 사용자 화면에서 '답변 완료'와 답변 내용 확인.
-- **운영자 추가 방법:**
-  ```sql
-  insert into public.admins ("userId")
-  select id from auth.users where email = '운영자이메일';
-  ```
+- **운영자 계정:** 아직 정해지지 않았다. 등록·확인·해제 방법과 권한 범위는
+  `docs/admin.md` 참고.
 - **남은 것:** 답변이 달려도 사용자가 알 길이 없다. 직접 들어와 봐야 한다. 알림 수단이
   생기면 붙이는 편이 낫다.
 - **파일:** `src/lib/inquiries.ts`(신규), `src/components/MyPageView.tsx`,
