@@ -53,14 +53,16 @@ export async function fetchAiQuotaUsed(): Promise<number> {
   const userId = await currentUserId();
   if (!userId) return readLocal();
 
-  const { count, error } = await supabase
+  // head: true(HEAD 요청)로 개수만 받으면 값은 오는데 브라우저 콘솔에 계속
+  // 404/ERR_ABORTED가 찍힌다. 행이 하루 몇 개뿐이라 그냥 받아서 센다.
+  const { data, error } = await supabase
     .from('ai_chat_usage')
-    .select('id', { count: 'exact', head: true })
+    .select('id')
     .eq('userId', userId)
     .eq('usedOn', seoulToday());
 
   if (error) return readLocal();
-  return count ?? 0;
+  return data?.length ?? 0;
 }
 
 /** 한 번 썼다고 기록하고, 갱신된 사용 횟수를 돌려준다 */

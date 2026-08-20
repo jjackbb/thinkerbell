@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="니편내편">
+  <!-- 서비스 토큰: 내 편 #FF6B5A / 니 편 #6C7BE8 / 잉크 #1C1C1C -->
+  <rect width="32" height="32" rx="8" fill="#1C1C1C"/>
+  <path d="M6 8h9v16H6z" fill="#6C7BE8"/>
+  <path d="M17 8h9v16h-9z" fill="#FF6B5A"/>
+</svg>
