@@ -546,6 +546,11 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                     ? `지금 ${aiChatCount}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.`
                     : '지울 대화가 없어요.'}
                 </p>
+                {/* 자동 삭제는 예고 없이 일어나면 안 된다. 정책을 눈에 보이는 곳에 적어둔다 */}
+                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-1.5">
+                  마지막으로 대화한 지 <span className="font-bold text-[#1C1C1C]">6개월</span>이 지난 대화방은
+                  자동으로 지워집니다.
+                </p>
               </div>
             </div>
 
