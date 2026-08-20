@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile, Story, Comment } from '../types';
 import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -49,6 +49,84 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [inquiryText, setInquiryText] = useState('');
+  const [inquirySending, setInquirySending] = useState(false);
+  const [inquiryDone, setInquiryDone] = useState(false);
+
+  /** 로그인한 계정의 이메일. 화면에는 가려서 보여준다 */
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNext, setPwNext] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  /* successMessage는 요약 화면에서만 렌더된다. 이 화면에서 성공을 알리려면
+     폼 안에 따로 두어야 한다 — 없으면 눌러도 아무 반응 없는 것처럼 보인다 */
+  const [pwDone, setPwDone] = useState(false);
+
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * 이메일 가리기.
+   *
+   * 예전에는 'a****@gmail.com'이 코드에 박혀 있어서, 누가 로그인하든 그 문자열이
+   * 떴다. 내 계정이 맞는지 확인하려고 보는 화면인데 남의 주소가 보이는 셈이었다.
+   */
+  const maskEmail = (email: string): string => {
+    const [local, domain] = email.split('@');
+    if (!domain) return email;
+    const head = local.slice(0, 1);
+    return `${head}${'*'.repeat(Math.max(local.length - 1, 3))}@${domain}`;
+  };
+
+  // 알림 설정은 계정에 붙여 둔다. 그래야 기기를 바꿔도 따라온다.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data?.user;
+      if (!u) return;
+      setAccountEmail(u.email ?? null);
+      const n = (u.user_metadata ?? {}) as Record<string, unknown>;
+      if (typeof n.notifyBalanceGame === 'boolean') setNotifyBalanceGame(n.notifyBalanceGame);
+      if (typeof n.notifyVotes === 'boolean') setNotifyVotes(n.notifyVotes);
+      if (typeof n.notifyComments === 'boolean') setNotifyComments(n.notifyComments);
+    });
+  }, []);
+
+  /** 토글을 누르면 화면을 먼저 바꾸고 계정에도 저장한다 */
+  const saveNotify = (patch: Record<string, boolean>) => {
+    supabase.auth.updateUser({ data: patch });
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError(null);
+    setPwDone(false);
+
+    if (pwNext.length < 6) { setPwError('새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    if (pwNext !== pwConfirm) { setPwError('새 비밀번호가 서로 다릅니다.'); return; }
+    if (!accountEmail) { setPwError('계정 정보를 불러오지 못했습니다.'); return; }
+
+    setPwBusy(true);
+    // 세션만 있으면 비밀번호를 바꿀 수 있지만, 자리를 비운 사이 남이 바꾸는 걸 막으려면
+    // 기존 비밀번호를 한 번 확인해야 한다.
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: accountEmail,
+      password: pwCurrent,
+    });
+    if (authError) {
+      setPwBusy(false);
+      setPwError('기존 비밀번호가 맞지 않습니다.');
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: pwNext });
+    setPwBusy(false);
+    if (error) { setPwError(error.message); return; }
+
+    setPwCurrent(''); setPwNext(''); setPwConfirm('');
+    setPwDone(true);
+    setTimeout(() => setPwDone(false), 4000);
+  };
 
   const faqs = [
     { q: '사연 등록은 어떻게 하나요?', a: '하단 + 버튼이나 피드 상단의 사연 등록 버튼을 눌러 작성하실 수 있습니다. 100% 익명으로 보장됩니다.' },
@@ -208,19 +286,29 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div>
             <h3 className="text-xs font-bold text-[#5f5e5e] mb-2">보안 처리된 이메일 계정</h3>
             <p className="text-[#1C1C1C] font-mono text-sm font-bold bg-[#f8f9fa] p-3 rounded-lg border border-[#E5E7EB]">
-              a****@gmail.com
+              {accountEmail ? maskEmail(accountEmail) : '불러오는 중…'}
             </p>
           </div>
           <div>
             <h3 className="text-xs font-bold text-[#5f5e5e] mb-2">비밀번호 변경</h3>
-            <div className="space-y-3">
-              <input type="password" placeholder="기존 비밀번호" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
-              <input type="password" placeholder="새 비밀번호 (6자 이상)" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
-              <input type="password" placeholder="새 비밀번호 확인" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
-              <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer">
-                비밀번호 변경
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <input type="password" autoComplete="current-password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)} placeholder="기존 비밀번호" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              <input type="password" autoComplete="new-password" value={pwNext} onChange={e => setPwNext(e.target.value)} placeholder="새 비밀번호 (6자 이상)" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              <input type="password" autoComplete="new-password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="새 비밀번호 확인" className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg font-bold text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A]" />
+              {pwError && <p className="text-xs text-[#A32E1D] font-bold">{pwError}</p>}
+              {pwDone && (
+                <p className="text-xs text-[#1C1C1C] font-bold flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-[#FF6B5A]" aria-hidden="true" /> 비밀번호를 변경했습니다.
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={pwBusy || !pwCurrent || !pwNext || !pwConfirm}
+                className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pwBusy ? '변경하는 중…' : '비밀번호 변경'}
               </button>
-            </div>
+            </form>
           </div>
           <div className="pt-6 border-t border-[#E5E7EB]">
             <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-sm rounded-lg transition-colors cursor-pointer">
@@ -237,7 +325,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 <h2 className="text-lg font-bold">계정 탈퇴</h2>
               </div>
               <p className="text-xs text-[#5f5e5e] mb-4 leading-relaxed">
-                탈퇴 시 모든 사연과 댓글, 활동 내역이 영구적으로 삭제되며 복구할 수 없습니다. 정말 탈퇴하시겠습니까? (개인정보 처리 방침에 따라 30일 후 완전 파기됩니다.)
+                탈퇴하면 작성하신 사연과 댓글, 투표, AI 대화가 즉시 삭제됩니다. 되돌릴 수 없습니다. 내 사연에 달린 다른 분들의 댓글과 투표도 함께 사라집니다.
               </p>
               
               <div className="mb-6 space-y-2">
@@ -259,8 +347,22 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                 <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB] font-bold text-sm rounded-xl transition-colors cursor-pointer">
                   취소
                 </button>
-                <button className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer disabled:opacity-50" disabled={!deleteReason}>
-                  탈퇴하기
+                <button
+                  onClick={async () => {
+                    setDeleting(true);
+                    const { error } = await supabase.rpc('delete_my_account');
+                    if (error) {
+                      setDeleting(false);
+                      setSuccessMessage(null);
+                      alert('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+                      return;
+                    }
+                    await supabase.auth.signOut();
+                  }}
+                  disabled={!deleteReason || deleting}
+                  className="flex-1 py-3 bg-[#A32E1D] hover:bg-[#8d2718] text-white font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {deleting ? '처리 중…' : '탈퇴하기'}
                 </button>
               </div>
             </div>
@@ -286,7 +388,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               <p className="text-xs text-[#5f5e5e] mt-1">새로운 밸런스 게임이 등록될 때 알림을 받습니다.</p>
             </div>
             <button 
-              onClick={() => setNotifyBalanceGame(!notifyBalanceGame)}
+              onClick={() => { const v = !notifyBalanceGame; setNotifyBalanceGame(v); saveNotify({ notifyBalanceGame: v }); }}
               className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyBalanceGame ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyBalanceGame ? 'translate-x-6' : 'translate-x-0'}`} />
@@ -298,7 +400,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               <p className="text-xs text-[#5f5e5e] mt-1">내 사연에 10개 이상의 투표가 쌓이면 알림을 받습니다.</p>
             </div>
             <button 
-              onClick={() => setNotifyVotes(!notifyVotes)}
+              onClick={() => { const v = !notifyVotes; setNotifyVotes(v); saveNotify({ notifyVotes: v }); }}
               className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyVotes ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyVotes ? 'translate-x-6' : 'translate-x-0'}`} />
@@ -310,7 +412,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               <p className="text-xs text-[#5f5e5e] mt-1">내 사연에 새로운 댓글이 달리면 알림을 받습니다.</p>
             </div>
             <button 
-              onClick={() => setNotifyComments(!notifyComments)}
+              onClick={() => { const v = !notifyComments; setNotifyComments(v); saveNotify({ notifyComments: v }); }}
               className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyComments ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyComments ? 'translate-x-6' : 'translate-x-0'}`} />
@@ -364,9 +466,30 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             rows={5}
             className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none mb-4"
           />
-          <button className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50" disabled={!inquiryText.trim()}>
-            문의하기
+          <button
+            onClick={async () => {
+              setInquirySending(true);
+              const { data: sess } = await supabase.auth.getUser();
+              const uid = sess?.user?.id;
+              if (!uid) { setInquirySending(false); return; }
+              const { error } = await supabase.from('inquiries')
+                .insert({ userId: uid, category: '1:1 문의', content: inquiryText.trim() });
+              setInquirySending(false);
+              if (error) { alert('문의를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'); return; }
+              setInquiryText('');
+              setInquiryDone(true);
+              setTimeout(() => setInquiryDone(false), 4000);
+            }}
+            disabled={!inquiryText.trim() || inquirySending}
+            className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {inquirySending ? '보내는 중…' : '문의하기'}
           </button>
+          {inquiryDone && (
+            <p className="text-xs text-[#1C1C1C] font-bold flex items-center gap-1.5 mt-3">
+              <Check className="w-3.5 h-3.5 text-[#FF6B5A]" aria-hidden="true" /> 문의가 접수되었습니다.
+            </p>
+          )}
         </section>
       </div>
     );
