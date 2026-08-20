@@ -489,33 +489,35 @@ export default function App() {
   const handleLikeComment = async (commentId: string) => {
     if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) return;
 
-    let updateNeeded = false;
-    let delta = 0;
+    /**
+     * 투표와 같은 이유로 판정을 먼저 한다.
+     *
+     * setCommentsMap 콜백은 렌더 시점에 실행되므로, 그 안에서 세운 값을 바로
+     * 아래에서 읽으면 늘 초기값이다. 그래서 **공감 수가 화면에만 오르고 서버로는
+     * 한 번도 가지 않았다.**
+     */
+    const storyId = Object.keys(commentsMap).find(sid =>
+      commentsMap[sid].some(c => c.id === commentId)
+    );
+    if (!storyId) return;
 
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      Object.keys(updatedMap).forEach(storyId => {
-        updatedMap[storyId] = updatedMap[storyId].map(c => {
-          if (c.id === commentId) {
-            const userLiked = !c.userLiked;
-            delta = userLiked ? 1 : -1;
-            updateNeeded = true;
-            return {
-              ...c,
-              userLiked,
-              likeCount: Math.max(0, c.likeCount + delta)
-            };
-          }
-          return c;
-        });
-      });
-      return updatedMap;
-    });
+    const target = commentsMap[storyId].find(c => c.id === commentId);
+    if (!target) return;
 
-    if (updateNeeded) {
-      // 남의 댓글을 수정하는 동작이라 서버 함수를 통해서만 증감한다
-      await supabase.rpc('like_comment', { p_comment_id: commentId, p_delta: delta });
-    }
+    const userLiked = !target.userLiked;
+    const delta = userLiked ? 1 : -1;
+
+    setCommentsMap(prev => ({
+      ...prev,
+      [storyId]: prev[storyId].map(c =>
+        c.id === commentId
+          ? { ...c, userLiked, likeCount: Math.max(0, c.likeCount + delta) }
+          : c
+      ),
+    }));
+
+    // 남의 댓글을 수정하는 동작이라 서버 함수를 통해서만 증감한다
+    await supabase.rpc('like_comment', { p_comment_id: commentId, p_delta: delta });
   };
   const handleEditComment = async (storyId: string, commentId: string, newContent: string) => {
     setCommentsMap(prev => {

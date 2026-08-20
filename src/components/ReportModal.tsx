@@ -8,7 +8,20 @@ interface ReportModalProps {
   onSubmitReport: (targetId: string, reason: string) => void;
 }
 
-
+/**
+ * 신고 사유. PRD FEAT-09가 요구하는 항목이다.
+ *
+ * 예전에는 "사유를 정확하게 선택해 주세요"라고 안내해 놓고 정작 고를 것이 없는
+ * 자유 입력 칸 하나뿐이었다. 신고하려는 사람에게 문장을 쓰게 만들면 대부분
+ * 그냥 닫는다. 누르기만 하면 되게 한다.
+ */
+const REASONS = [
+  '욕설 · 비방',
+  '음란 · 선정성',
+  '광고 · 도배',
+  '개인정보 노출',
+  '기타',
+] as const;
 
 export const ReportModal: React.FC<ReportModalProps> = ({
   isOpen,
@@ -16,79 +29,125 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   onClose,
   onSubmitReport,
 }) => {
+  // 훅은 어떤 경우에도 같은 순서로 호출되어야 하므로 조기 반환보다 위에 둔다
+  const [reason, setReason] = useState<string>('');
+  const [detail, setDetail] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
   if (!isOpen || !targetId) return null;
 
-  const [selectedReason, setSelectedReason] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  // '기타'는 무엇이 문제였는지 적어야 처리할 수 있다
+  const needsDetail = reason === '기타';
+  const canSubmit = Boolean(reason) && (!needsDetail || detail.trim().length > 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitReport(targetId, selectedReason);
+    if (!canSubmit) return;
+
+    const body = detail.trim() ? `${reason}: ${detail.trim()}` : reason;
+    onSubmitReport(targetId, body);
     setIsSubmitted(true);
     setTimeout(() => {
       setIsSubmitted(false);
+      setReason('');
+      setDetail('');
       onClose();
     }, 1800);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-md shadow-2xl p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+      <div className="bg-white border border-[#E5E7EB] rounded-lg w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+
         {isSubmitted ? (
-          <div className="text-center py-6 space-y-3">
-            <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mx-auto">
-              <Check className="w-6 h-6" />
+          <div className="text-center px-6 py-10 space-y-3">
+            <div className="w-11 h-11 bg-[#A32E1D] text-white rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5" aria-hidden="true" />
             </div>
-            <h3 className="text-base font-bold text-[#0a0a0a]">신고가 정상적으로 접수되었습니다.</h3>
-            <p className="text-xs text-[#6a6a6a]">
-              누적 5회 신고 발생 시 즉시 자동 블라인드 처리 및 관리자 검토에 들어갑니다.
+            <h3 className="font-headline-md text-base font-bold text-[#1C1C1C]">
+              신고가 접수되었습니다
+            </h3>
+            <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed">
+              같은 글에 신고가 <span className="font-bold text-[#1C1C1C]">5회</span> 쌓이면
+              자동으로 가려지고 관리자가 확인합니다.
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#ebe6d6] pb-3">
-              <h3 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2 font-display">
-                <ShieldAlert className="w-5 h-5 text-red-500" /> 부적절한 사연/댓글 신고하기
+          <form onSubmit={handleSubmit}>
+            <div className="px-4 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
+              <h3 className="font-headline-md text-sm font-bold text-[#1C1C1C] flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-[#A32E1D]" aria-hidden="true" />
+                신고하기
               </h3>
               <button
                 type="button"
+                aria-label="닫기"
                 onClick={onClose}
-                className="p-1 rounded-xl hover:bg-[#f5f0e0] cursor-pointer"
+                className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-[#6a6a6a] leading-relaxed">
-              쾌적하고 안전한 익명 감정 커뮤니티를 위해 신고 사유를 정확하게 선택해 주세요.
-            </p>
+            <div className="p-6 space-y-5">
+              <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed">
+                어떤 점이 문제였는지 골라주세요. 신고한 사람이 누구인지는 상대에게 보이지 않습니다.
+              </p>
 
-            <div className="space-y-2">
-              <textarea
-                value={selectedReason}
-                onChange={(e) => setSelectedReason(e.target.value)}
-                placeholder="신고 사유를 상세히 적어주세요 (최대 500자)"
-                maxLength={500}
-                rows={5}
-                className="w-full p-4 rounded-2xl border border-[#e8e2d0] bg-[#f5f0e0] text-[#3a3a3a] text-xs font-medium focus:outline-none focus:border-[#0a0a0a] focus:ring-1 focus:ring-[#0a0a0a] resize-none transition-colors"
-                required
-              />
-            </div>
+              <fieldset className="space-y-2">
+                <legend className="sr-only">신고 사유</legend>
+                {REASONS.map(r => (
+                  <label
+                    key={r}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                      reason === r
+                        ? 'border-[#A32E1D] bg-[#A32E1D]/5'
+                        : 'border-[#E5E7EB] hover:border-[#A32E1D]/40'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="report-reason"
+                      value={r}
+                      checked={reason === r}
+                      onChange={() => setReason(r)}
+                      className="accent-[#A32E1D]"
+                    />
+                    <span className="font-body-sm text-xs font-bold text-[#1C1C1C]">{r}</span>
+                  </label>
+                ))}
+              </fieldset>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-[#e8e2d0] text-xs font-bold text-[#6a6a6a] hover:bg-[#f5f0e0] cursor-pointer"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
-              >
-                신고 제출하기
-              </button>
+              <div className="space-y-1.5">
+                <label htmlFor="report-detail" className="block font-body-sm text-xs text-[#5f5e5e]">
+                  {needsDetail ? '어떤 점이 문제였는지 적어주세요 (필수)' : '덧붙일 말 (선택)'}
+                </label>
+                <textarea
+                  id="report-detail"
+                  value={detail}
+                  onChange={e => setDetail(e.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  className="w-full p-3 rounded-lg border border-[#E5E7EB] bg-[#f8f9fa] text-[#1C1C1C] text-xs focus:outline-none focus:border-[#A32E1D] resize-none transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-3 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="flex-1 px-4 py-3 rounded-lg bg-[#A32E1D] text-white text-xs font-bold shadow-md transition-colors hover:bg-[#8d2718] disabled:bg-[#E5E7EB] disabled:text-[#5f5e5e] disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
+                >
+                  신고 제출하기
+                </button>
+              </div>
             </div>
           </form>
         )}
