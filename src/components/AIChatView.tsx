@@ -14,7 +14,6 @@ interface AIChatViewProps {
   onStartSession: (persona: AIPersona) => void;
   onEndSession: (sessionId: string) => void;
   onUpdateSession?: (sessionId: string, personaId: string, updates: Partial<ChatSession>) => void;
-  potensApiKey?: string;
   onOpenSettings?: () => void;
   onTogglePinPersona?: (personaId: string) => void;
   onDeletePersona?: (personaId: string) => void;
@@ -32,7 +31,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onStartSession,
   onEndSession,
   onUpdateSession,
-  potensApiKey,
   onOpenSettings,
   onTogglePinPersona,
   onDeletePersona,
@@ -123,7 +121,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         body: JSON.stringify({
           prompt: userMsgText,
           model: 'claude-4-6-sonnet',
-          apiKey: potensApiKey,
           persona: selectedPersona.name,
           systemInstruction: selectedPersona.systemInstruction,
           history: messages.slice(-8)

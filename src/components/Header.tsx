@@ -1,21 +1,28 @@
 import React from 'react';
 import { UserProfile } from '../types';
-import { Key, User, PlusCircle } from 'lucide-react';
+import { User, PlusCircle } from 'lucide-react';
 
 interface HeaderProps {
   user: UserProfile;
   onOpenProfile: () => void;
-  onOpenApiKeyModal: () => void;
   onOpenCreateStory: () => void;
   onGoHome: () => void;
+  /**
+   * 오른쪽 버튼(사연 등록·닉네임)을 보일지.
+   *
+   * 홈 탭에서는 감춘다. 사연 등록은 화면 하단에 계속 떠 있는 안내 바(데스크톱)와
+   * 플로팅 버튼(모바일)이 이미 맡고 있고, 닉네임 버튼은 하단 '마이' 탭과
+   * 완전히 같은 곳으로 가는 중복 진입점이었다.
+   */
+  showActions: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   user,
   onOpenProfile,
-  onOpenApiKeyModal,
   onOpenCreateStory,
   onGoHome,
+  showActions,
 }) => {
   return (
     <header className="w-full top-0 sticky z-50 bg-[#1C1C1C] flex items-center justify-between px-4 sm:px-8 h-16 border-b border-[#1C1C1C] shadow-sm">
@@ -29,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Action Controls */}
+      {showActions && (
       <div className="flex items-center gap-3">
         {/* Write Button */}
         <button
@@ -52,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="max-w-[100px] truncate">{user.nickname}</span>
         </button>
       </div>
+      )}
     </header>
   );
 };

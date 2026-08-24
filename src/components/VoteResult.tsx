@@ -1,4 +1,5 @@
 import React from 'react';
+import { Lock } from 'lucide-react';
 
 interface VoteResultProps {
   votesA: number;
@@ -48,13 +49,16 @@ export const VoteResult: React.FC<VoteResultProps> = ({
           <span className="text-[#5f5e5e]">니 편</span>
           <span className="text-[#5f5e5e]">내 편</span>
         </div>
-        <div className="relative">
-          <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5] blur-[3px] select-none">
-            <div className="bg-[#6C7BE8]/60 h-full" style={{ width: '45%' }} />
-            <div className="bg-[#FF6B5A]/60 h-full" style={{ width: '55%' }} />
-          </div>
-        </div>
-        <p className="mt-2 text-[11px] text-[#5f5e5e] text-center">
+        {/*
+          투표 전에는 색을 아예 쓰지 않는다.
+
+          예전에는 45:55로 칠한 막대에 blur만 걸었다. 작게 보면 흐릿한 진짜
+          결과처럼 읽혀서, 가리려던 밴드왜건이 오히려 생겼다. 지금은 빈 회색
+          막대와 자물쇠로 '아직 아무것도 안 열렸다'만 말한다.
+        */}
+        <div className="w-full h-2 rounded-full bg-[#E5E7EB]" />
+        <p className="mt-2 text-[11px] text-[#5f5e5e] text-center flex items-center justify-center gap-1">
+          <Lock className="w-3 h-3" aria-hidden="true" />
           투표하면 결과가 열려요
         </p>
       </div>

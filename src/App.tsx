@@ -14,7 +14,6 @@ import { AIExplainSettingsModal, ExplainRatio } from './components/AIExplainSett
 import { AIErrorReportModal } from './components/AIErrorReportModal';
 import { MyPageView } from './components/MyPageView';
 import { ReportModal } from './components/ReportModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { LoginPromptModal } from './components/LoginPromptModal';
 import { CrisisSupportModal } from './components/CrisisSupportModal';
@@ -209,11 +208,6 @@ export default function App() {
     return () => { alive = false; };
   }, [user.id]);
 
-  // Potens API Key
-  const [potensApiKey, setPotensApiKey] = useState<string>(() => {
-    return localStorage.getItem('potens_api_key') || '';
-  });
-
   // Main Feed State
   const [stories, setStories] = useState<Story[]>([]);
 
@@ -323,7 +317,6 @@ export default function App() {
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -388,9 +381,14 @@ export default function App() {
     setMyVoteRecords(data.map((v: any) => ({ storyId: v.storyId, option: v.option as 'A' | 'B' })));
   }, []);
 
+  /*
+    예전에는 사용자가 직접 Potens API 키를 넣는 화면이 있었고 그 값을 브라우저에
+    저장했다. 지금은 서버가 자기 키(.env)로만 부르므로 필요 없다. 예전 브라우저에
+    남아 있는 값을 한 번 지운다.
+  */
   useEffect(() => {
-    localStorage.setItem('potens_api_key', potensApiKey);
-  }, [potensApiKey]);
+    localStorage.removeItem('potens_api_key');
+  }, []);
 
   // 공유 링크(?story=)로 들어온 경우 해당 사연을 연다. 사연이 다 불러와진
   // 뒤에 한 번만 시도한다
@@ -1181,9 +1179,9 @@ export default function App() {
       <Header
         user={user}
         onOpenProfile={() => setActiveTab('mypage')}
-        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         onOpenCreateStory={openCreateStory}
         onGoHome={() => setActiveTab('feed')}
+        showActions={activeTab !== 'feed'}
       />
 
       {/* Main Container */}
@@ -1191,7 +1189,7 @@ export default function App() {
         
         {/* TAB 1: FEED VIEW */}
         {activeTab === 'feed' && (
-          <div className="space-y-8 pb-24">
+          <div className="space-y-8 pb-24 md:pb-44">
             
             {/* Today's Balance Game (Hot Logic Hero) */}
             <BalanceGameSection />
@@ -1286,24 +1284,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Create Story Prompt Section */}
-            <div className="mt-16 p-8 border border-[#FF6B5A] bg-[#FF6B5A]/5 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-full bg-[#FF6B5A] flex items-center justify-center text-[#1C1C1C]">
-                  <MessageSquareHeart className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="font-headline-md text-base sm:text-lg font-bold text-[#1C1C1C] mb-1">당신의 고민을 나눠보세요</h3>
-                  <p className="text-[#5f5e5e] font-body-md text-xs sm:text-sm">세상의 모든 갈등과 고민은 명확한 논리로 해답을 찾을 수 있습니다.</p>
-                </div>
-              </div>
-              <button
-                onClick={openCreateStory}
-                className="w-full md:w-auto bg-[#1C1C1C] text-white hover:bg-black px-8 py-3.5 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
-              >
-                사연 올리기
-              </button>
-            </div>
           </div>
         )}
 
@@ -1351,7 +1331,6 @@ export default function App() {
             }}
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
-            potensApiKey={potensApiKey}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
@@ -1382,6 +1361,35 @@ export default function App() {
         피드에서만 띄운다. 다른 탭에도 떠 있으면 그 탭과 상관없는 동작인 데다,
         AI 대화 탭에서는 페르소나 카드의 '시작하기' 버튼을 실제로 덮고 있었다.
       */}
+      {/*
+        사연 쓰기 안내 바 (데스크톱)
+
+        예전에는 목록 맨 아래에 한 번 나오는 박스여서, 사연을 8개 지나 끝까지
+        스크롤한 사람만 봤다. 정작 쓰고 싶어진 순간에는 화면에 없었다.
+        모바일의 플로팅 버튼처럼 홈 탭에서는 계속 떠 있게 한다.
+      */}
+      {activeTab === 'feed' && (
+        <div className="hidden md:block fixed bottom-20 left-0 right-0 z-30 bg-white border-t-2 border-[#FF6B5A] shadow-[0_-4px_16px_rgba(28,28,28,0.06)]">
+          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-full bg-[#FF6B5A] flex items-center justify-center text-[#1C1C1C] shrink-0">
+                <MessageSquareHeart className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 className="font-headline-md text-base font-bold text-[#1C1C1C]">당신의 고민을 나눠보세요</h3>
+                <p className="text-[#5f5e5e] font-body-md text-xs">세상의 모든 갈등과 고민은 명확한 논리로 해답을 찾을 수 있습니다.</p>
+              </div>
+            </div>
+            <button
+              onClick={openCreateStory}
+              className="shrink-0 bg-[#1C1C1C] text-white hover:bg-black px-8 py-3 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
+            >
+              사연 올리기
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'feed' && (
         <button
           onClick={openCreateStory}
@@ -1500,13 +1508,6 @@ export default function App() {
         targetId={reportTargetId}
         onClose={() => setIsReportOpen(false)}
         onSubmitReport={handleSubmitReport}
-      />
-
-      <ApiKeyModal
-        isOpen={isApiKeyModalOpen}
-        apiKey={potensApiKey}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        onSaveKey={(key) => setPotensApiKey(key)}
       />
 
       <AdultVerificationModal

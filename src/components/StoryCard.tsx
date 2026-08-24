@@ -312,11 +312,22 @@ export const StoryCard: React.FC<StoryCardProps> = ({
       {/* Card Footer Info */}
       <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span 
-            className={`flex items-center gap-1 font-label-sm text-xs transition-colors ${
+          {/*
+            댓글은 '누르는 것', 투표 수는 '읽는 것'이다.
+
+            예전에는 둘 다 회색 아이콘 + 숫자로 똑같이 생겨서, 눌리지 않는 투표
+            수를 눌러보는 사람이 생겼다. 댓글 쪽만 테두리를 줘서 버튼으로 보이게
+            하고, 투표 수는 테두리 없는 글자로 둔다.
+          */}
+          <button
+            type="button"
+            aria-expanded={activeCommentTab !== null}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-label-sm text-xs transition-colors ${
               isBlurRequired
-                ? 'text-[#5f5e5e]/30 cursor-not-allowed'
-                : 'text-[#5f5e5e] cursor-pointer hover:text-[#1C1C1C]'
+                ? 'border-[#E5E7EB] text-[#5f5e5e]/30 cursor-not-allowed'
+                : activeCommentTab !== null
+                  ? 'border-[#1C1C1C] text-[#1C1C1C] cursor-pointer'
+                  : 'border-[#E5E7EB] text-[#5f5e5e] cursor-pointer hover:border-[#1C1C1C] hover:text-[#1C1C1C]'
             }`}
             onClick={(e) => {
               e.stopPropagation();
@@ -329,8 +340,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
             <span className="sr-only">댓글 </span>{comments.length}
-          </span>
-          <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
+          </button>
+          <span className="flex items-center gap-1 text-[#5f5e5e]/70 font-label-sm text-xs">
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span>
             <span className="sr-only">투표 </span>{totalVotes}
           </span>
