@@ -92,8 +92,18 @@ export default function App() {
     return saved ? JSON.parse(saved) : makeDefaultUser();
   });
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(true);
-  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  /*
+    둘러보기는 새로고침을 견뎌야 한다.
+
+    예전에는 게스트 여부가 화면 상태로만 있어서, 새로고침하면 '로그인한
+    사람'으로 되돌아갔다. 사연 상세가 막혀 있을 때는 티가 안 났지만 지금은
+    둘러보는 사람이 그 화면에 머문다 — 그 상태로 새로고침하면 댓글창이
+    열린 것처럼 보이고, 써서 등록하면 서버가 조용히 거절한다.
+  */
+  const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
+
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
    * 실제로 로그인된 계정의 id. 로그아웃 상태면 null.
@@ -104,7 +114,7 @@ export default function App() {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
-  const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isGuest, setIsGuest] = useState<boolean>(wasBrowsingAsGuest);
   const [loginPromptMessage, setLoginPromptMessage] = useState<string | null>(null);
 
   // 위기 표현이 감지되면 상담 안내를 띄운다. 글쓰기나 대화는 막지 않는다 —
@@ -114,6 +124,12 @@ export default function App() {
   const notifyIfCrisis = (...texts: (string | undefined)[]) => {
     if (texts.some(t => detectCrisis(t ?? ''))) setIsCrisisOpen(true);
   };
+
+  // 위에서 읽은 값을 계속 맞춰 둔다. 로그인하면 지워져 다음 방문에 다시 묻는다
+  useEffect(() => {
+    if (isGuest) localStorage.setItem('nipyeon_guest', '1');
+    else localStorage.removeItem('nipyeon_guest');
+  }, [isGuest]);
 
   const handleGuestBrowse = () => {
     setIsGuest(true);
@@ -840,7 +856,12 @@ export default function App() {
   }, [queuePersonaSave]);
 
   const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
-    if (story.authorId === user.id || bypassPremium) {
+    /*
+      둘러보는 사람은 무료 횟수를 세지 않는다. 어차피 AI가 먼저 거는
+      첫 마디까지만 보고 답장은 못 하므로 쓴 것이 없다. 여기서 세면
+      답장도 못 하는 사람에게 결제 안내(프리미엄 모달)가 뜬다.
+    */
+    if (story.authorId === user.id || bypassPremium || isGuest) {
       setAiChatModeStory(story);
       setSelectedStory(null);
       return;
@@ -889,7 +910,7 @@ export default function App() {
         setPersonas(prev => [persona, ...prev]);
         if (authUserId) createPersona(persona, authUserId);
         // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
-        if (story.authorId !== user.id) spendAiQuota(story.id);
+        if (story.authorId !== user.id && !isGuest) spendAiQuota(story.id);
       }
 
       // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
@@ -961,7 +982,7 @@ export default function App() {
       if (!existing) {
         setPersonas(prev => [persona, ...prev]);
         if (authUserId) createPersona(persona, authUserId);
-        if (target.authorId !== user.id) spendAiQuota(target.id);
+        if (target.authorId !== user.id && !isGuest) spendAiQuota(target.id);
       }
 
       // 공감 모드도 AI가 먼저 말을 건다. 빈 화면에 대고 먼저 털어놓기는 어렵다.
@@ -1148,7 +1169,13 @@ export default function App() {
   };
 
   const openStoryDetail = (story: Story) => {
-    if (blockedForGuest('사연 전체 내용을 보려면 로그인이 필요해요.')) return;
+    /*
+      둘러보는 사람도 사연 본문과 댓글은 읽을 수 있다.
+
+      읽지도 못하게 막으면 이 서비스가 무엇인지 알 방법이 없어 가입할
+      이유도 안 생긴다. 편을 들거나(투표) 말을 얹는(댓글·공감·신고) 것만
+      로그인을 요구한다. 투표를 안 했으니 비율은 자연히 봉인된 채로 보인다.
+    */
     setSelectedStory(story);
     syncStoryUrl(story.id);
 
@@ -1191,6 +1218,7 @@ export default function App() {
         onOpenCreateStory={openCreateStory}
         onGoHome={() => setActiveTab('feed')}
         showActions={activeTab !== 'feed'}
+        isGuest={isGuest}
       />
 
       {/* Main Container */}
@@ -1307,6 +1335,11 @@ export default function App() {
         {/* TAB 2: AI SIMULATION CHAT VIEW */}
         {activeTab === 'ai-chat' && (
           <AIChatView
+            isGuest={isGuest}
+            /* 로그인 안내는 앱이 한 곳에서 띄운다 — 화면마다 다른 안내가 뜨면 안 된다 */
+            onRequireLogin={(message) => {
+              if (!blockedForGuest(message)) setLoginPromptMessage(message);
+            }}
             onCrisisDetected={(t) => notifyIfCrisis(t)}
             supporterCount={
               activeChatSession?.storyId
@@ -1359,6 +1392,11 @@ export default function App() {
         {/* TAB 3: MY PAGE VIEW */}
         {activeTab === 'mypage' && (
           <MyPageView
+            isGuest={isGuest}
+            /* 로그인 안내는 앱이 한 곳에서 띄운다 */
+            onRequireLogin={(message) => {
+              if (!blockedForGuest(message)) setLoginPromptMessage(message);
+            }}
             user={user}
             myStories={myStories}
             myVotes={myVotes}
@@ -1425,9 +1463,12 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => {
-          if (tab === 'ai-chat' && blockedForGuest('AI와 대화하려면 로그인이 필요해요.')) return;
-          if (tab === 'mypage' && blockedForGuest('마이페이지는 로그인 후 이용하실 수 있어요.')) return;
-
+          /*
+            둘러보는 사람도 탭 자체는 들어갈 수 있다. 탭 입구에서 막으면
+            거기 뭐가 있는지 모른 채 튕겨나서, 로그인할 이유를 못 만든다.
+            대신 각 화면이 게스트에게 맞는 것만 보여준다 — AI 탭은 사연에서
+            시작하라는 안내, 마이 탭은 로그인하면 뭘 할 수 있는지.
+          */
           setActiveTab(tab);
           if (tab === 'ai-chat') {
             setActiveChatSession(null);
@@ -1503,6 +1544,10 @@ export default function App() {
         onLikeComment={handleLikeComment}
         onStartAIChat={handleStartAIChatWithStory}
         freeChatsLeft={freeChatsLeft}
+        isGuest={isGuest}
+        onRequireLogin={(message) => {
+          if (!blockedForGuest(message)) setLoginPromptMessage(message);
+        }}
         onReportStory={handleReport}
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}

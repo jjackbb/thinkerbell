@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Story, Comment } from '../types';
-import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2 } from 'lucide-react';
+import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { checkIsAdmin, fetchMyInquiries, submitInquiry, fetchAllInquiries, replyToInquiry, type Inquiry } from '../lib/inquiries';
 
@@ -16,6 +16,20 @@ interface MyPageViewProps {
   aiChatCount?: number;
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
   onDeleteAllAiChats?: () => Promise<void> | void;
+  /**
+   * 로그인 없이 둘러보는 중인가.
+   *
+   * 게스트에게는 계정에 딸린 것이 하나도 없다 — 이메일도, 사연도, 문의도.
+   * 그 자리를 빈 껍데기로 남기면 "고장 났나?"로 읽히므로 아예 감춘다.
+   */
+  isGuest?: boolean;
+  /**
+   * 로그인하러 보내달라고 부모에게 부탁한다.
+   *
+   * 여기서 따로 모달을 띄우면 화면마다 다른 안내가 뜬다. 로그인 안내는
+   * App.tsx 한 곳(LoginPromptModal)에서만 띄운다.
+   */
+  onRequireLogin?: (message: string) => void;
 }
 
 export const MyPageView: React.FC<MyPageViewProps> = ({
@@ -28,6 +42,8 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   onSelectStory,
   aiChatCount = 0,
   onDeleteAllAiChats,
+  isGuest = false,
+  onRequireLogin,
 }) => {
   /** 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -89,6 +105,8 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
   // 알림 설정은 계정에 붙여 둔다. 그래야 기기를 바꿔도 따라온다.
   useEffect(() => {
+    // 계정이 없는 사람의 정보를 물어볼 곳은 없다. 물어봐야 빈손이고 콘솔만 더러워진다
+    if (isGuest) return;
     supabase.auth.getUser().then(({ data }) => {
       const u = data?.user;
       if (!u) return;
@@ -98,17 +116,19 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       if (typeof n.notifyVotes === 'boolean') setNotifyVotes(n.notifyVotes);
       if (typeof n.notifyComments === 'boolean') setNotifyComments(n.notifyComments);
     });
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
+    if (isGuest) return;
     checkIsAdmin().then(setIsAdmin);
-  }, []);
+  }, [isGuest]);
 
   // 문의 화면에 들어올 때마다 최신 답변을 받아온다
   useEffect(() => {
+    if (isGuest) return;
     if (viewMode === 'support') fetchMyInquiries().then(setMyInquiries);
     if (viewMode === 'inquiryAdmin') fetchAllInquiries().then(setAllInquiries);
-  }, [viewMode]);
+  }, [viewMode, isGuest]);
 
   /** 토글을 누르면 화면을 먼저 바꾸고 계정에도 저장한다 */
   const saveNotify = (patch: Record<string, boolean>) => {
@@ -223,6 +243,92 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   };
 
   const currentList = activeTab === 'stories' ? myStories : activeTab === 'votes' ? myVotes : myComments;
+
+  /*
+    게스트 화면.
+
+    훅은 전부 이 위에 모여 있으므로 여기서 갈라져도 호출 순서가 흔들리지 않는다.
+    아래의 viewMode별 화면은 전부 계정이 있어야 성립하는 것들이라, 섹션마다
+    조건을 다는 대신 여기서 한 번에 갈라놓는다 — 로그인한 사람이 보는 코드에는
+    손대지 않는 편이 회귀가 없다.
+
+    닉네임은 쓰지 않는다. 게스트에게도 임시 닉네임이 들어 있지만 그건 계정에
+    저장된 적 없는 값이라, 자기 이름인 것처럼 보이면 안 된다.
+  */
+  if (isGuest) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-8 pb-28">
+        <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C]">
+          <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/20 border border-[#FF6B5A]/30 flex items-center justify-center mb-4">
+            <Lock className="w-5 h-5 text-[#FF6B5A]" aria-hidden="true" />
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-bold font-headline-lg">로그인이 필요합니다</h2>
+          <p className="text-xs text-white/70 leading-relaxed mt-2">
+            지금은 로그인 없이 둘러보는 중이에요. 내 활동은 로그인한 뒤부터 쌓입니다.
+          </p>
+
+          <ul className="mt-5 space-y-2.5">
+            {[
+              '내 사연을 올리고 사람들에게 편을 물어보기',
+              '사연 전체 내용을 읽고 내 편·니 편에 투표하기',
+              '댓글과 공감 남기기',
+              'AI 상대와 대화하고 다음에 이어서 하기',
+            ].map((text) => (
+              <li key={text} className="flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-[#FF6B5A] mt-0.5 shrink-0" aria-hidden="true" />
+                <span className="text-xs sm:text-sm text-white/90 leading-relaxed">{text}</span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={() => onRequireLogin?.('로그인하면 사연 등록과 투표, 댓글, AI 대화를 모두 이용하실 수 있어요.')}
+            className="w-full mt-6 py-3.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] font-bold text-sm rounded-lg transition-colors cursor-pointer"
+          >
+            로그인 하러가기
+          </button>
+        </section>
+
+        {/* 서비스가 뭔지는 로그인 전에도 알아볼 수 있어야 한다 */}
+        <section className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
+          <div className="p-5 border-b border-[#E5E7EB] bg-[#f8f9fa]">
+            <h3 className="font-bold text-sm text-[#1C1C1C]">자주 묻는 질문</h3>
+          </div>
+          <div className="divide-y divide-[#E5E7EB]">
+            {faqs.map((faq, i) => (
+              <div key={i}>
+                <button
+                  onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                  className="w-full flex items-center justify-between p-5 hover:bg-[#f8f9fa] transition-colors cursor-pointer text-left"
+                >
+                  <span className="font-bold text-sm text-[#1C1C1C]">Q. {faq.q}</span>
+                  {faqOpen === i ? <ChevronUp className="w-4 h-4 text-[#5f5e5e]" /> : <ChevronDown className="w-4 h-4 text-[#5f5e5e]" />}
+                </button>
+                {faqOpen === i && (
+                  <div className="p-5 bg-[#f8f9fa] text-sm text-[#5f5e5e] leading-relaxed">
+                    A. {faq.a}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 위기 상담은 로그인 여부와 상관없이 닿아야 한다. 계정이 없다고 막을 것이 아니다 */}
+        <a
+          href="tel:109"
+          className="w-full flex items-center justify-between p-4 bg-white border border-[#FF6B5A] rounded-lg hover:bg-[#FF6B5A]/5 transition-colors cursor-pointer"
+        >
+          <span className="flex flex-col text-left">
+            <span className="font-bold text-sm text-[#1C1C1C]">힘들 때 상담 전화</span>
+            <span className="text-[11px] text-[#5f5e5e] font-normal">자살예방상담전화 · 24시간 익명</span>
+          </span>
+          <span className="font-mono text-lg font-bold text-[#D6452F]">109</span>
+        </a>
+      </div>
+    );
+  }
 
   if (viewMode === 'more') {
     const itemsPerPage = 10;

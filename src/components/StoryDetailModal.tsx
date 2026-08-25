@@ -17,6 +17,17 @@ interface StoryDetailModalProps {
   onStartAIChat: (story: Story) => void;
   /** 오늘 남은 무료 AI 대화 횟수 (내 사연이면 무제한이라 표시하지 않는다) */
   freeChatsLeft?: number;
+
+  /**
+   * 로그인 없이 둘러보는 중인가.
+   *
+   * 게스트는 AI가 먼저 거는 첫 마디까지만 보고 답장은 못 한다.
+   * 무료 횟수도 쓰지 않으므로 남은 횟수 안내가 오히려 거짓말이 된다.
+   */
+  isGuest?: boolean;
+
+  /** 로그인이 필요한 자리에서 부른다. 안내는 앱이 한 곳에서 띄운다 */
+  onRequireLogin?: (message: string) => void;
   onReportStory: (storyId: string) => void;
   onReportComment: (commentId: string) => void;
   onEditStory?: (storyId: string) => void;
@@ -36,6 +47,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onLikeComment,
   onStartAIChat,
   freeChatsLeft,
+  isGuest = false,
+  onRequireLogin,
   onReportStory,
   onReportComment,
   onEditStory,
@@ -425,12 +438,18 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         ? '사연 속 상대방과 직접 대화해 보세요. 내 사연은 횟수 제한이 없어요.'
                         : '사연 속 상대방과 직접 대화해 보세요.'}
                     </p>
-                    {!isMyStory && typeof freeChatsLeft === 'number' && (
+                    {isGuest ? (
                       <p className="text-[11px] font-mono text-[#5f5e5e] mt-1.5">
-                        {freeChatsLeft > 0
-                          ? `오늘 무료로 ${freeChatsLeft}번 더 열 수 있어요`
-                          : '오늘 무료 횟수를 다 썼어요 · 내일 다시 충전돼요'}
+                        상대방이 먼저 말을 걸어요 · 답장하려면 로그인이 필요해요
                       </p>
+                    ) : (
+                      !isMyStory && typeof freeChatsLeft === 'number' && (
+                        <p className="text-[11px] font-mono text-[#5f5e5e] mt-1.5">
+                          {freeChatsLeft > 0
+                            ? `오늘 무료로 ${freeChatsLeft}번 더 열 수 있어요`
+                            : '오늘 무료 횟수를 다 썼어요 · 내일 다시 충전돼요'}
+                        </p>
+                      )
                     )}
                   </div>
                   <button
@@ -543,7 +562,27 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   )})}
                 </div>
 
-                {/* Add Comment Input */}
+                {/*
+                  Add Comment Input
+
+                  둘러보는 사람에게는 입력창을 아예 그리지 않는다. 열어두면
+                  200자를 다 쓰고 '등록'을 눌러야 비로소 막히는데, 그때는 이미
+                  쓴 글을 잃는다. 못 쓰는 건 처음부터 못 쓰게 보여야 한다.
+                */}
+                {isGuest ? (
+                  <div className="mt-4 bg-[#f9fafb] border border-[#E5E7EB] rounded-lg p-4 text-center">
+                    <p className="text-xs text-[#5f5e5e] font-body-sm leading-relaxed">
+                      댓글은 <span className="font-bold text-[#1C1C1C]">로그인한 뒤</span>에 남길 수 있어요.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onRequireLogin?.('댓글을 남기려면 로그인이 필요해요.')}
+                      className="mt-3 px-4 py-2 bg-[#1C1C1C] text-white font-mono text-xs font-bold rounded hover:bg-black transition-colors cursor-pointer"
+                    >
+                      로그인하고 댓글 남기기
+                    </button>
+                  </div>
+                ) : (
                 <form onSubmit={handleCommentSubmit} className="relative mt-4 bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
                   <textarea
                     value={commentText}
@@ -567,6 +606,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   </div>
                 </form>
+                )}
               </div>
             </aside>
           </div>

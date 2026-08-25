@@ -20,6 +20,14 @@ interface AIChatViewProps {
   onReportErrorPersona?: (personaId: string) => void;
   /** 대화가 하나도 없을 때 사연을 보러 가는 길 */
   onGoToFeed?: () => void;
+  /** 로그인 없이 둘러보는 중인가. 넘어오지 않으면 로그인한 사용자로 본다 */
+  isGuest?: boolean;
+  /**
+   * 로그인이 필요한 자리에서 부른다.
+   * 이 컴포넌트가 자기 모달을 따로 띄우면 같은 상황인데도 화면마다 다른 안내가
+   * 나오므로, 앱이 한 곳에서 띄우도록 위로 올려 보낸다.
+   */
+  onRequireLogin?: (message: string) => void;
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
@@ -35,6 +43,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onTogglePinPersona,
   onDeletePersona,
   onReportErrorPersona,
+  isGuest = false,
+  onRequireLogin,
 }) => {
   const [showChat, setShowChat] = useState<boolean>(false);
   const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null);
@@ -96,6 +106,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 게스트에게는 입력창 자체를 내주지 않지만, 다른 길로 이 함수가 불려도
+    // 대화가 나가지 않게 여기서 한 번 더 막는다
+    if (isGuest) return;
     if (!inputText.trim() || isLoading || !selectedPersona) return;
 
     const userMsgText = inputText.trim();
@@ -285,14 +298,33 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               <span aria-hidden="true" className="material-symbols-outlined text-[40px] text-[#FF6B5A]">
                 forum
               </span>
+              {/*
+                게스트와 로그인한 사람에게 다른 말을 한다.
+                로그인한 사람은 시작한 대화가 여기 쌓여 이어서 할 수 있지만,
+                게스트는 AI가 거는 첫 마디까지만 볼 수 있다. 같은 문구를 쓰면
+                게스트에게는 지키지 못할 약속이 된다.
+              */}
               <h4 className="font-headline-md text-base font-bold text-[#1C1C1C] mt-3">
-                아직 나눈 대화가 없어요
+                {isGuest ? '대화는 사연에서 시작해요' : '아직 나눈 대화가 없어요'}
               </h4>
               <p className="font-body-sm text-xs text-[#5f5e5e] leading-relaxed mt-2">
-                사연을 열고 <span className="font-bold text-[#1C1C1C]">'AI로 이 상황을 다시 겪어보기'</span>를
-                누르면
-                <br />
-                그 사연 속 상대방과의 대화가 여기에 쌓입니다.
+                {isGuest ? (
+                  <>
+                    사연을 열고 <span className="font-bold text-[#1C1C1C]">'AI로 이 상황을 다시 겪어보기'</span>를
+                    누르면
+                    <br />
+                    그 사연 속 상대방이 먼저 말을 거는 것까지 볼 수 있습니다.
+                    <br />
+                    답장을 주고받는 건 로그인 후에 할 수 있어요.
+                  </>
+                ) : (
+                  <>
+                    사연을 열고 <span className="font-bold text-[#1C1C1C]">'AI로 이 상황을 다시 겪어보기'</span>를
+                    누르면
+                    <br />
+                    그 사연 속 상대방과의 대화가 여기에 쌓입니다.
+                  </>
+                )}
               </p>
               {onGoToFeed && (
                 <button
@@ -346,12 +378,18 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                         
                         {openMenuId === persona.id && (
                           <div className="absolute right-0 top-6 w-32 bg-white rounded-md shadow-lg border border-[#E5E7EB] z-50 py-1 font-body-sm text-xs">
-                            {onTogglePinPersona && (
+                            {/*
+                              고정은 서버에 저장돼야 다음에 와서 의미가 있고,
+                              오류 신고도 접수될 계정이 있어야 한다. 게스트에게는
+                              둘 다 눌러도 남는 게 없으므로 감춘다.
+                              삭제는 이 자리에서 카드가 실제로 사라지므로 남긴다.
+                            */}
+                            {!isGuest && onTogglePinPersona && (
                               <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
                                 <Pin className="w-3.5 h-3.5" /> {persona.isPinned ? '고정 해제' : '고정'}
                               </button>
                             )}
-                            {onReportErrorPersona && (
+                            {!isGuest && onReportErrorPersona && (
                               <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <ShieldAlert className="w-3.5 h-3.5" /> 오류 신고
                               </button>
@@ -413,7 +451,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {(activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
+          {/* 공감 비율은 다음 답장부터 반영되는 값이다. 답장을 보낼 수 없는
+              게스트에게는 바꿔도 달라지는 게 없어 감춘다 */}
+          {!isGuest && (activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
             <button aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
@@ -455,9 +495,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 </>
               )}
             </p>
-            <p className="font-mono text-[11px] text-[#5f5e5e] pt-4">
-              👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#FF6B5A] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">보내기</span> 를 누르세요!
-            </p>
+            {/* 게스트에게는 입력창이 없다. 없는 것을 가리키는 안내는 빼둔다 */}
+            {!isGuest && (
+              <p className="font-mono text-[11px] text-[#5f5e5e] pt-4">
+                👇 하단 입력창에 편하게 메시지를 적고 <span className="text-[#FF6B5A] font-bold bg-[#1C1C1C] px-1.5 py-0.5 rounded">보내기</span> 를 누르세요!
+              </p>
+            )}
           </div>
         )}
 
@@ -529,6 +572,32 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           onContinue={() => setSimEndResult(null)}
           onFinish={confirmEndChat}
         />
+      ) : isGuest ? (
+        /*
+          게스트에게는 입력 수단을 아예 내주지 않는다.
+          입력은 되는데 보낼 때 막으면 다 써놓고 튕기는 꼴이 된다.
+          여기가 이 화면의 유일한 입력 수단이라 이 자리만 바꾸면 된다.
+        */
+        <footer className="bg-white border-t border-[#E5E7EB] p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[#f3f4f5] border border-[#E5E7EB] rounded-lg px-4 py-3">
+            <p className="flex-1 font-body-sm text-xs text-[#5f5e5e] leading-relaxed">
+              여기까지는 로그인 없이 볼 수 있어요.
+              <br />
+              <span className="font-bold text-[#1C1C1C]">답장을 보내려면 로그인이 필요합니다.</span>
+            </p>
+            {/* 로그인 안내를 띄울 길이 없으면 버튼도 내지 않는다. 눌러도 아무
+                일 없는 버튼을 만드느니 안내 문구만 두는 게 낫다 */}
+            {onRequireLogin && (
+              <button
+                type="button"
+                onClick={() => onRequireLogin('AI와 대화를 이어가려면 로그인이 필요해요.')}
+                className="shrink-0 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer"
+              >
+                로그인하고 대화 이어가기
+              </button>
+            )}
+          </div>
+        </footer>
       ) : (
         <footer className="bg-white border-t border-[#E5E7EB] p-4">
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
@@ -568,8 +637,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
             <div className="p-6 pt-12">
               <h2 className="text-lg font-bold text-[#1C1C1C] mb-2">이 대화, 어떻게 할까요?</h2>
+              {/* 게스트의 대화는 서버에 저장되지 않는다. 로그인한 사람과 같은
+                  말을 하면 새로고침 뒤 사라졌을 때 잃어버린 것처럼 느낀다 */}
               <p className="text-sm text-[#5f5e5e] mb-5 leading-relaxed">
-                아직 대화를 시작하지 않았어요. 남겨두면 'Ai 대화' 탭에서 이어서 할 수 있습니다.
+                {isGuest
+                  ? "남겨두면 'Ai 대화' 탭에서 다시 열어볼 수 있어요. 다만 로그인 전까지는 이 브라우저에만 남습니다."
+                  : "아직 대화를 시작하지 않았어요. 남겨두면 'Ai 대화' 탭에서 이어서 할 수 있습니다."}
               </p>
 
               <div className="flex flex-col gap-2">

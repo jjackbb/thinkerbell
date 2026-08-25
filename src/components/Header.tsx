@@ -15,6 +15,14 @@ interface HeaderProps {
    * 완전히 같은 곳으로 가는 중복 진입점이었다.
    */
   showActions: boolean;
+
+  /**
+   * 로그인 없이 둘러보는 중인가.
+   *
+   * 게스트도 계정처럼 생긴 임시 정보를 들고 다니는데, 그 닉네임을 그대로
+   * 띄우면 가입하지도 않은 사람에게 남의 이름표를 달아주는 꼴이 된다.
+   */
+  isGuest?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCreateStory,
   onGoHome,
   showActions,
+  isGuest = false,
 }) => {
   return (
     <header className="w-full top-0 sticky z-50 bg-[#1C1C1C] flex items-center justify-between px-4 sm:px-8 h-16 border-b border-[#1C1C1C] shadow-sm">
@@ -57,7 +66,9 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 hover:border-[#FF6B5A] rounded-lg font-mono text-xs font-medium text-white transition-all cursor-pointer"
         >
           <User className="w-4 h-4 text-[#FF6B5A]" aria-hidden="true" />
-          <span className="max-w-[100px] truncate">{user.nickname}</span>
+          <span className="max-w-[100px] truncate">
+            {isGuest ? '둘러보는 중' : user.nickname}
+          </span>
         </button>
       </div>
       )}
