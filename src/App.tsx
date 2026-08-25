@@ -1152,13 +1152,26 @@ export default function App() {
     setSelectedStory(story);
     syncStoryUrl(story.id);
 
-    // 조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.
-    // 본인 글은 세지 않는다.
+    /*
+      조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.
+      본인 글은 세지 않는다. user는 비로그인 상태에서도 임시 id를 갖고 있어
+      이 비교가 터지지 않고, 게스트는 바로 위에서 이미 막히므로 여기까지 오지 않는다.
+
+      .then()을 반드시 붙인다 — supabase 쿼리 빌더는 기다려 주기 전까지
+      요청을 보내지 않는다. 예전에는 이게 빠져 있어서 화면 숫자만 오르고
+      DB는 그대로였고, 그만큼 신고 비율의 분모가 실제보다 작았다.
+      보내지 못했으면 화면도 되돌려 DB와 어긋난 숫자를 남기지 않는다.
+    */
     if (story.authorId !== user.id) {
-      supabase.rpc('increment_story_view', { p_story_id: story.id });
       setStories(prev => prev.map(s =>
         s.id === story.id ? { ...s, viewCount: (s.viewCount ?? 0) + 1 } : s
       ));
+      supabase.rpc('increment_story_view', { p_story_id: story.id }).then(({ error }) => {
+        if (!error) return;
+        setStories(prev => prev.map(s =>
+          s.id === story.id ? { ...s, viewCount: Math.max(0, (s.viewCount ?? 1) - 1) } : s
+        ));
+      });
     }
   };
 
@@ -1188,7 +1201,15 @@ export default function App() {
           <div className="space-y-8 pb-24 md:pb-44">
             
             {/* Today's Balance Game (Hot Logic Hero) */}
-            <BalanceGameSection />
+            <BalanceGameSection
+              /* 로그인 유도는 앱이 한 곳에서 맡는다. 배너가 자기 모달을 따로
+                 띄우면 같은 상황에서 화면마다 다른 안내가 나온다.
+                 blockedForGuest는 게스트일 때만 뜨므로, 게스트가 아닌데
+                 세션도 없는 경우까지 덮어 버튼이 죽지 않게 한다 */
+              onRequireLogin={(message) => {
+                if (!blockedForGuest(message)) setLoginPromptMessage(message);
+              }}
+            />
 
             {/* Weekly Top Banner */}
             <WeeklyTopBanner
@@ -1344,7 +1365,10 @@ export default function App() {
             myComments={myComments}
             onUpdateNickname={handleUpdateNickname}
             onGenerateRandomNickname={handleGenerateRandomNickname}
-            onSelectStory={(s) => setSelectedStory(s)}
+            /* 마이페이지에서 열 때도 피드와 같은 길로 연다. 여기만 따로
+               setSelectedStory를 부르면 조회수·주소(?story=) 처리가 빠져,
+               같은 사연인데 어디서 들어왔느냐에 따라 다르게 동작한다 */
+            onSelectStory={openStoryDetail}
             aiChatCount={personas.length}
             onDeleteAllAiChats={handleDeleteAllAiChats}
           />

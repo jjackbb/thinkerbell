@@ -3,6 +3,7 @@ import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
 import { VoteResult } from './VoteResult';
 import { ShareResultBar } from './ShareResultBar';
+import { renderShareCard, ShareCardInput } from '../lib/shareCard';
 import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
 interface StoryDetailModalProps {
@@ -56,6 +57,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
   const [showSensitiveBody, setShowSensitiveBody] = useState(false);
 
+  /** 공유 카드 미리보기 이미지. 열려 있는 동안만 들고 있는다 */
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  /* 카드 그리는 데 70ms 안팎이라 화면에 로딩 표시는 두지 않는다 —
+     그 짧은 시간에 표시가 깜빡이면 오히려 어수선하다. 연타만 막는 용도다 */
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const closePreview = () => setPreviewUrl(null);
+
   /** 이 사연으로 바로 열리는 주소 */
   const shareUrl = story
     ? `${window.location.origin}${window.location.pathname}?story=${encodeURIComponent(story.id)}`
@@ -66,10 +74,62 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setVotedOption(story?.userVoted ?? null);
   }, [story?.id, story?.userVoted]);
 
-  // 다른 사연으로 바뀌면 민감 안내를 다시 보여준다
+  /*
+    다른 사연으로 넘어가면 앞 사연에 딸린 것들을 비운다.
+
+    특히 댓글 초안(commentText)이 중요하다. 모달은 사연이 바뀌어도
+    다시 만들어지지 않아서, 비우지 않으면 A 사연에 쓰다 만 글이 B 사연
+    입력창에 그대로 따라간다. 익명 서비스에서 엉뚱한 사연에 등록되면
+    되돌릴 수 없다.
+  */
   useEffect(() => {
     setShowSensitiveBody(false);
+    setCommentText('');
+    setEditingCommentId(null);
+    setCommentMenuOpenId(null);
+    setIsMenuOpen(false);
   }, [story?.id]);
+
+  // 미리보기를 닫거나 모달이 사라지면 만들어 둔 이미지 주소를 놓아준다.
+  // 안 그러면 카드를 열어볼 때마다 메모리에 그대로 쌓인다
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  /**
+   * ESC로 닫는다. 바깥을 눌러 닫는 길밖에 없으면 키보드만 쓰는 사람은
+   * 모달에서 빠져나갈 방법이 없다.
+   *
+   * 안쪽에 열린 것부터 하나씩 닫는다 — 미리보기 → 열려 있는 메뉴 →
+   * 댓글 수정 → 모달. 한 번에 모달까지 닫아 버리면 방금 연 메뉴 때문에
+   * 실수로 사연을 벗어나게 된다.
+   *
+   * 글을 쓰고 있을 때는 ESC를 무시한다. 댓글을 쓰다 무심코 누르면 읽던
+   * 자리와 주소를 통째로 잃는데, 그건 닫으려던 게 아니다. 정말 닫고
+   * 싶으면 입력창 밖을 한 번 누르고 다시 누르면 된다.
+   */
+  useEffect(() => {
+    if (!story) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+
+      const el = e.target as HTMLElement | null;
+      const typing =
+        el?.tagName === 'INPUT' ||
+        el?.tagName === 'TEXTAREA' ||
+        el?.isContentEditable === true;
+      // 미리보기는 글쓰기보다 위에 떠 있으므로 입력 중이어도 먼저 닫는다
+      if (previewUrl) { closePreview(); return; }
+      if (typing) return;
+      if (isMenuOpen) { setIsMenuOpen(false); return; }
+      if (commentMenuOpenId) { setCommentMenuOpenId(null); return; }
+      if (editingCommentId) { setEditingCommentId(null); return; }
+      onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [story, previewUrl, isMenuOpen, commentMenuOpenId, editingCommentId, onClose]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -100,6 +160,31 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  /** 공유 바와 미리보기가 같은 값을 그려야 한다 */
+  const shareInput: ShareCardInput = {
+    title: story.title,
+    votesA: story.votesA,
+    votesB: story.votesB,
+    myChoice: votedOption,
+  };
+
+  // 공유하기 전에 무엇이 나가는지 눈으로 확인시켜 준다. 익명 서비스라
+  // "내 닉네임이 같이 나가나?"를 확인할 방법이 필요하다
+  const handlePreview = async () => {
+    if (isPreviewLoading) return;
+    setIsPreviewLoading(true);
+    try {
+      const blob = await renderShareCard(shareInput);
+      if (!blob) {
+        showToast('미리보기를 만들지 못했어요.');
+        return;
+      }
+      setPreviewUrl(URL.createObjectURL(blob));
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
 
   const handleVote = (option: 'A' | 'B') => {
@@ -157,10 +242,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
         {/* Modal Top Bar */}
         <header className="sticky top-0 z-40 bg-[#1C1C1C] text-white flex justify-between items-center px-6 py-4 border-b border-[#1C1C1C]">
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span>
-            <h1 className="font-headline-md text-base font-bold text-[#FF6B5A]">니편내편</h1>
-          </div>
+          {/* 앱 로고 대신 모달 제목을 둔다. 로고는 눌릴 것처럼 생겼지만
+              모달 안에서 홈으로 갈 일이 없어 붙일 동작이 없었다 */}
+          <h2 className="font-headline-md text-base font-bold text-white">사연</h2>
           <div className="flex items-center gap-3">
             <div className="relative" ref={menuRef}>
               <button 
@@ -225,8 +309,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 </h2>
                 <div className="flex flex-wrap items-center gap-6 text-[#5f5e5e] font-mono text-xs">
                   <span>{new Date(story.createdAt).toLocaleDateString()}</span>
-                  <span>{story.viewCount} Views</span>
-                  <span>{comments.length} Comments</span>
+                  <span>조회 {story.viewCount}</span>
+                  <span>댓글 {comments.length}</span>
                 </div>
               </div>
             </div>
@@ -479,7 +563,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                       type="submit"
                       className="bg-[#1C1C1C] text-[#FF6B5A] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"
                     >
-                      입력
+                      등록
                     </button>
                   </div>
                 </form>
@@ -492,14 +576,36 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
             공유 버튼이 먼저 나오면 그 가림이 무의미해진다 */}
         {(!!votedOption || isMyStory) && (
           <ShareResultBar
-            input={{
-              title: story.title,
-              votesA: story.votesA,
-              votesB: story.votesB,
-              myChoice: votedOption,
-            }}
+            input={shareInput}
             url={shareUrl}
+            onPreview={handlePreview}
           />
+        )}
+
+        {/* 공유 카드 미리보기. 사연 위에 덮어서 띄운다 —
+            새 창을 띄우면 읽던 자리를 잃는다 */}
+        {previewUrl && (
+          <div
+            onClick={closePreview}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white rounded-lg overflow-hidden border border-[#E5E7EB] shadow-2xl"
+            >
+              <img src={previewUrl} alt="공유 카드 미리보기" className="w-full block" />
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-[#f9fafb] border-t border-[#E5E7EB]">
+                <span className="text-[11px] text-[#5f5e5e]">공유하면 이 카드가 나갑니다</span>
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="px-3 py-1.5 rounded bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

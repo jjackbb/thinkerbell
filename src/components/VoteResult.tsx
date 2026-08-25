@@ -10,6 +10,16 @@ interface VoteResultProps {
   isMyStory?: boolean;
   /** 작게 쓰는 곳(랭킹 배너 등) */
   compact?: boolean;
+  /**
+   * 두 선택지의 이름. 왼쪽이 b, 오른쪽이 a다(사연에서는 왼쪽 '니 편', 오른쪽 '내 편').
+   * 밸런스 게임처럼 진영 이름이 다른 곳에서 갈아끼운다.
+   */
+  labels?: { a: string; b: string };
+  /**
+   * 이 게이지가 얹히는 배경. 글자·바탕색만 바뀌고 규칙은 그대로다.
+   * 실제 색은 index.css의 .vote-surface-* 가 들고 있다.
+   */
+  surface?: 'light' | 'onyx';
 }
 
 /** 이 수 미만이면 퍼센트 대신 점으로 표를 센다 */
@@ -30,6 +40,9 @@ const EDGE_BLUR = 35;
  *
  * 3) 표가 적으면 막대 대신 점을 찍는다.
  *    "아직 적다"가 숫자를 읽지 않아도 눈에 보여야 한다.
+ *
+ * 사연 카드와 밸런스 게임 배너가 이 한 벌을 같이 쓴다. 규칙을 두 곳에
+ * 복사해두면 한쪽만 고치고 넘어가게 된다 — 실제로 그런 적이 있다.
  */
 export const VoteResult: React.FC<VoteResultProps> = ({
   votesA,
@@ -37,12 +50,22 @@ export const VoteResult: React.FC<VoteResultProps> = ({
   hasVoted,
   isMyStory = false,
   compact = false,
+  labels = { a: '내 편', b: '니 편' },
+  surface = 'light',
 }) => {
   const total = votesA + votesB;
   const percentA = total > 0 ? Math.round((votesA / total) * 100) : 0;
   const percentB = total > 0 ? 100 - percentA : 0;
 
   const revealed = hasVoted || isMyStory;
+
+  // 색은 이 클래스가 들고 있는 변수로만 들어온다. 컴포넌트는 hex를 모른다
+  const rootClass = [
+    surface === 'onyx' ? 'vote-surface-onyx' : 'vote-surface-light',
+    compact ? '' : 'mb-3',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   // ── 투표 전: 경계를 녹여서 가린다 ──────────────────────────────────
   if (!revealed) {
@@ -55,7 +78,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
       짚을 수 없다. 표가 한쪽으로 크게 쏠린 사연은 전이가 막대 끝에 붙어
       쏠렸다는 사실이 드러나는데, 그건 막을 수도 없고 막을 이유도 없다.
 
-      색은 진영 토큰을 흰색에 섞어 옅게 쓴다. 투표 후의 원색 막대와 한눈에
+      색은 진영 토큰을 배경색에 섞어 옅게 쓴다. 투표 후의 원색 막대와 한눈에
       구분되어야 '아직 안 열렸다'가 읽힌다.
     */
     const edge = total > 0 ? percentB : 50;
@@ -63,26 +86,26 @@ export const VoteResult: React.FC<VoteResultProps> = ({
     const to = Math.min(100, edge + EDGE_BLUR / 2);
 
     return (
-      <div className={compact ? '' : 'mb-3'}>
+      <div className={rootClass}>
         <div className="flex justify-between font-label-sm text-xs mb-2 font-bold">
-          <span className="text-[#4553C4]">니 편 ??%</span>
-          <span className="text-[#D6452F]">??% 내 편</span>
+          <span className="text-[var(--vote-ink-b)]">{labels.b} ??%</span>
+          <span className="text-[var(--vote-ink-a)]">??% {labels.a}</span>
         </div>
         <div
-          className="w-full h-2 rounded-full bg-[#f3f4f5]"
+          className="w-full h-2 rounded-full bg-[var(--vote-track)]"
           style={{
-            backgroundImage: `linear-gradient(90deg, var(--vote-locked-you) 0 ${from}%, var(--vote-locked-me) ${to}% 100%)`,
+            backgroundImage: `linear-gradient(90deg, var(--vote-seal-b) 0 ${from}%, var(--vote-seal-a) ${to}% 100%)`,
           }}
         />
-        <p className="mt-2 text-[11px] text-[#5f5e5e] text-center flex items-center justify-center gap-1">
+        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
           <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
           {total > 0 ? (
             <span>
-              벌써 <span className="font-bold text-[#1C1C1C]">{total}명</span>이 편을 골랐어요
+              벌써 <span className="font-bold text-[var(--vote-emphasis)]">{total}명</span>이 편을 골랐어요
             </span>
           ) : (
             <span>
-              아직 아무도 안 골랐어요 · <span className="font-bold text-[#1C1C1C]">첫 번째가 되어보세요</span>
+              아직 아무도 안 골랐어요 · <span className="font-bold text-[var(--vote-emphasis)]">첫 번째가 되어보세요</span>
             </span>
           )}
         </p>
@@ -93,20 +116,20 @@ export const VoteResult: React.FC<VoteResultProps> = ({
   // ── 표가 아직 적을 때: 점으로 센다 ────────────────────────────────────
   if (total > 0 && total < SMALL_SAMPLE) {
     return (
-      <div className={compact ? '' : 'mb-3'}>
+      <div className={rootClass}>
         <div className="flex justify-between font-label-sm text-xs mb-2">
-          <span className="text-[#4553C4] font-bold">니 편 {votesB}표</span>
-          <span className="text-[#D6452F] font-bold">내 편 {votesA}표</span>
+          <span className="text-[var(--vote-ink-b)] font-bold">{labels.b} {votesB}표</span>
+          <span className="text-[var(--vote-ink-a)] font-bold">{labels.a} {votesA}표</span>
         </div>
         <div className="flex items-center justify-center gap-1.5 h-2">
           {Array.from({ length: votesB }).map((_, i) => (
-            <span key={`b${i}`} className="w-2 h-2 rounded-full bg-[#6C7BE8]" />
+            <span key={`b${i}`} className="w-2 h-2 rounded-full bg-[var(--vote-fill-b)]" />
           ))}
           {Array.from({ length: votesA }).map((_, i) => (
-            <span key={`a${i}`} className="w-2 h-2 rounded-full bg-[#FF6B5A]" />
+            <span key={`a${i}`} className="w-2 h-2 rounded-full bg-[var(--vote-fill-a)]" />
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-[#5f5e5e] text-center">
+        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center">
           아직 {total}명이 투표했어요
         </p>
       </div>
@@ -116,13 +139,13 @@ export const VoteResult: React.FC<VoteResultProps> = ({
   // ── 표가 0일 때 ───────────────────────────────────────────────────────
   if (total === 0) {
     return (
-      <div className={compact ? '' : 'mb-3'}>
+      <div className={rootClass}>
         <div className="flex justify-between font-label-sm text-xs mb-2">
-          <span className="text-[#5f5e5e]">니 편</span>
-          <span className="text-[#5f5e5e]">내 편</span>
+          <span className="text-[var(--vote-caption)]">{labels.b}</span>
+          <span className="text-[var(--vote-caption)]">{labels.a}</span>
         </div>
-        <div className="w-full h-2 rounded-full bg-[#E5E7EB]" />
-        <p className="mt-2 text-[11px] text-[#5f5e5e] text-center">
+        <div className="w-full h-2 rounded-full bg-[var(--vote-track-empty)]" />
+        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center">
           아직 투표가 없어요
         </p>
       </div>
@@ -131,26 +154,26 @@ export const VoteResult: React.FC<VoteResultProps> = ({
 
   // ── 일반 ─────────────────────────────────────────────────────────────
   return (
-    <div className={compact ? '' : 'mb-3'}>
+    <div className={rootClass}>
       <div className="flex justify-between font-label-sm text-xs mb-2">
-        <span className="text-[#4553C4] font-bold">
-          니 편 {percentB}% <span className="font-normal text-[#5f5e5e]">({votesB}표)</span>
+        <span className="text-[var(--vote-ink-b)] font-bold">
+          {labels.b} {percentB}% <span className="font-normal text-[var(--vote-caption)]">({votesB}표)</span>
         </span>
-        <span className="text-[#D6452F] font-bold">
-          <span className="font-normal text-[#5f5e5e]">({votesA}표)</span> 내 편 {percentA}%
+        <span className="text-[var(--vote-ink-a)] font-bold">
+          <span className="font-normal text-[var(--vote-caption)]">({votesA}표)</span> {labels.a} {percentA}%
         </span>
       </div>
-      <div className="flex w-full h-2 rounded-full overflow-hidden bg-[#f3f4f5]">
+      <div className="flex w-full h-2 rounded-full overflow-hidden bg-[var(--vote-track)]">
         <div
-          className="bg-[#6C7BE8] h-full transition-all duration-500"
+          className="bg-[var(--vote-fill-b)] h-full transition-all duration-500"
           style={{ width: `${percentB}%` }}
         />
         <div
-          className="bg-[#FF6B5A] h-full transition-all duration-500"
+          className="bg-[var(--vote-fill-a)] h-full transition-all duration-500"
           style={{ width: `${percentA}%` }}
         />
       </div>
-      <p className="mt-1.5 text-[11px] text-[#5f5e5e] text-center">
+      <p className="mt-1.5 text-[11px] text-[var(--vote-caption)] text-center">
         총 {total}명 참여
       </p>
     </div>
