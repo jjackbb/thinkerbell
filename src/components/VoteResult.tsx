@@ -15,6 +15,9 @@ interface VoteResultProps {
 /** 이 수 미만이면 퍼센트 대신 점으로 표를 센다 */
 const SMALL_SAMPLE = 5;
 
+/** 투표 전 막대에서 경계를 녹이는 폭(막대 전체 대비 %). 좁으면 비율이 읽히고, 넓으면 사연끼리 구별이 안 된다 */
+const EDGE_BLUR = 35;
+
 /**
  * 투표 결과 표시. 세 가지 원칙을 담는다.
  *
@@ -41,25 +44,47 @@ export const VoteResult: React.FC<VoteResultProps> = ({
 
   const revealed = hasVoted || isMyStory;
 
-  // ── 투표 전: 결과를 가린다 ────────────────────────────────────────────
+  // ── 투표 전: 경계를 녹여서 가린다 ──────────────────────────────────
   if (!revealed) {
+    /*
+      투표 전에는 '어느 쪽이 얼마나'를 못 읽게 한다. 다만 아예 안 보이면
+      궁금하지도 않아서 투표할 이유가 없다. 그래서 진짜 비율 막대를 그대로
+      깔되, 경계선 자리를 막대 폭의 35%에 걸쳐 넓게 녹인다.
+
+      결과: "이쯤에서 넘어가는구나"는 느껴지는데 정확히 어디서 갈리는지는
+      짚을 수 없다. 표가 한쪽으로 크게 쏠린 사연은 전이가 막대 끝에 붙어
+      쏠렸다는 사실이 드러나는데, 그건 막을 수도 없고 막을 이유도 없다.
+
+      색은 진영 토큰을 흰색에 섞어 옅게 쓴다. 투표 후의 원색 막대와 한눈에
+      구분되어야 '아직 안 열렸다'가 읽힌다.
+    */
+    const edge = total > 0 ? percentB : 50;
+    const from = Math.max(0, edge - EDGE_BLUR / 2);
+    const to = Math.min(100, edge + EDGE_BLUR / 2);
+
     return (
       <div className={compact ? '' : 'mb-3'}>
-        <div className="flex justify-between font-label-sm text-xs mb-2">
-          <span className="text-[#5f5e5e]">니 편</span>
-          <span className="text-[#5f5e5e]">내 편</span>
+        <div className="flex justify-between font-label-sm text-xs mb-2 font-bold">
+          <span className="text-[#4553C4]">니 편 ??%</span>
+          <span className="text-[#D6452F]">??% 내 편</span>
         </div>
-        {/*
-          투표 전에는 색을 아예 쓰지 않는다.
-
-          예전에는 45:55로 칠한 막대에 blur만 걸었다. 작게 보면 흐릿한 진짜
-          결과처럼 읽혀서, 가리려던 밴드왜건이 오히려 생겼다. 지금은 빈 회색
-          막대와 자물쇠로 '아직 아무것도 안 열렸다'만 말한다.
-        */}
-        <div className="w-full h-2 rounded-full bg-[#E5E7EB]" />
+        <div
+          className="w-full h-2 rounded-full bg-[#f3f4f5]"
+          style={{
+            backgroundImage: `linear-gradient(90deg, var(--vote-locked-you) 0 ${from}%, var(--vote-locked-me) ${to}% 100%)`,
+          }}
+        />
         <p className="mt-2 text-[11px] text-[#5f5e5e] text-center flex items-center justify-center gap-1">
-          <Lock className="w-3 h-3" aria-hidden="true" />
-          투표하면 결과가 열려요
+          <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {total > 0 ? (
+            <span>
+              벌써 <span className="font-bold text-[#1C1C1C]">{total}명</span>이 편을 골랐어요
+            </span>
+          ) : (
+            <span>
+              아직 아무도 안 골랐어요 · <span className="font-bold text-[#1C1C1C]">첫 번째가 되어보세요</span>
+            </span>
+          )}
         </p>
       </div>
     );

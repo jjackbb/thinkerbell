@@ -101,3 +101,14 @@
 }
 
 
+
+/* 투표 전 봉인 게이지 색
+   ─────────────────────────────────────────────────────────────────────
+   투표 전 막대는 진짜 비율을 쓰되 경계를 넓게 녹여서(VoteResult.tsx의
+   EDGE_BLUR) 어디서 갈리는지 못 짚게 한다. 색은 투표 후 원색 막대와
+   한눈에 구분되도록 진영 토큰을 흰색에 섞어 옅게 만든다.
+   여기서 새 hex를 정하지 않는다. */
+:root {
+  --vote-locked-you: color-mix(in srgb, var(--color-your-side) 55%, #ffffff);
+  --vote-locked-me: color-mix(in srgb, var(--color-my-side) 55%, #ffffff);
+}
