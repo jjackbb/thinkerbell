@@ -163,7 +163,12 @@ export default function App() {
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || prev.nickname,
         }));
-      } else {
+      } else if (!wasBrowsingAsGuest) {
+        /*
+          세션이 없어도 '둘러보는 중'이던 사람에게는 로그인 창을 다시 띄우지
+          않는다. 새로고침할 때마다 창이 막아서면 둘러보기가 성립하지 않는다.
+          로그인이 필요한 곳에서는 그때 그 자리에서 안내한다.
+        */
         setShowWelcomeModal(true);
       }
     });
@@ -1217,7 +1222,12 @@ export default function App() {
         onOpenProfile={() => setActiveTab('mypage')}
         onOpenCreateStory={openCreateStory}
         onGoHome={() => setActiveTab('feed')}
-        showActions={activeTab !== 'feed'}
+        /*
+          둘러보는 사람에게는 오른쪽 버튼을 아예 감춘다.
+          '사연 등록'은 눌러봐야 로그인 안내로 막히고, 이름 버튼은 지금 있는
+          마이 탭으로 다시 보내는 것뿐이라 둘 다 헛걸음이다.
+        */
+        showActions={activeTab !== 'feed' && !isGuest}
         isGuest={isGuest}
       />
 
