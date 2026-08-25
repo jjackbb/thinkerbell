@@ -35,8 +35,6 @@ export interface Story {
   appealStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
   appealText?: string;
   /** 사연을 다 읽지 않고도 투표할 수 있게 AI가 뽑은 양측 논점 */
-  issueMySide?: string;
-  issueYourSide?: string;
   isHidden?: boolean;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }

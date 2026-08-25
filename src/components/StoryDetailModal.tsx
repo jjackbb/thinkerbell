@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
 import { VoteResult } from './VoteResult';
-import { IssueSummary } from './IssueSummary';
 import { ShareResultBar } from './ShareResultBar';
 import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
 
@@ -275,7 +274,6 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               {/* Voting Section */}
               <div className="space-y-4 pt-4 border-t border-[#E5E7EB]">
                 {/* Live Vote Gauge */}
-                <IssueSummary mySide={story.issueMySide} yourSide={story.issueYourSide} />
 
                 <VoteResult
                   votesA={story.votesA}

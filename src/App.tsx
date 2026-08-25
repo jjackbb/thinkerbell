@@ -729,8 +729,6 @@ export default function App() {
     opponentPersonality?: string;
     createAIPersona: boolean;
     isAdult: boolean;
-    issueMySide?: string;
-    issueYourSide?: string;
   }) => {
     notifyIfCrisis(storyData.title, storyData.body);
 
@@ -754,8 +752,6 @@ export default function App() {
       isBlind: false,
       isAdult: storyData.isAdult,
       cardColor: editingStory ? editingStory.cardColor : randomColor,
-      issueMySide: storyData.issueMySide || undefined,
-      issueYourSide: storyData.issueYourSide || undefined,
       // 작성자가 적어둔 상대방 성격. 저장해 두어야 나중에 AI 대화를 열 때
       // 그 성격대로 상대를 연기시킬 수 있다
       personaInstruction: storyData.opponentPersonality || undefined,
