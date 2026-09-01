@@ -31,6 +31,20 @@ function generateRandomNickname(): string {
 }
 
 // Health check endpoint
+/*
+  예비 AI(Gemini)가 쓸 모델.
+
+  이 값을 상수로 둔 이유가 있다. 예전에는 네 군데에 `gemini-2.5-flash`가 각각
+  박혀 있었는데, 새로 발급한 키에서 구글이 "이 모델은 신규 사용자에게 더 이상
+  열리지 않는다"며 404를 돌려줬다. 네 군데를 따로 고치는 실수를 반복하지 않도록
+  한 곳에서만 정한다.
+
+  기본값은 3.5 Flash-Lite다. 예비선의 임무는 "주력이 죽은 순간 대화가 끊기지
+  않게 하는 것"이지 최고 품질이 아니고, 값도 싸다(입력 100만 토큰당 $0.30).
+  바꾸고 싶으면 배포 환경변수 GEMINI_MODEL만 넣으면 된다.
+*/
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -91,7 +105,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
       const ai = new GoogleGenAI({ apiKey: geminiKey });
       const fullPrompt = `${systemInstruction ? systemInstruction + "\n\n" : ""}${prompt}`;
       const geminiRes = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: GEMINI_MODEL,
         contents: fullPrompt
       });
 
@@ -178,7 +192,7 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
     if (geminiKey) {
       const ai = new GoogleGenAI({ apiKey: geminiKey });
       const resultStream = await ai.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: GEMINI_MODEL,
         contents: compiledPrompt
       });
 
@@ -275,7 +289,7 @@ ${titlePart}본문: "${body.replace(/"/g, '\\"')}"
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const geminiRes = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODEL,
           contents: prompt
         });
         const geminiRaw = (geminiRes.text || "").trim();
@@ -341,7 +355,7 @@ app.post("/api/sanitize-text", async (req: Request, res: Response) => {
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const geminiRes = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODEL,
           contents: prompt
         });
         const geminiRaw = (geminiRes.text || "").trim();
