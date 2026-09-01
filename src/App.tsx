@@ -1113,7 +1113,26 @@ export default function App() {
     return s.category === selectedCategory;
   }).sort((a, b) => {
     if (sortBy === 'votes') {
-      return (b.votesA + b.votesB) - (a.votesA + a.votesB);
+      /*
+        HOT은 '지금 사람들이 반응하고 있는 글'이다.
+
+        예전에는 투표수만으로 정렬했다. 그런데 지금 사연 대부분이 0표라서
+        전부 동점이 되고, 동점이면 원래 순서(최신순)가 그대로 남는다.
+        그래서 HOT을 눌러도 최신순과 **글자 하나까지 같은 목록**이 나왔다.
+        탭이 둘인데 결과가 같으면 유저는 30초 안에 "가짜"라고 판단한다.
+
+        반응의 무게가 다르므로 가중치를 준다 — 댓글은 문장을 쓰는 일이고,
+        투표는 한 번 누르는 일이다. 조회는 실수로도 생기니 동점을 가르는
+        데만 쓴다.
+      */
+      const heat = (s: Story) => (s.votesA + s.votesB) * 2 + (s.commentCount ?? 0) * 3;
+      const diff = heat(b) - heat(a);
+      if (diff !== 0) return diff;
+
+      const viewDiff = (b.viewCount ?? 0) - (a.viewCount ?? 0);
+      if (viewDiff !== 0) return viewDiff;
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
@@ -1223,11 +1242,11 @@ export default function App() {
         onOpenCreateStory={openCreateStory}
         onGoHome={() => setActiveTab('feed')}
         /*
-          둘러보는 사람에게는 오른쪽 버튼을 아예 감춘다.
-          '사연 등록'은 눌러봐야 로그인 안내로 막히고, 이름 버튼은 지금 있는
-          마이 탭으로 다시 보내는 것뿐이라 둘 다 헛걸음이다.
+          둘러보는 사람에게는 '사연 등록'을 감춘다 — 눌러봐야 로그인 안내로 막힌다.
+          피드 탭에서도 감춘다 — 같은 일을 하는 플로팅 버튼이 이미 떠 있다.
+          이름표는 Header가 isGuest만 보고 알아서 판단한다.
         */
-        showActions={activeTab !== 'feed' && !isGuest}
+        showWriteButton={activeTab !== 'feed' && !isGuest}
         isGuest={isGuest}
       />
 

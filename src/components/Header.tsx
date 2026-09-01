@@ -8,19 +8,19 @@ interface HeaderProps {
   onOpenCreateStory: () => void;
   onGoHome: () => void;
   /**
-   * 오른쪽 버튼(사연 등록·닉네임)을 보일지.
+   * '사연 등록' 버튼을 보일지.
    *
-   * 홈 탭에서는 감춘다. 사연 등록은 화면 하단에 계속 떠 있는 안내 바(데스크톱)와
-   * 플로팅 버튼(모바일)이 이미 맡고 있고, 닉네임 버튼은 하단 '마이' 탭과
-   * 완전히 같은 곳으로 가는 중복 진입점이었다.
+   * 홈 탭에서는 감춘다. 화면 하단에 계속 떠 있는 안내 바(데스크톱)와
+   * 플로팅 버튼(모바일)이 이미 같은 일을 하고 있다.
    */
-  showActions: boolean;
+  showWriteButton: boolean;
 
   /**
    * 로그인 없이 둘러보는 중인가.
    *
    * 게스트도 계정처럼 생긴 임시 정보를 들고 다니는데, 그 닉네임을 그대로
    * 띄우면 가입하지도 않은 사람에게 남의 이름표를 달아주는 꼴이 된다.
+   * 그래서 게스트에게는 이름표를 아예 내주지 않는다.
    */
   isGuest?: boolean;
 }
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onOpenCreateStory,
   onGoHome,
-  showActions,
+  showWriteButton,
   isGuest = false,
 }) => {
   return (
@@ -44,10 +44,18 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Action Controls */}
-      {showActions && (
+      {/*
+        오른쪽 영역.
+
+        예전에는 이 묶음 전체를 홈 탭에서 감췄다. 그랬더니 로그인한 사람이
+        보는 첫 화면(피드)이 둘러보기 화면과 완전히 같아져서, 내가 로그인이
+        된 상태인지 화면 어디에서도 알 수 없었다. 그래서 둘로 나눈다 —
+        '사연 등록'은 아래 플로팅 버튼과 겹치니 홈에서 감추고,
+        **내 이름표는 로그인했으면 어느 탭에서든 보여준다.**
+      */}
       <div className="flex items-center gap-3">
         {/* Write Button */}
+        {showWriteButton && (
         <button
           onClick={onOpenCreateStory}
           /* 좁은 화면에서는 옆의 '사연 등록' 글자가 숨겨져 아이콘만 남는다.
@@ -58,20 +66,22 @@ export const Header: React.FC<HeaderProps> = ({
           <PlusCircle className="w-4 h-4" aria-hidden="true" />
           <span className="hidden sm:inline">사연 등록</span>
         </button>
+        )}
 
-
-        {/* User Nickname Button */}
+        {/* 내 이름표 — 로그인했다는 유일한 표시다 */}
+        {!isGuest && (
         <button
           onClick={onOpenProfile}
+          aria-label={`내 계정 (${user.nickname})`}
           className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 hover:border-[#FF6B5A] rounded-lg font-mono text-xs font-medium text-white transition-all cursor-pointer"
         >
           <User className="w-4 h-4 text-[#FF6B5A]" aria-hidden="true" />
           <span className="max-w-[100px] truncate">
-            {isGuest ? '둘러보는 중' : user.nickname}
+            {user.nickname}
           </span>
         </button>
+        )}
       </div>
-      )}
     </header>
   );
 };

@@ -106,6 +106,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  /**
+   * 카드/버튼에서 같은 대화방으로 들어가는 길.
+   *
+   * 이미 열려 있는 대화방이면 그 화면으로 돌아가고, 아니면 새로 시작한다.
+   */
+  const openPersona = (persona: AIPersona) => {
+    if (activeSession && activeSession.personaId === persona.id) {
+      setShowChat(true);
+    } else {
+      onStartSession(persona);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     // 게스트에게는 입력창 자체를 내주지 않지만, 다른 길로 이 함수가 불려도
@@ -312,7 +325,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         {/* Persona Cards */}
         <div>
           <h3 className="font-label-md text-xs font-bold text-[#5f5e5e] uppercase tracking-wider mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span> SELECT PERSONA
+            <span className="w-2 h-2 rounded-full bg-[#FF6B5A]"></span> 내 대화 상대
           </h3>
 
           {/*
@@ -368,13 +381,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             {personas.map((persona) => (
               <div
                 key={persona.id}
-                onClick={() => {
-                  if (activeSession && activeSession.personaId === persona.id) {
-                    setShowChat(true);
-                  } else {
-                    onStartSession(persona);
-                  }
-                }}
+                onClick={() => openPersona(persona)}
                 className="bg-white border border-[#E5E7EB] hover:border-[#FF6B5A] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
               >
                 <div>
@@ -438,8 +445,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   </p>
                 </div>
 
-                <button className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#FF6B5A] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2">
-                  <span>시작하기</span>
+                {/*
+                  버튼에 자기 핸들러를 준다.
+
+                  예전에는 이 버튼이 아무 일도 하지 않고, 뒤에 있는 카드의
+                  클릭이 대신 처리했다. 화면상으로는 눌리니까 문제를 못 느끼지만,
+                  카드 쪽에 stopPropagation이 하나 생기는 순간 조용히 죽는 버튼이다.
+                  AI 대화는 이 서비스의 핵심 경로라 그런 우연에 기대면 안 된다.
+                */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); openPersona(persona); }}
+                  className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#FF6B5A] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>{activeSession && activeSession.personaId === persona.id ? '이어서 대화하기' : '대화 시작하기'}</span>
                 </button>
               </div>
             ))}
