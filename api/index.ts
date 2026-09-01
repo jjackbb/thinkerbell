@@ -191,16 +191,17 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
       return res.end();
     }
 
-    // Mock Streaming Fallback
-    const mockMsg = `[AI ${persona || '상대방'}] 너 정말 너무하다... 그게 무슨 소리야? 내가 그렇게 일방적으로 잘못했다고 생각하는 거야? 내 입장에서도 변명할 기회는 줘야지!`;
-    const tokens = mockMsg.split("");
+    /*
+      여기까지 왔다는 건 쓸 수 있는 AI가 하나도 없다는 뜻이다.
 
-    for (let i = 0; i < tokens.length; i++) {
-      res.write(`data: ${JSON.stringify({ type: "text", text: tokens[i] })}\n\n`);
-      await new Promise(r => setTimeout(r, 20));
-    }
+      예전에는 이 자리에서 미리 적어둔 대사("너 정말 너무하다...")를 한 글자씩
+      흘려보냈다. 화면에서는 AI가 말한 것과 구별이 안 됐다. 그러면 AI가 죽은
+      날에도 사용자는 "AI가 이상한 소리를 한다"고만 느끼고, 로그에는 정상적인
+      대화로 쌓인다. 무엇이 고장났는지 영영 모르게 된다.
 
-    res.write(`data: ${JSON.stringify({ type: "done", token_usage: { prompt_tokens: 15, completion_tokens: 30 } })}\n\n`);
+      실패는 실패라고 말한다.
+    */
+    res.write(`data: ${JSON.stringify({ type: "error", error: "no_ai_provider" })}\n\n`);
     res.end();
 
   } catch (error: any) {

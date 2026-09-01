@@ -58,6 +58,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [simEndResult, setSimEndResult] = useState<'success' | 'fail' | null>(null);
   // 요약 카드에서 되짚어 온 말풍선을 잠깐 표시해 둔다
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  /** 답장을 못 받아서 되돌려줄 내 말. 있으면 '다시 보내기'가 뜬다 */
+  const [failedText, setFailedText] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -113,7 +115,17 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
     const userMsgText = inputText.trim();
     setInputText('');
+    await sendMessage(userMsgText);
+  };
 
+  /**
+   * 실제로 한 마디를 보내는 곳. 입력창에서도, 실패 후 '다시 보내기'에서도
+   * 같은 길을 쓰도록 분리해 두었다.
+   */
+  const sendMessage = async (userMsgText: string) => {
+    if (!selectedPersona) return;
+
+    setFailedText(null);
     onCrisisDetected?.(userMsgText);
 
     const newUserMsg: ChatMessage = {
@@ -136,7 +148,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           model: 'claude-4-6-sonnet',
           persona: selectedPersona.name,
           systemInstruction: selectedPersona.systemInstruction,
-          history: messages.slice(-8)
+          history: messages.filter(m => m.sender !== 'system').slice(-8)
         })
       });
 
@@ -176,6 +188,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           if (trimmedLine.startsWith('data: ')) {
             try {
               const data = JSON.parse(trimmedLine.slice(6));
+              if (data.type === 'error') {
+                // 서버가 "AI를 못 붙였다"고 알려온 경우다. 조용히 넘기지 않는다.
+                throw new Error(data.error || 'ai_unavailable');
+              }
               if (data.type === 'text' && data.text) {
                 aiResponseText += data.text;
                 const ended = detectSimEnd(aiResponseText);
@@ -196,19 +212,30 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         const finalText = stripSimEnd(aiResponseText);
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
       } else {
-        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: `[${selectedPersona.name}] 논리적으로 다시 설명해 보세요.` } : m));
+        /*
+          한 글자도 못 받았는데 페르소나가 말한 것처럼 채워 넣으면, AI가 죽은
+          날에도 화면은 멀쩡해 보이고 로그에는 정상 대화로 쌓인다.
+          빈 말풍선은 지우고 실패했다고 알린다.
+        */
+        setMessages(prev => prev.filter(m => m.id !== aiMsgId));
+        throw new Error('empty_response');
       }
 
     } catch (err) {
+      /*
+        예전에는 여기서 페르소나 대사를 하나 지어내 붙였다. 사용자는 AI가
+        대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
+      */
       setMessages(prev => [
         ...prev,
         {
-          id: `ai-${Date.now()}`,
-          sender: 'ai',
-          text: `[${selectedPersona?.name || '상대방'}] 그 논리가 정말 맞다고 생각하시나요? 제 입장도 들어보세요.`,
+          id: `sys-${Date.now()}`,
+          sender: 'system',
+          text: '답장을 받지 못했어요. 잠시 뒤 다시 보내주세요.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
+      setFailedText(userMsgText);
     } finally {
       setIsLoading(false);
     }
@@ -505,6 +532,27 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         )}
 
         {messages.map((msg) => {
+          if (msg.sender === 'system') {
+            return (
+              <div key={msg.id} className="w-full flex flex-col items-center space-y-2 py-2">
+                <div className="bg-[#f3f4f5] border border-[#E5E7EB] rounded-lg px-4 py-3 max-w-[85%] text-center">
+                  <p className="font-body-sm text-xs sm:text-sm font-medium text-[#A32E1D] leading-relaxed">
+                    {msg.text}
+                  </p>
+                </div>
+                {failedText && msg.id === messages[messages.length - 1]?.id && (
+                  <button
+                    type="button"
+                    onClick={() => { const t = failedText; setFailedText(null); sendMessage(t); }}
+                    disabled={isLoading}
+                    className="font-mono text-xs font-bold text-[#FF6B5A] border border-[#FF6B5A] rounded-lg px-4 py-2 hover:bg-[#FF6B5A] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    다시 보내기
+                  </button>
+                )}
+              </div>
+            );
+          }
           if (msg.sender === 'user') {
             return (
               <div key={msg.id} id={`bubble-${msg.id}`} className="flex flex-col items-end max-w-[85%] ml-auto space-y-1">
