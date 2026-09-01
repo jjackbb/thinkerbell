@@ -21,6 +21,13 @@ interface AIChatViewProps {
   onReportErrorPersona?: (personaId: string) => void;
   /** 대화가 하나도 없을 때 사연을 보러 가는 길 */
   onGoToFeed?: () => void;
+  /**
+   * 대화를 마쳤을 때 원래 보던 사연으로 돌려보낸다.
+   *
+   * AI 대화는 사연 상세에서 시작되는데, 들어오는 순간 그 사연이 닫힌다.
+   * 돌아갈 길이 없으면 "사연 → AI → 다시 사연"이라는 5분짜리 흐름이 끊긴다.
+   */
+  onReturnToStory?: (storyId: string) => void;
   /** 로그인 없이 둘러보는 중인가. 넘어오지 않으면 로그인한 사용자로 본다 */
   isGuest?: boolean;
   /**
@@ -36,6 +43,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   supporterCount,
   personas,
   onGoToFeed,
+  onReturnToStory,
   activeSession,
   onStartSession,
   onEndSession,
@@ -310,6 +318,25 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     if (onDeletePersona && selectedPersona) onDeletePersona(selectedPersona.id);
     if (activeSession) onEndSession(activeSession.id);
     setShowChat(false);
+  };
+
+  /**
+   * 요약 카드의 `여기서 마무리`.
+   *
+   * 예전에는 이 버튼이 대화방과 대화 내용을 **경고 없이 영구 삭제**했다.
+   * '마무리'는 끝내고 나간다는 말이지 지운다는 말이 아니다. 눌러본 사람은
+   * 방금 나눈 대화가 통째로 사라진 걸 나중에야 알게 된다.
+   *
+   * 이제는 화면만 닫고 대화는 남긴다. 정말 지우고 싶은 사람에게는
+   * 카드 ⋮ 메뉴의 '삭제'가 따로 있고, 그쪽은 확인 창이 뜬다.
+   */
+  const finishAndKeep = () => {
+    setSimEndResult(null);
+    setShowChat(false);
+
+    /* 왔던 사연으로 돌려보낸다. 거기에 투표 결과와 댓글이 있다 */
+    const storyId = selectedPersona?.storyId;
+    if (storyId && onReturnToStory) onReturnToStory(storyId);
   };
 
   const confirmEndChat = () => {
@@ -650,7 +677,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           supporterCount={supporterCount}
           onJumpToMessage={jumpToMessage}
           onContinue={() => setSimEndResult(null)}
-          onFinish={confirmEndChat}
+          onFinish={finishAndKeep}
         />
       ) : isGuest ? (
         /*

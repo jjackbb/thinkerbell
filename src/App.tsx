@@ -1447,6 +1447,12 @@ export default function App() {
             onDeletePersona={handleDeletePersona}
             onReportErrorPersona={handleReportErrorPersona}
             onGoToFeed={() => setActiveTab('feed')}
+            /* 대화를 마치면 왔던 사연으로 돌려보낸다 */
+            onReturnToStory={(storyId) => {
+              const target = stories.find(s => s.id === storyId);
+              setActiveTab('feed');
+              if (target) openStoryDetail(target);
+            }}
           />
         )}
 
