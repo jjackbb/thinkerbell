@@ -26,6 +26,7 @@ import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPE
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 import { fetchPersonas, createPersona, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
+import { track, trackOnce } from './lib/events';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -150,6 +151,16 @@ export default function App() {
     return true;
   };
 
+  /*
+    9/4 유저테스트 계측 — 진입 한 번.
+
+    로그인 여부와 무관하게 "몇 명이 앱을 열었나"가 퍼널의 분모다.
+    새로고침으로 부풀지 않도록 방문당 한 번만 센다.
+  */
+  useEffect(() => {
+    trackOnce('app_open', 'app_open');
+  }, []);
+
   // Initialize Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -175,6 +186,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        trackOnce(`login_success:${session.user.id}`, 'login_success');
         setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
@@ -544,6 +556,13 @@ export default function App() {
       if (fresh) {
         setStories(prev => prev.map(s => (s.id === storyId ? { ...s, ...(fresh as Story) } : s)));
       }
+    } else {
+      /*
+        서버가 받아준 투표만 센다. 화면에만 반영되고 거절당한 투표까지 세면
+        "투표는 잘 된다"는 잘못된 결론이 나온다.
+        마음을 바꿔 다시 누른 것은 같은 사연이므로 한 번으로 친다.
+      */
+      trackOnce(`vote_submit:${storyId}`, 'vote_submit', { storyId, option });
     }
 
     await loadMyVotes();
@@ -862,6 +881,13 @@ export default function App() {
 
   const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
     /*
+      AI로 가는 길목의 첫 걸음. 무료 횟수 판정보다 먼저 센다 —
+      '눌렀는데 막혔다'도 눌렀다는 사실이다.
+      이 뒤로 모드 선택·시작점 선택이 남아 있고, 그 사이 낙폭이 H2의 답이다.
+    */
+    if (!bypassPremium) track('ai_entry_click', { storyId: story.id, category: story.category });
+
+    /*
       둘러보는 사람은 무료 횟수를 세지 않는다. 어차피 AI가 먼저 거는
       첫 마디까지만 보고 답장은 못 하므로 쓴 것이 없다. 여기서 세면
       답장도 못 하는 사람에게 결제 안내(프리미엄 모달)가 뜬다.
@@ -887,6 +913,9 @@ export default function App() {
   const handleSelectAiChatMode = (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
     const story = aiChatModeStory;
+
+    /* 여기까지 오면 대화방이 실제로 열린다 = AI 진입 성공 */
+    track('ai_start_select', { storyId: story.id, mode, opening });
 
     if (mode === 'simulation') {
       // 같은 사연을 같은 시작점으로 다시 열면 새로 만들지 않고 이어서 한다.
@@ -1202,6 +1231,9 @@ export default function App() {
     */
     setSelectedStory(story);
     syncStoryUrl(story.id);
+
+    /* 사연마다 한 번씩 센다 — 뒤로 갔다 다시 들어와도 숫자가 부풀지 않게 */
+    trackOnce(`story_view:${story.id}`, 'story_view', { storyId: story.id, category: story.category });
 
     /*
       조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.

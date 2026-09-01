@@ -3,6 +3,7 @@ import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } f
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 import { SessionSummaryCard } from './SessionSummaryCard';
 import { detectSimEnd, stripSimEnd } from '../lib/prompts';
+import { trackOnce } from '../lib/events';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -224,6 +225,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         if (ended) setSimEndResult(ended);
         const finalText = stripSimEnd(aiResponseText);
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
+
+        /*
+          한 턴 = 내가 한 마디 하고 답장을 받은 것. 답장을 못 받았으면 턴이
+          아니므로 이 안(성공 분기)에서만 센다. 실패했는데 3턴으로 찍히면
+          H3(3턴 도달률)이 그만큼 부풀어 답이 뒤집힌다.
+        */
+        const userTurns = updatedMessages.filter(m => m.sender === 'user').length;
+        if (userTurns === 1) {
+          trackOnce(`ai_chat_turn1:${selectedPersona.id}`, 'ai_chat_turn1', { personaId: selectedPersona.id });
+        }
+        if (userTurns >= 3) {
+          trackOnce(`ai_chat_turn3:${selectedPersona.id}`, 'ai_chat_turn3', { personaId: selectedPersona.id, turns: userTurns });
+        }
       } else {
         /*
           한 글자도 못 받았는데 페르소나가 말한 것처럼 채워 넣으면, AI가 죽은

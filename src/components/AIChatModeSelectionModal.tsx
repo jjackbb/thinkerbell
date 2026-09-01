@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, MessageSquare, ListTree, ChevronLeft } from 'lucide-react';
+import { track } from '../lib/events';
 
 /** 상황 모드에서 대화를 어느 지점부터 시작할지 */
 export type ChatOpening = 'apology' | 'oblivious' | 'meFirst';
@@ -58,8 +59,10 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
 
         {step === 'mode' ? (
           <div className="p-6 space-y-4">
+            {/* 모드를 고른 순간을 센다. 여기서 시작점 선택까지 얼마나 빠지는지가
+                9/4에 알아낼 숫자다 — AI 자체가 아니라 AI로 가는 길목의 문제인지 */}
             <button
-              onClick={() => setStep('opening')}
+              onClick={() => { track('ai_mode_select', { mode: 'simulation' }); setStep('opening'); }}
               className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start cursor-pointer"
             >
               <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
@@ -74,7 +77,7 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
             </button>
 
             <button
-              onClick={() => onSelectMode('explanation')}
+              onClick={() => { track('ai_mode_select', { mode: 'explanation' }); onSelectMode('explanation'); }}
               className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start cursor-pointer"
             >
               <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
