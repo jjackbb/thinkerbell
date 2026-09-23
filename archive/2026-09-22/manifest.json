@@ -1,0 +1,566 @@
+[
+  {
+    "original": "PRD.md",
+    "preserved": "archive/2026-09-22/legacy/PRD.md",
+    "sha256": "af9455cce2d82321788bef6136a79385ff1fb42453f8dd682728e52826daf53c",
+    "action": "move"
+  },
+  {
+    "original": "Todos.md",
+    "preserved": "archive/2026-09-22/legacy/Todos.md",
+    "sha256": "77b121b01de0f7d6d47990b8a55b6f89b976944cd2771795e3cb80fdc0d5869b",
+    "action": "move"
+  },
+  {
+    "original": "docs/userflow.md",
+    "preserved": "archive/2026-09-22/legacy/docs/userflow.md",
+    "sha256": "538cf1c40290c51f2da7375bd5822b7fb4765c59c64798b1b57a6835256ee6cf",
+    "action": "move"
+  },
+  {
+    "original": "docs/usertest-20260904.md",
+    "preserved": "archive/2026-09-22/legacy/docs/usertest-20260904.md",
+    "sha256": "5bd57458556c0730eee3b1ca84970c6b8eb3526036099eb0e875eb1746038fc7",
+    "action": "move"
+  },
+  {
+    "original": "docs/usertest-observation-sheet.md",
+    "preserved": "archive/2026-09-22/legacy/docs/usertest-observation-sheet.md",
+    "sha256": "a79e52cbe5138c335382b8f2f1db0c41ac5c63a7fbefe2471ea9e11f545cf3f3",
+    "action": "move"
+  },
+  {
+    "original": "docs/usertest-accounts.md",
+    "preserved": "archive/2026-09-22/legacy/docs/usertest-accounts.md",
+    "sha256": "da2e20cc71f4262f34a97fb6d8cbaa496d470c0bae538e8040070910d0abd387",
+    "action": "move"
+  },
+  {
+    "original": "patch.js",
+    "preserved": "archive/2026-09-22/scripts/patch.js",
+    "sha256": "bedbef10d9bbcef4647dbed8d1950b0f03cb79c6d7d05beb104f1deb3f859089",
+    "action": "move"
+  },
+  {
+    "original": "patch.cjs",
+    "preserved": "archive/2026-09-22/scripts/patch.cjs",
+    "sha256": "e0c7d7d6fad99cae7b3a52d1c53d19d89a6623d4e413260a98a1a111996a25fa",
+    "action": "move"
+  },
+  {
+    "original": "patch2.cjs",
+    "preserved": "archive/2026-09-22/scripts/patch2.cjs",
+    "sha256": "b717ba65489c034728f545424a990a17fa0590be905bf291e327f5545ca95ae7",
+    "action": "move"
+  },
+  {
+    "original": "split_server.py",
+    "preserved": "archive/2026-09-22/scripts/split_server.py",
+    "sha256": "c07412b2e511c7c0787adc8934b4f05eef64a58824b80f4d79f69dc3be3aedd9",
+    "action": "move"
+  },
+  {
+    "original": "fix_ai_sim.py",
+    "preserved": "archive/2026-09-22/scripts/fix_ai_sim.py",
+    "sha256": "7fe78b2f3d189ab29b101d987c15be3a610c5f7956384872c1727564213a5956",
+    "action": "move"
+  },
+  {
+    "original": "update_colors.py",
+    "preserved": "archive/2026-09-22/scripts/update_colors.py",
+    "sha256": "b0d28af53c298f779d46127a147fcec3fe63fde194fba754cf1b7cb287defe91",
+    "action": "move"
+  },
+  {
+    "original": "update_mypage.py",
+    "preserved": "archive/2026-09-22/scripts/update_mypage.py",
+    "sha256": "3d94f81db6c17117bf71f7c002789515a3e45048f25e53a6286a3842f87f73e4",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST1_judgment_services.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST1_judgment_services.md",
+    "sha256": "8ad7097b61c2e0aa01277d43bdbb28ac5753af02d080165157831c1cde5e064c",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST2_anonymous_community.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST2_anonymous_community.md",
+    "sha256": "1830c9155f534bc00799fff82db6a2c70df9723603abd9e9176d6daa2bd88855",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST3_ai_roleplay.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST3_ai_roleplay.md",
+    "sha256": "41d4a303feb7a4ee315463e8c74aac0a00f2890527a3e63f904985ffe0ce01ea",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST4_ST5_care_and_polls.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/agent_results/ST4_ST5_care_and_polls.md",
+    "sha256": "9b778fe796447fd7ed8c5de86f386be7d55bb4387315ca3daae1501d6e12e633",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/clay_DESIGN.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/clay_DESIGN.md",
+    "sha256": "1abd803a207fbe950a06e155adcd6013c2e149b13e7b88844f5069f9d3d99eb3",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/research_plan.json",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/research_plan.json",
+    "sha256": "d30bfaaebb364f385e6aaaa9806f12b288f3efa37d31182af105727e4f345738",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/self_audit.md",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/artifacts/self_audit.md",
+    "sha256": "67b3d53b740f86cb43b4d817cf83df8ae6e879adca023432a5726fd2858b44c6",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/sources/sources.jsonl",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/sources/sources.jsonl",
+    "sha256": "0160e0ca92dee98638b2eadef077e3c212da9aff742bf4313b5c7e04da1a3594",
+    "action": "move"
+  },
+  {
+    "original": "RESEARCH/nipyeon_ux_benchmark_20260817_225355/state.json",
+    "preserved": "archive/2026-09-22/legacy/RESEARCH/nipyeon_ux_benchmark_20260817_225355/state.json",
+    "sha256": "24b748fe39210fa5f2d786dab2ad04aca982118cf7dfdd6d8ee651df08105f04",
+    "action": "move"
+  },
+  {
+    "original": "README.md",
+    "preserved": "archive/2026-09-22/before-alignment/README.md",
+    "sha256": "4e41aafd3a988e6edd653466c462eac225e45d372642c5799eb10e85cab89147",
+    "action": "snapshot"
+  },
+  {
+    "original": "CLAUDE.md",
+    "preserved": "archive/2026-09-22/before-alignment/CLAUDE.md",
+    "sha256": "6e3b35c6b92135c4049cc24b0e9a76ad150f135bdcc8ec5fe14e107321a3ef4c",
+    "action": "snapshot"
+  },
+  {
+    "original": ".env.example",
+    "preserved": "archive/2026-09-22/before-alignment/.env.example",
+    "sha256": "f8e0630e07ffddd0c6acd129cb619911f8c63ba4d51a26ba7cfa25436e11182c",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/admin.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/admin.md",
+    "sha256": "85baee87345e8292378e24c9d77e2127beb5fde43f90ccfcca7bd55ecb14caac",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/ai-prompts.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/ai-prompts.md",
+    "sha256": "b24febba781d8f35b787ea4c3887958516ba3dd28858b093cf28e1eb3b58c6fa",
+    "action": "snapshot"
+  },
+  {
+    "original": "supabase/README.md",
+    "preserved": "archive/2026-09-22/before-alignment/supabase/README.md",
+    "sha256": "ce8bb146d318afc3a90308cb722391bfb3ff952a5f52152a63757445900d2407",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/release-improvement/01-current-state.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/release-improvement/01-current-state.md",
+    "sha256": "fa4ad5f4aa821b610275538fff3e4563cafa8bd28cd9e239b4b81d909f451e43",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/release-improvement/02-events-and-buttons.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/release-improvement/02-events-and-buttons.md",
+    "sha256": "755e9181d447f1709a7ed5eb60491269fb134fed7378ed83b7d4e47da47f07b0",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/release-improvement/03-validation-and-improvement.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/release-improvement/03-validation-and-improvement.md",
+    "sha256": "26b2b750398a2145e8973ff8ba2b0006d263ff0f1d23f7149f832b1533292c3d",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/release-improvement/04-ux-priorities-and-decisions.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/release-improvement/04-ux-priorities-and-decisions.md",
+    "sha256": "7e9d3ab3a3d0a75824594a9fba05992f352e758f59d1663b0d6a34d00624c6e6",
+    "action": "snapshot"
+  },
+  {
+    "original": "docs/release-improvement/README.md",
+    "preserved": "archive/2026-09-22/before-alignment/docs/release-improvement/README.md",
+    "sha256": "47d8be99b6bbc4e5a0274ebecb60acd4a29c9fa5f0d7a6129445c9a8cbee920d",
+    "action": "snapshot"
+  },
+  {
+    "original": "src/App.tsx",
+    "preserved": "frontend/src/App.tsx",
+    "sha256": "f142d3942ca794fbefe3ca640eb7788ec4d52d411c23929e267990ca54e419cb",
+    "action": "move"
+  },
+  {
+    "original": "src/components/AIChatModeSelectionModal.tsx",
+    "preserved": "frontend/src/components/AIChatModeSelectionModal.tsx",
+    "sha256": "232a7b4c793dfa0b0d6d8c5f963424481204355e8b04b286879124d66faa16aa",
+    "action": "move"
+  },
+  {
+    "original": "src/components/AIChatView.tsx",
+    "preserved": "frontend/src/components/AIChatView.tsx",
+    "sha256": "bdda223bebe700b7d9958de04fdbbc4adaedbf0500d9965afe1c66012ada5f6d",
+    "action": "move"
+  },
+  {
+    "original": "src/components/AIErrorReportModal.tsx",
+    "preserved": "frontend/src/components/AIErrorReportModal.tsx",
+    "sha256": "b27034dead25239ad4c84ee45721d03166ae36804b15e26374adbbcf11c37d45",
+    "action": "move"
+  },
+  {
+    "original": "src/components/AIExplainSettingsModal.tsx",
+    "preserved": "frontend/src/components/AIExplainSettingsModal.tsx",
+    "sha256": "03a09170d757bd71f7bf67bf5d115ce0450554a596edfa2b1f34c00001cdb733",
+    "action": "move"
+  },
+  {
+    "original": "src/components/AdultVerificationModal.tsx",
+    "preserved": "frontend/src/components/AdultVerificationModal.tsx",
+    "sha256": "5eec9495d7daea8160b4fd102fbc23763479b594c81d16810347efa34853e47b",
+    "action": "move"
+  },
+  {
+    "original": "src/components/BalanceGameSection.tsx",
+    "preserved": "frontend/src/components/BalanceGameSection.tsx",
+    "sha256": "ca5bccb5d234edc2914af4e51ab63e44ed769360afff2ff3519c85aef6ae7a06",
+    "action": "move"
+  },
+  {
+    "original": "src/components/CreateStoryModal.tsx",
+    "preserved": "frontend/src/components/CreateStoryModal.tsx",
+    "sha256": "7649f9ede31aeea3c2b2fd5ad6250472f6aeaa89c1301ba3feb4360ee1c0a8a3",
+    "action": "move"
+  },
+  {
+    "original": "src/components/CrisisSupportModal.tsx",
+    "preserved": "frontend/src/components/CrisisSupportModal.tsx",
+    "sha256": "debda827e31b6be6dd7a9f9156296bdd9fbada0f8dc5a389c14cfd6e8ad84ca2",
+    "action": "move"
+  },
+  {
+    "original": "src/components/DeleteConfirmModal.tsx",
+    "preserved": "frontend/src/components/DeleteConfirmModal.tsx",
+    "sha256": "c2ff910e9d2c975144c2fc135e507aed3996087ae208575d463859930bb8c15f",
+    "action": "move"
+  },
+  {
+    "original": "src/components/Header.tsx",
+    "preserved": "frontend/src/components/Header.tsx",
+    "sha256": "a12160f190cb940174d2b9d5493e67232f017f3e829a8e73231a2bb809b85abe",
+    "action": "move"
+  },
+  {
+    "original": "src/components/LoginPromptModal.tsx",
+    "preserved": "frontend/src/components/LoginPromptModal.tsx",
+    "sha256": "5c31c30203051017757928117380622e54ec21d9fb23460b50ee041dd2e8a732",
+    "action": "move"
+  },
+  {
+    "original": "src/components/MyPageView.tsx",
+    "preserved": "frontend/src/components/MyPageView.tsx",
+    "sha256": "f6811c109598faea60438e91d255ad5bf6995f9cc46a2ac1eb8ba9a9d28feb5e",
+    "action": "move"
+  },
+  {
+    "original": "src/components/Navbar.tsx",
+    "preserved": "frontend/src/components/Navbar.tsx",
+    "sha256": "1843bd1fb7d693701024c145fb4fbbbcbde0c97f9b4ffcd4e584c9183df5d0ab",
+    "action": "move"
+  },
+  {
+    "original": "src/components/PremiumModal.tsx",
+    "preserved": "frontend/src/components/PremiumModal.tsx",
+    "sha256": "71fb4ae0ba6c1c6b0533f00b759640fc43f679c139d3123c908e34ab2dc4c974",
+    "action": "move"
+  },
+  {
+    "original": "src/components/ReportModal.tsx",
+    "preserved": "frontend/src/components/ReportModal.tsx",
+    "sha256": "a72d341a6e5fda21f4abc16afaaef93b20b03796a92542f50321e9aa94bef5d1",
+    "action": "move"
+  },
+  {
+    "original": "src/components/SessionSummaryCard.tsx",
+    "preserved": "frontend/src/components/SessionSummaryCard.tsx",
+    "sha256": "6831e34ada334948a0b46b6c93840722f405946ebdc0a78b412558ab828f4074",
+    "action": "move"
+  },
+  {
+    "original": "src/components/ShareResultBar.tsx",
+    "preserved": "frontend/src/components/ShareResultBar.tsx",
+    "sha256": "644587660f90e2c77109bdd041b17c555e0bd87d021da6597b6051b7bffa3c04",
+    "action": "move"
+  },
+  {
+    "original": "src/components/StoryCard.tsx",
+    "preserved": "frontend/src/components/StoryCard.tsx",
+    "sha256": "aead344b8183d9e958f6aa505a408019afc693c6f86aa17d3255ba06c335577a",
+    "action": "move"
+  },
+  {
+    "original": "src/components/StoryDetailModal.tsx",
+    "preserved": "frontend/src/components/StoryDetailModal.tsx",
+    "sha256": "6278921530663038c84452e233606964ee9081a192f10b5cc54f0dea87e78cf0",
+    "action": "move"
+  },
+  {
+    "original": "src/components/VoteResult.tsx",
+    "preserved": "frontend/src/components/VoteResult.tsx",
+    "sha256": "73c6c6afaa63f56a6c8110b51ca2bc2f09242312d5d3a562c15846a97804d936",
+    "action": "move"
+  },
+  {
+    "original": "src/components/WeeklyTopBanner.tsx",
+    "preserved": "frontend/src/components/WeeklyTopBanner.tsx",
+    "sha256": "fafb627cbc3d20c24b82ab5b2abdbe0e80b0d0b5f77b535546ef104eeb4dc97e",
+    "action": "move"
+  },
+  {
+    "original": "src/components/WelcomeModal.tsx",
+    "preserved": "frontend/src/components/WelcomeModal.tsx",
+    "sha256": "ee8d8aec20e22ff1a7fb7f294be666c6101a6b8e04897be98a719e5153c68af9",
+    "action": "move"
+  },
+  {
+    "original": "src/data/mockData.ts",
+    "preserved": "frontend/src/data/mockData.ts",
+    "sha256": "c823da2aaa6e2c34d97a989dd7cd93aa479226d1c2583fc654db088b5a5c14b1",
+    "action": "move"
+  },
+  {
+    "original": "src/index.css",
+    "preserved": "frontend/src/index.css",
+    "sha256": "119231053fa1e846b789318e73eb9f5af4a198328149241146082b7c659eb27c",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/aiPersonas.ts",
+    "preserved": "frontend/src/lib/aiPersonas.ts",
+    "sha256": "f097bb27d0ba273ea5643e5b162dd05890f77f99769730b139c49e8c1c0802b1",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/aiQuota.ts",
+    "preserved": "frontend/src/lib/aiQuota.ts",
+    "sha256": "e6b675085a6103dbf088b6c5dd12992dbe6e00c11ad25306a80681cb91fe65ec",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/crisis.ts",
+    "preserved": "frontend/src/lib/crisis.ts",
+    "sha256": "a06c458326e92af1977176a8849acf22ebfe85aa65a4e14843ddb3d766885895",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/events.ts",
+    "preserved": "frontend/src/lib/events.ts",
+    "sha256": "0792521ab52f5e5de292b65ebc17bcaa49ded7c004d28e64dd089f7183ad9183",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/ga4.ts",
+    "preserved": "frontend/src/lib/ga4.ts",
+    "sha256": "4c150fb67e2e26abb6c9a5ad19bfb790451c6fe78d7ca69725ff8d16391584ad",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/inquiries.ts",
+    "preserved": "frontend/src/lib/inquiries.ts",
+    "sha256": "232f24abc88326d853bf939d9ed8b4fb03d73b7a23d65dc49171dcc21644c378",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/prompts.ts",
+    "preserved": "frontend/src/lib/prompts.ts",
+    "sha256": "50d806657c000dc17f57b518248d4fc0dcaef75d0404a9e27a2951bf43a60014",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/shareCard.ts",
+    "preserved": "frontend/src/lib/shareCard.ts",
+    "sha256": "aebb170a10cc1e5677cf9975b0d6f419a1fb7ded57f1127887e32eecb1e06103",
+    "action": "move"
+  },
+  {
+    "original": "src/lib/supabase.ts",
+    "preserved": "frontend/src/lib/supabase.ts",
+    "sha256": "7ea68d8b7b016860d38551fb914908f9eb0174e6f32740de0bfdb2190236bb9a",
+    "action": "move"
+  },
+  {
+    "original": "src/main.tsx",
+    "preserved": "frontend/src/main.tsx",
+    "sha256": "237b5200d67f0a48cdddb57dbf51203f69f2cc43be8f1dbb5254f91b699bafed",
+    "action": "move"
+  },
+  {
+    "original": "src/types.ts",
+    "preserved": "frontend/src/types.ts",
+    "sha256": "71e626a1a03984ce7ad33e3ea8f175bec532557af66114fbf502293b17f6bacf",
+    "action": "move"
+  },
+  {
+    "original": "src/vite-env.d.ts",
+    "preserved": "frontend/src/vite-env.d.ts",
+    "sha256": "33602db4c7e7c78ab3e675b7dabd43044b159203271500e975ee9a7197a14863",
+    "action": "move"
+  },
+  {
+    "original": "public/favicon.svg",
+    "preserved": "frontend/public/favicon.svg",
+    "sha256": "536acd9f3d6bdc59ce7657abd2c12a249c45f1e332a09c8087accdb13399ce38",
+    "action": "move"
+  },
+  {
+    "original": "supabase/README.md",
+    "preserved": "archive/2026-09-22/before-alignment/supabase/README.md",
+    "sha256": "ce8bb146d318afc3a90308cb722391bfb3ff952a5f52152a63757445900d2407",
+    "action": "move-and-edit",
+    "current": "backend/supabase/README.md",
+    "current_sha256": "fe7b3e8c481ea243bb190d2e273333ec6674deb78291db7e5338f7fd1c4317cd"
+  },
+  {
+    "original": "supabase/migrations/00000000000000_init_schema.sql",
+    "preserved": "backend/supabase/migrations/00000000000000_init_schema.sql",
+    "sha256": "a736ff1f8cf7060235189f8a7f719ba502846b4885078086c9dd5ae8d7db569f",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260817000000_tighten_rls.sql",
+    "preserved": "backend/supabase/migrations/20260817000000_tighten_rls.sql",
+    "sha256": "9984da8d743ab7758a8162cc5e03fe42612acd1b108469bf270c96fcb57fe788",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260817010000_resync_comment_counts.sql",
+    "preserved": "backend/supabase/migrations/20260817010000_resync_comment_counts.sql",
+    "sha256": "44c44dcdf2ece5ffe722284c11ba20eeee25642bc9c0f6c9f7ecec1a897ab10f",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260817020000_votes_table.sql",
+    "preserved": "backend/supabase/migrations/20260817020000_votes_table.sql",
+    "sha256": "b76872e257d690d35a41d97f53ea364a6543d37c24d5d91314c6ee0eb9cca50a",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260818000000_comment_anon_id.sql",
+    "preserved": "backend/supabase/migrations/20260818000000_comment_anon_id.sql",
+    "sha256": "66c2bcd9424ba4685ed5007c5eaea1f733daa8b4a8334ec864c1f09727b8150d",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260818010000_backfill_comment_anon_id.sql",
+    "preserved": "backend/supabase/migrations/20260818010000_backfill_comment_anon_id.sql",
+    "sha256": "d330f63cd6c2e860c95d617fcd3d77df696b75a30b3faef19ea59e96b00e71eb",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260818020000_report_policy.sql",
+    "preserved": "backend/supabase/migrations/20260818020000_report_policy.sql",
+    "sha256": "fd848031ae096efa568e8980a420e06e9bdcec36cc542ffc12fad708e1c65785",
+    "action": "move"
+  },
+  {
+    "original": "supabase/migrations/20260903000000_events.sql",
+    "preserved": "backend/supabase/migrations/20260903000000_events.sql",
+    "sha256": "a2d35eff4d0c6fe9fd1e95fa43d32462850129b1c93f9188e6496028af3bc055",
+    "action": "move"
+  },
+  {
+    "original": "index.html",
+    "preserved": "frontend/index.html",
+    "sha256": "9c14fdd0605af90eda7796f77f7431f9479d3e0978cf8fb064eec2e04c03e071",
+    "action": "move"
+  },
+  {
+    "original": "api/index.ts",
+    "preserved": "backend/app.ts",
+    "sha256": "607cfd782b4f74128b387ea309525411010648ca4ea900ced2d27b6bcfc5f8d0",
+    "action": "move"
+  },
+  {
+    "original": "server.ts",
+    "preserved": "archive/2026-09-22/before-alignment/server.ts",
+    "sha256": "a55a3d3c9b41c5ea86f50954331a3d5302e018b4a605ea7842b60d98cf7cfcab",
+    "action": "move-and-edit",
+    "current": "backend/server.ts",
+    "current_sha256": "d8f6c611799d8fcffe4591762193c8cf3bcc62b644564f33534d47b639d4cef7"
+  },
+  {
+    "original": "PLAN.md",
+    "preserved": "PLAN.md",
+    "sha256": "dd432d24d82cb5ad285fa6d9f2fcf4bad6ec35407e97f0ad26d505f50bd32f56",
+    "action": "unchanged"
+  },
+  {
+    "original": "package-lock.json",
+    "preserved": "package-lock.json",
+    "sha256": "6f2f635af5244ae6a76f1b0f751ac1fcfadeccea1e958cd6233bf9b082f8b98c",
+    "action": "unchanged"
+  },
+  {
+    "original": "docs/release-improvement/audit-evidence.json",
+    "preserved": "docs/release-improvement/audit-evidence.json",
+    "sha256": "e7868bae8fd656a8e430415db633ed47c21287ce20dbeae4ed90538236d33e0c",
+    "action": "unchanged"
+  },
+  {
+    "original": "docs/release-improvement/source-interactions.csv",
+    "preserved": "docs/release-improvement/source-interactions.csv",
+    "sha256": "ccb6a45eb21a8713dcf6a03743ad92dcea38930cb7f755c6ff01b1a46651a004",
+    "action": "unchanged"
+  },
+  {
+    "original": "vite.config.ts",
+    "preserved": "archive/2026-09-22/before-alignment/vite.config.ts",
+    "current": "frontend/vite.config.ts",
+    "sha256": "c7b7cc4b3a6b6a08f0a4fb916bb4d4e41804d5767611bce43d4c1ad53a198192",
+    "action": "move-and-edit",
+    "current_sha256": "3cfc35910c2be9bd2903b59478da7d44db45493c08fba015c761b04394c1439d"
+  },
+  {
+    "original": "package.json",
+    "preserved": "archive/2026-09-22/before-alignment/package.json",
+    "current": "package.json",
+    "sha256": "5c4f19b57497d0d3ad10c62085afb1a9ee18beb230e7449188dbbcdfb44387d7",
+    "action": "snapshot-and-edit",
+    "current_sha256": "f57f88feef9a243231bb4b3d38a21249669f0da00b7c37e23cfabd3ade340618"
+  },
+  {
+    "original": "tsconfig.json",
+    "preserved": "archive/2026-09-22/before-alignment/tsconfig.json",
+    "current": "tsconfig.json",
+    "sha256": "e93e15c3794e43a117964ea191ae985cbedea70c41d3d82b2e20aa8d07374fe4",
+    "action": "snapshot-and-edit",
+    "current_sha256": "5c5be6b0a7152572d772027cdf5bdeb1a901ac3c3ccd828c4032098230c3de37"
+  },
+  {
+    "original": "vercel.json",
+    "preserved": "archive/2026-09-22/before-alignment/vercel.json",
+    "current": "vercel.json",
+    "sha256": "24b631ce1d6a2f5c37143320d9359cb62de6cb6076abd1a18f44eec0b4969f85",
+    "action": "snapshot-and-edit",
+    "current_sha256": "8a7f5f18b894b1eb69a6e3286731974945d3f357030aec5b8626dc8398c071e1"
+  },
+  {
+    "original": "test.txt",
+    "preserved": "archive/2026-09-22/misc/test.txt",
+    "sha256": "2c43f2bf2f258c76772c38ba5beea1b2a347003ad37067843f700d3a6aec96fa",
+    "action": "move"
+  }
+]

@@ -1,0 +1,53 @@
+{
+  "date": "2026-09-22",
+  "scope": "local folder reorganization and PLAN-aligned documentation only",
+  "original_manifest_entries_verified": 92,
+  "tracked_deletions_with_preserved_originals": 73,
+  "unchanged_runtime_and_sql_files": 48,
+  "active_document_links_checked": 60,
+  "original_preservation": "PASS",
+  "active_document_links": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "build_warning": "Client JS bundle exceeds 500 kB; unchanged functional scope",
+  "vercel_entry_import": "PASS",
+  "local_http": [
+    {
+      "mode": "development",
+      "status": "PASS",
+      "checks": [
+        "home",
+        "favicon",
+        "API health",
+        "nickname API",
+        "script/styles",
+        "Vite source transforms",
+        "root environment loading"
+      ]
+    },
+    {
+      "mode": "production",
+      "status": "PASS",
+      "checks": [
+        "home",
+        "favicon",
+        "API health",
+        "nickname API",
+        "script/styles"
+      ]
+    }
+  ],
+  "initial_runtime_constraints": [
+    "sandbox IPC/listen EPERM",
+    "chosen fixed port already in use; used ephemeral ports without stopping existing processes"
+  ],
+  "not_run": [
+    "browser UI interaction",
+    "external email authentication",
+    "real AI provider call",
+    "remote DB/RLS verification",
+    "GA4 receipt",
+    "Vercel deployment"
+  ],
+  "plan_and_original_audit_artifacts": "byte-identical"
+}

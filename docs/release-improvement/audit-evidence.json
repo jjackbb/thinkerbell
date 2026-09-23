@@ -1,0 +1,50 @@
+{
+  "audit_date_kst": "2026-09-22",
+  "source_revision": "071009a81d59043d7ab986062db6babc34b306a9",
+  "scope": "repository analysis, local typecheck and build, public deployment reads, user-supplied Notion interview, planning documents",
+  "checks": {
+    "npm_run_lint": { "status": "PASS", "actual_check": "tsc --noEmit" },
+    "npm_run_build": { "status": "PASS", "warning": "client JS chunk exceeds 500 kB", "js_kb": 608.62, "js_gzip_kb": 167.16 },
+    "public_home": { "status": "PASS", "url": "https://thinkerbell-eight.vercel.app/", "http_status": 200, "scope": "HTML only" },
+    "public_health": { "status": "PASS", "url": "https://thinkerbell-eight.vercel.app/api/health", "http_status": 200, "response_status": "ok", "response_timestamp_utc": "2026-09-22T09:10:39.906Z", "does_not_validate": ["database", "AI provider", "authentication"] },
+    "public_client_bundle": {
+      "asset_path": "/assets/index-DwgYe2s4.js",
+      "http_status": 200,
+      "byte_identical_to_local_build": true,
+      "sha256": "46d2a343e864fcc7880006139f5f73e7f70c6d70feb3da0ae90a7719bbed3bae",
+      "ga4_measurement_id_patterns_found": 0,
+      "gtag_loader_string_found": false,
+      "data_ga4_marker_found": false,
+      "html_gtag_loader_found": false
+    },
+    "supabase_admin_inspection": { "status": "BLOCKED", "project_ref": "vzhyhadjtaqbapicjrco", "action": "get_project", "reason": "MCP permission error", "remote_sql_executed": false },
+    "browser_functional_tests": { "status": "NOT_RUN" },
+    "ga4_debugview_and_reports": { "status": "NOT_RUN", "user_statement": "GA4 not connected" },
+    "deployment_changes": { "status": "NOT_RUN" },
+    "current_user_improvement_effect": { "status": "NOT_RUN" }
+  },
+  "source_inventory": {
+    "method": "TypeScript AST extraction; static source locations, not rendered controls",
+    "tsx_files": 24,
+    "static_button_locations": 153,
+    "dom_control_and_event_rows": 227,
+    "component_callback_rows": 71,
+    "csv_rows": 298,
+    "dom_onclick_locations": 162,
+    "dom_onsubmit_locations": 8,
+    "artifact": "source-interactions.csv"
+  },
+  "local_database_definition_gaps": {
+    "tables": ["ai_chat_usage", "ai_personas", "inquiries"],
+    "rpcs": ["balance_game_state", "vote_balance_game", "delete_my_account", "is_admin"],
+    "meaning": "app references without a CREATE definition in checked-in migrations; remote existence is UNKNOWN"
+  },
+  "user_research_source": {
+    "url": "https://app.notion.com/p/3a9626093f2e80439a91f9946d6c5ba3",
+    "interviewees_documented": 2,
+    "page_last_edited_at": "2026-07-27T08:21:40.626Z",
+    "verification": "unverified",
+    "actual_interview_date": "UNKNOWN",
+    "relationship_to_planned_september_4_test": "UNKNOWN"
+  }
+}

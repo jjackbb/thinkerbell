@@ -1,0 +1,31 @@
+import app from "./app.js";
+import express from "express";
+import path from "path";
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      configFile: path.resolve(process.cwd(), "frontend/vite.config.ts"),
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[니편내편 Server] running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+if (!process.env.VERCEL) {
+  startServer();
+}

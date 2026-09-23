@@ -17,12 +17,10 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./frontend/*"
+        "./*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "include": ["frontend/**/*.ts", "frontend/**/*.tsx", "backend/**/*.ts", "api/**/*.ts"],
-  "exclude": ["node_modules", "dist", "archive"]
+  }
 }
