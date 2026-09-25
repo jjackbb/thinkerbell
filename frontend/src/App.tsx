@@ -30,6 +30,9 @@ import { track, trackOnce } from './lib/events';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
+// Supabase가 만료된 인증 링크를 앱으로 돌려보낼 때 URL 조각에 오류 코드를 담는다.
+const signupLinkExpired = new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
+
 // 사연 기반 AI 시뮬레이션에서 대화 상대를 부르는 호칭
 const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
   '연애': '연인',
@@ -87,6 +90,12 @@ const makeDefaultUser = (): UserProfile => ({
 });
 
 export default function App() {
+  useEffect(() => {
+    if (signupLinkExpired) {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
   // User Profile State
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('nipyeon_user');
@@ -103,7 +112,7 @@ export default function App() {
   */
   const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest);
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired);
   const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
@@ -1548,6 +1557,7 @@ export default function App() {
         isOpen={showWelcomeModal}
         onComplete={handleCompleteWelcome}
         onGuestBrowse={handleGuestBrowse}
+        signupLinkExpired={signupLinkExpired}
       />
 
       <CrisisSupportModal
