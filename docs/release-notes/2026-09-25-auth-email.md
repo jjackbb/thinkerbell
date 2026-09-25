@@ -6,6 +6,8 @@
 
 **추가 사용자 확인:** 네이버 받은편지함에 인증 메일이 도착했고 앱 복귀 직후 로그인 상태였다. 영어로 온 메일의 [한국어 문안](../plan-execution/2026-09-26-auth-email-korean-draft.md)은 작성했으나 Supabase 운영 템플릿에는 적용하지 않았다.
 
+**문안 후속:** 사용자가 Supabase의 가입 확인 제목을 `니편내편 이메일 주소 확인`으로, 본문을 한국어 HTML 조각으로 직접 수정했다고 알렸다. 저장 완료와 새 메일 재시험은 아직 확인하지 않았다. 위의 '운영 미적용'은 초안 작성 당시 상태다.
+
 ## 결정과 담당
 
 - 사용자는 `jjackbb.com`을 구매하고 Resend의 발송용 `auth.jjackbb.com`을 연결했다. Resend `Verified`, Enforced TLS, 열람·클릭 추적 끄기, Supabase Site URL `https://thinkerbell-eight.vercel.app/`, Custom SMTP 설정 저장은 **사용자 대시보드 확인**이다. 키 값은 저장소나 채팅에 기록하지 않았다.
