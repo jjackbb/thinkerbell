@@ -2,6 +2,8 @@
 
 이 문서는 [PLAN](../../PLAN.md)의 신규 가입 이메일 확인을 먼저 배포하기 위한 작업 범위와 검증 상태를 기록한다. 팀원은 이 문서의 설정 보고와 실제 동작 검증을 구분해야 한다.
 
+**2026-09-26 후속:** 아래 2026-09-25 배포 당시의 미검증 표기는 당시 기록이다. 이후 사용자가 `Confirm Email`을 켜고 새 가입부터 앱 복귀까지 시험했으며, 새 계정 1명의 확인 완료를 니편내편 Auth 집계에서 확인했다. 합성 만료 링크 오류 화면도 사용자 확인이다. 복귀 후 로그인 세션과 실제 만료 링크·재발송은 아직 별도 확인이 필요하다. [후속 검증 기록](../plan-execution/2026-09-26-auth-email-verified.md)
+
 ## 결정과 담당
 
 - 사용자는 `jjackbb.com`을 구매하고 Resend의 발송용 `auth.jjackbb.com`을 연결했다. Resend `Verified`, Enforced TLS, 열람·클릭 추적 끄기, Supabase Site URL `https://thinkerbell-eight.vercel.app/`, Custom SMTP 설정 저장은 **사용자 대시보드 확인**이다. 키 값은 저장소나 채팅에 기록하지 않았다.

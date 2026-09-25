@@ -1,4 +1,4 @@
-# 니편내편 진행 현황 — 2026-09-25
+# 니편내편 진행 현황 — 2026-09-26
 
 이 문서는 팀 인수인계용 **상태 기록**이다. 제품 범위와 규칙의 유일한 최신 기준은 [PLAN.md](../../PLAN.md)다. 아래의 '로컬'은 아직 GitHub·Vercel에 반영되지 않은 작업 폴더를 뜻한다.
 
@@ -9,20 +9,21 @@
 - 기존 의미 불명의 `isHidden=true` 사연 1건은 연결 기록을 다시 확인한 뒤 삭제하도록 요청했다. 댓글 공감은 계정당 1회·재클릭 취소로 정하고, 과거 계정별 근거가 없는 표시 숫자는 0으로 재설정하기로 했다.
 - GA4는 선택적 동의 후 측정하고, 첫 정상 AI 답변과 대화 저장 결과를 따로 기록하기로 했다. 운영·시험 속성을 분리하고 첫 방문 로그인·게스트 선택 뒤에 동의 배너를 보여주기로 했다.
 - `jjackbb.com`을 구매했다고 알리고 Resend `auth.jjackbb.com`을 연결했다. 도메인 `Verified`, Enforced TLS, 열람·클릭 추적 끄기, Supabase Site URL과 Custom SMTP 저장은 사용자의 대시보드 확인이다. 기존 Auth 계정은 그대로 두고 **새 가입부터** 이메일 확인을 적용하기로 했다.
+- 사용자는 `Confirm Email`을 켜고 새 가입부터 앱 복귀까지 시험했다. 니편내편 Auth 집계는 기존 45명에서 46명으로 늘었고 새 계정 1명의 확인 시각이 기록됐다. [후속 검증 기록](2026-09-26-auth-email-verified.md)은 사용자 관찰과 DB 확인 범위를 구분한다.
 
 ## 코드·DB·배포의 서로 다른 상태
 
 | 범위 | 현재 확인 | 아직 필요한 검증 |
 | --- | --- | --- |
-| 인증 화면 | [단독 커밋 `7b688e2`](../release-notes/2026-09-25-auth-email.md)을 GitHub `main`에 푸시. 공개 HTML·JS HTTP 200 및 새 문구 반영 확인 | `Confirm Email` 켜기 전 브라우저 화면 확인. 실제 가입·메일 수신·링크 복귀·만료 재발송 |
-| 가입 메일 설정 | Resend DNS 값은 공개 조회로 대조. `Verified`·SMTP 저장은 사용자 확인 | SMTP 실제 전달, 인증 링크 동작. 비밀키 값은 문서·Git에 없음 |
+| 인증 화면 | [단독 커밋 `7b688e2`](../release-notes/2026-09-25-auth-email.md)을 GitHub `main`에 푸시. 공개 HTML·JS 반영 확인. 사용자가 합성 만료 링크 오류 화면과 신규 가입→앱 복귀를 확인 | 복귀 후 로그인 세션, 실제 만료 링크·재발송 동작 |
+| 가입 메일 설정 | Resend DNS 값 직접 대조. `Verified`·SMTP 저장·`Confirm Email` 켜기는 사용자 확인. 새 계정 1명의 확인 완료는 DB 집계로 대조 | 다른 메일 환경에서의 전달과 Resend 발송 로그. 비밀키 값은 문서·Git에 없음 |
 | 개인 숨김 | 기존 사연 1건 조건부 삭제, `story_hides` 마이그레이션 2개 운영 적용 및 DB 역할 모의 시험 | 로컬 화면 변경의 배포와 실제 두 계정·익명 브라우저 검증 |
 | 댓글 공감 | 과거 표시 숫자 31을 0으로 재설정, 계정별 기록·취소 함수 마이그레이션 2개 운영 적용 및 DB 역할 모의 시험 | 로컬 화면 변경의 배포와 실제 계정·연타·기기 변경 검증 |
 | 작성자 비공개 | 방향과 [접근 경계](2026-09-25-author-private-boundary.md) 정리 | 직접 API·댓글·투표·AI·실시간 경계 해결 전 기능 미적용 |
 | 저장·AI | 저장 성공 뒤 완료 표시, 서버 포텐스 경로·소유권 검사 등 로컬 코드 수정 | 실제 로그인 저장·AI 응답, 서버 AI 횟수 제한, 역할별 DB/HTTP 시험 |
 | GA4 | 운영·시험 속성/스트림과 로컬 동의·이벤트 코드 준비, 일부 로컬 시험 | 운영 배포의 ID·DebugView·보고서 대조. 사용자 가치·개선 효과 미측정 |
 
-상세 근거: [환경](2026-09-25-environment.md), [운영 DB 구조](2026-09-25-supabase-schema.md), [개인 숨김](2026-09-25-story-hides-applied.md), [댓글 공감](2026-09-25-comment-likes-applied.md), [저장·AI](2026-09-25-save-results-and-ai-provider.md), [GA4](2026-09-25-ga4-event-review.md), [인증 메일](2026-09-25-auth-mail-setup.md).
+상세 근거: [환경](2026-09-25-environment.md), [운영 DB 구조](2026-09-25-supabase-schema.md), [개인 숨김](2026-09-25-story-hides-applied.md), [댓글 공감](2026-09-25-comment-likes-applied.md), [저장·AI](2026-09-25-save-results-and-ai-provider.md), [GA4](2026-09-25-ga4-event-review.md), [인증 메일 설정](2026-09-25-auth-mail-setup.md), [신규 가입 시험](2026-09-26-auth-email-verified.md).
 
 ## 다음 인수인계 기준
 
