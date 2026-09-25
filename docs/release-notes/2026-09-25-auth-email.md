@@ -24,4 +24,4 @@ Supabase Custom SMTP 입력값은 발신 주소 `accounts@auth.jjackbb.com`, 발
 
 배포 순서는 **이 커밋 푸시 → Vercel 공개 버전 반영 확인 → Supabase `Confirm Email` 켜기 → 본인이 관리하는 새 외부 주소로 가입·수신·링크 복귀·로그인 시험**이다. 현재 `Confirm Email`은 마지막 사용자 확인에서 꺼져 있다. 테스트 전에 기존 45개 계정의 확인 상태를 일괄 변경하지 않는다.
 
-DNS 값 대조 등 상세 근거는 아직 커밋되지 않은 로컬 `docs/plan-execution/2026-09-25-auth-mail-setup.md`에 있다. 팀원은 이 배포 기록만으로 실제 메일 전달 성공을 주장하지 말고 운영 대시보드와 시험 결과를 대조해야 한다.
+DNS 값 대조 등 상세 근거는 [가입 인증 메일 준비 기록](../plan-execution/2026-09-25-auth-mail-setup.md)에 있다. 팀원은 이 배포 기록만으로 실제 메일 전달 성공을 주장하지 말고 운영 대시보드와 시험 결과를 대조해야 한다.
