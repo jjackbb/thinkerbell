@@ -18,7 +18,9 @@ Supabase Custom SMTP 입력값은 발신 주소 `accounts@auth.jjackbb.com`, 발
 
 ## 검증과 남은 단계
 
-기존 `main` 기준의 깨끗한 체크아웃에 **이 커밋의 세 파일만** 올려 `npm ci --offline --ignore-scripts`, `npm run lint`, `npm run build`, `git diff --check`를 통과했다. 빌드의 기존 500 kB 초과 청크 경고는 남아 있다. 실제 SMTP 발송, 외부 메일 도착, 링크 확인, 만료·재발송, 공개 배포는 각각 별도로 확인해야 한다. 로컬 빌드가 통과해도 가입 경로가 완료된 것은 아니다.
+기존 `main` 기준의 깨끗한 체크아웃에 **이 커밋의 세 파일만** 올려 `npm ci --offline --ignore-scripts`, `npm run lint`, `npm run build`, `git diff --check`를 통과했다. 빌드의 기존 500 kB 초과 청크 경고는 남아 있다. 실제 SMTP 발송, 외부 메일 도착, 링크 확인, 만료·재발송은 각각 별도로 확인해야 한다. 로컬 빌드가 통과해도 가입 경로가 완료된 것은 아니다.
+
+2026-09-25 인증 화면 커밋 `7b688e2`를 GitHub `main`에 푸시했다. 공개 `https://thinkerbell-eight.vercel.app/`의 HTML과 JS가 HTTP 200이며, 배포된 JS에 새 재발송 문구와 `otp_expired` 처리 문자열이 있는 것을 직접 확인했다. **배포 파일 반영은 확인했지만 클릭 동작은 확인하지 못했다.** 헤드리스 Chrome 화면 검사는 30초 제한 시간에 걸려 판정 불가다. `Confirm Email` 켜기와 실제 외부 가입·수신·링크 복귀는 아직 진행하지 않았다.
 
 배포 순서는 **이 커밋 푸시 → Vercel 공개 버전 반영 확인 → Supabase `Confirm Email` 켜기 → 본인이 관리하는 새 외부 주소로 가입·수신·링크 복귀·로그인 시험**이다. 현재 `Confirm Email`은 마지막 사용자 확인에서 꺼져 있다. 테스트 전에 기존 45개 계정의 확인 상태를 일괄 변경하지 않는다.
 
