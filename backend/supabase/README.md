@@ -6,6 +6,8 @@
 
 현재 원격 DB와 일치하는지는 미확인입니다. [기존 점검](../../docs/release-improvement/01-current-state.md)에 로컬 생성 정의가 없는 테이블·RPC 목록이 있습니다. 폴더 이동이나 로컬 빌드 합격을 원격 DB·RLS 검증으로 해석하지 않습니다.
 
+2026-09-28에는 니편내편 운영 DB에 `20260927214704_signup_email_ownership_mailbox_proof`와 `20260927214725_schedule_signup_email_check_purge`를 쓰기 MCP로 적용했습니다. 해당 구조·역할 권한·정리 작업 등록의 읽기 조회 결과는 [적용 기록](../../docs/plan-execution/2026-09-28-signup-email-ownership-applied.md)에 있습니다. 첫 정리 작업 실행과 실제 메일·브라우저 동작은 아직 확인되지 않았습니다. 이 확인 범위가 기존 스키마 전체의 일치를 뜻하지는 않습니다.
+
 ## 후속 DB 작업 시
 
 - 실제 대상 프로젝트·접근 권한·원격 스키마를 먼저 확인합니다. 기존 파일을 운영 DB에 재적용하지 않습니다.

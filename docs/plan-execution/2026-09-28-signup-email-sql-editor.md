@@ -1,6 +1,6 @@
-# 가입 이메일 소유 확인 SQL Editor 실행 안내 — 2026-09-28
+# 가입 이메일 소유 확인 SQL Editor 사전 안내 — 2026-09-28
 
-[PLAN.md](../../PLAN.md)의 가입 중복 안내를 위한 **운영 DB 구조 추가** 절차다. 사용자는 니편내편 Supabase SQL Editor에서 직접 실행하는 경로를 선택했다. 이 문서 작성 시점에는 **실행하지 않았다**. 쓰기 MCP 로그인은 다시 성공했지만, 이 SQL은 MCP로 대신 적용하지 않는다.
+**현재 재실행하지 않는다.** 사용자 선택에 따라 SQL Editor 직접 실행용으로 준비한 안내였으나, 이후 사용자가 AI에게 성공 확인과 쿼리 결과를 맡겨 [쓰기 MCP 적용·조회](2026-09-28-signup-email-ownership-applied.md)까지 완료했다. 아래는 당시 준비한 절차의 기록이다. 현재 상태는 적용 기록을 기준으로 한다.
 
 ## 실행 전 확인
 
@@ -20,7 +20,7 @@ select
 
 ## 적용 순서
 
-1. [가입 소유 확인 SQL 원문](sql/signup-email-ownership-draft.sql)을 **전체 복사**해 새 쿼리에서 한 번 실행한다. 테이블·인덱스, 1회 링크/가입 증명 함수, 서비스 역할 권한을 만든다. 오류가 나오면 다음 단계로 넘어가지 않고 오류 메시지와 실행 여부를 기록한다. 이 파일의 `draft` 이름은 아직 운영에 적용되지 않았다는 상태를 나타낸다.
+1. [가입 소유 확인 SQL 원문](sql/signup-email-ownership-draft.sql)을 **전체 복사**해 새 쿼리에서 한 번 실행한다. 테이블·인덱스, 1회 링크/가입 증명 함수, 서비스 역할 권한을 만든다. 오류가 나오면 다음 단계로 넘어가지 않고 오류 메시지와 실행 여부를 기록한다. `draft`는 당시 준비 파일명이며, 적용된 SQL 문장은 [마이그레이션 이력](2026-09-28-signup-email-ownership-applied.md)에 남겼다.
 2. 첫 쿼리가 성공한 경우에만 [15분 간격 정리 작업 SQL 원문](sql/signup-email-ownership-retention-job-draft.sql)을 별도 새 쿼리에서 한 번 실행한다. 24시간이 지난 해시 기록을 지우는 작업이다. 이미 같은 이름의 작업이 있으면 다시 실행하지 않는다.
 3. 아래 확인 쿼리를 실행한다. 함수 네 개의 `anon_execute`와 `authenticated_execute`는 모두 `false`, `service_execute`는 모두 `true`여야 한다. 테이블은 RLS가 켜져 있고 익명·로그인 계정의 직접 조회 권한이 없어야 한다. 정리 작업은 `active=true`, 주기 `*/15 * * * *`인 행이 하나여야 한다. 예상과 다르면 기능 플래그를 켜지 않는다.
 
@@ -49,4 +49,4 @@ from cron.job
 where jobname = 'thinkerbell-signup-email-check-purge';
 ```
 
-테이블·함수가 있어도 기능은 바로 켜지 않는다. [가입 설계·검증 상태](2026-09-28-duplicate-signup-decision.md)의 Redirect URL·한국어 비밀번호 재설정 메일·Vercel Preview 변수와 실제 두 메일함 시험을 먼저 끝내야 한다. 적용 시각, SQL Editor 결과, 확인 쿼리의 권한/작업 결과를 팀 기록에 남긴다. 토큰·이메일 주소·비밀키는 기록하지 않는다. SQL Editor 직접 실행은 저장소의 Supabase 마이그레이션 파일 적용과 별개의 실행 경로이므로, 적용 완료 후 팀의 DB 변경 이력에도 실제 결과를 따로 반영한다.
+테이블·함수가 있어도 기능은 바로 켜지 않는다. [가입 설계·검증 상태](2026-09-28-duplicate-signup-decision.md)의 Redirect URL·한국어 비밀번호 재설정 메일·Vercel Preview 변수와 실제 두 메일함 시험을 먼저 끝내야 한다. 토큰·이메일 주소·비밀키는 기록하지 않는다. 실제 적용은 SQL Editor가 아닌 쓰기 MCP로 수행됐고, 버전과 결과는 [적용 기록](2026-09-28-signup-email-ownership-applied.md)에 남겼다.

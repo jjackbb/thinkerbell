@@ -17,13 +17,13 @@
 
 로컬 `.env`에는 무작위 32바이트 `EMAIL_CHECK_SECRET`을 생성했고 파일 권한을 소유자만 읽도록 바꿨다. Resend API에서 인증 완료된 `auth.jjackbb.com` 도메인을 확인하고, `thinkerbell-email-check`라는 별도 `sending_access` 키를 이 도메인 ID 범위로 생성해 로컬 `.env`에 저장했다. 이 키로 도메인 관리 API를 읽으면 `restricted_api_key`가 반환돼 발송 외 관리 권한이 없음을 확인했다. 키 값은 출력·문서화·Git 추가하지 않았다. Vercel Preview·Production 비밀값은 아직 설정되지 않았다. 최종 로컬 TypeScript 검사·빌드는 통과했다. 모의 HTTP 2건은 상태 비노출·1회 링크·확인 후 관리자 계정 생성 1회만 호출을 통과했고, 격리 PostgreSQL은 1회 가입 증명·시간/전체 발송 상한·역할 제한을 통과했다. 이 검사는 실제 Supabase Auth 관리자 API·Resend 발송·복귀 링크가 동작한다는 증거가 아니다.
 
-운영 DB에는 테이블과 함수가 없음을 읽기 전용으로 재확인했다. 처음에는 쓰기 MCP의 OAuth 승인 페이지 열기가 광범위한 권한 때문에 자동 승인 검토에서 거절됐다. 사용자가 다시 인증을 요청한 뒤 MCP 로그인과 읽기 조회가 성공했다. 사용자는 운영 SQL을 **본인이 Supabase SQL Editor에서 직접 실행**하는 경로를 선택했다. [실행 순서·확인 쿼리](2026-09-28-signup-email-sql-editor.md)를 준비했으나, SQL은 아직 운영에 적용하지 않았다.
+운영 DB에는 처음 테이블과 함수가 없음을 읽기 조회로 확인했다. 쓰기 MCP OAuth 승인 페이지 열기는 최초 자동 승인 검토에서 거절됐지만, 사용자가 다시 인증을 요청한 뒤 MCP 로그인과 읽기 조회가 성공했다. 사용자는 SQL Editor 직접 실행 경로를 선택해 [안내](2026-09-28-signup-email-sql-editor.md)를 준비했다. 이후 사용자 요청에 따라 AI가 니편내편 쓰기 MCP로 [두 마이그레이션을 적용하고 구조·권한·정리 작업을 조회](2026-09-28-signup-email-ownership-applied.md)했다. 실제 메일·가입 화면은 아직 미검증이다.
 
 새 가입 경로에서 관리자 API의 확인 완료는 **Resend 링크 사용으로 메일함 소유를 증명했다는 전제**에 의존한다. 링크를 잃거나 가입 생성 결과가 불확실하면 같은 증명으로 재시도하지 않고 로그인 또는 새 소유 확인부터 진행한다. 기존에 생성된 미확인 계정은 삭제·자동 확인하지 않고 원래 가입 확인 메일 재요청으로 처리한다. 직접 Supabase `signUp()`을 서버 권한 없이 막는 보안 장치는 아직 없으므로 `Confirm Email`은 계속 켜 둔다. 운영 SQL·실제 발송·브라우저·배포 검증 전까지 새 경로는 켜지 않는다.
 
 ## 활성화 전 설정 순서
 
 1. 니편내편 Supabase의 **Authentication → URL Configuration → Redirect URLs**에 `https://thinkerbell-eight.vercel.app/?auth=recovery`를 허용한다. Preview에서 시험할 정확한 URL도 별도로 허용한다. **Authentication → Email Templates → Reset Password**에는 제목 `니편내편 비밀번호 재설정`과 [한국어 본문 초안](../email-templates/reset-password.ko.html)을 검토해 저장한다. 현재 저장·발송 여부는 확인되지 않았다.
-2. [SQL Editor 실행 안내](2026-09-28-signup-email-sql-editor.md)에 따라 사용자가 [가입 소유 확인 SQL](sql/signup-email-ownership-draft.sql)과 [15분 정리 작업](sql/signup-email-ownership-retention-job-draft.sql)을 순서대로 직접 적용하고 함수 권한·작업 등록을 확인한다. 아직 미적용이다.
+2. [가입 소유 확인 DB 적용 기록](2026-09-28-signup-email-ownership-applied.md)에 따라 테이블·함수·권한과 15분 정리 작업 등록까지 완료했다. 첫 정리 작업의 실제 실행 결과는 아직 확인되지 않았다.
 3. Vercel `thinkerbell`의 **Preview** 서버 변수에 `EMAIL_CHECK_SECRET`, `RESEND_EMAIL_CHECK_API_KEY`, `APP_URL`을 설정한다. `APP_URL`은 시험할 Preview 원점 주소와 끝의 `/`까지 일치해야 한다. 키 값은 로컬 `.env`에서 관리 화면으로 직접 옮기고 채팅·문서에 보내지 않는다. SQL 준비 전에는 두 기능 플래그를 계속 꺼 둔다.
 4. Preview에서 `EMAIL_CHECK_ENABLED=true`와 빌드 변수 `VITE_EMAIL_CHECK_ENABLED=true`로 새 배포를 만든 뒤, 두 실제 메일함으로 가입 가능·기존 계정·미확인 계정·중복 요청·재설정·만료·복귀를 확인한다. 정상 메일 한 통·DB 생성·로그인까지 확인하기 전에는 **Production** 변수를 켜지 않는다. 운영 SQL이 적용됐어도 화면 플래그가 꺼져 있으면 기존 가입 경로가 유지된다.
