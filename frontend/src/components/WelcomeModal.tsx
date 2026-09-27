@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -7,10 +7,14 @@ interface WelcomeModalProps {
   onComplete: (nickname: string, provider: 'kakao' | 'apple' | 'google') => void;
   onGuestBrowse: () => void;
   signupLinkExpired?: boolean;
+  emailCheckToken?: string | null;
 }
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, signupLinkExpired = false }) => {
-  const [isLoginMode, setIsLoginMode] = useState(true);
+type EmailCheckPhase = 'entry' | 'sent' | 'verifying' | 'registered' | 'pending' | 'available' | 'failed';
+const emailCheckEnabled = import.meta.env.VITE_EMAIL_CHECK_ENABLED === 'true';
+
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, signupLinkExpired = false, emailCheckToken = null }) => {
+  const [isLoginMode, setIsLoginMode] = useState(!(emailCheckEnabled && emailCheckToken));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -20,6 +24,59 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
   const [resendMessage, setResendMessage] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [showExpiredLink, setShowExpiredLink] = useState(signupLinkExpired);
+  const [emailCheckPhase, setEmailCheckPhase] = useState<EmailCheckPhase>(emailCheckToken ? 'verifying' : 'entry');
+  const [emailCheckError, setEmailCheckError] = useState('');
+  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
+  const verificationStarted = useRef(false);
+
+  useEffect(() => {
+    if (!emailCheckEnabled || !emailCheckToken || verificationStarted.current) return;
+    verificationStarted.current = true;
+    void (async () => {
+      try {
+        const response = await fetch('/api/auth/email-check/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: emailCheckToken }),
+        });
+        if (response.status === 410) throw new Error('EMAIL_CHECK_LINK_UNAVAILABLE');
+        if (!response.ok) throw new Error('EMAIL_CHECK_UNAVAILABLE');
+        const result = await response.json().catch(() => ({}));
+        if (!['registered', 'pending', 'available'].includes(result.status) ||
+            typeof result.email !== 'string') throw new Error('EMAIL_CHECK_UNAVAILABLE');
+        setEmail(result.email);
+        setEmailCheckPhase(result.status);
+        setIsLoginMode(result.status === 'registered');
+      } catch (error) {
+        setEmailCheckPhase('failed');
+        setEmailCheckError(error instanceof Error && error.message === 'EMAIL_CHECK_LINK_UNAVAILABLE'
+          ? '확인 링크가 만료됐거나 이미 사용됐습니다. 이메일을 다시 확인해 주세요.'
+          : '지금은 링크를 확인할 수 없습니다. 잠시 뒤 메일의 링크를 다시 열어 주세요.');
+      }
+    })();
+  }, [emailCheckToken]);
+
+  const handleEmailCheck = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setEmailCheckLoading(true);
+    setEmailCheckError('');
+    try {
+      const response = await fetch('/api/auth/email-check/request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!response.ok) {
+        setEmailCheckError(response.status === 429
+          ? '요청이 많아 잠시 뒤 다시 시도할 수 있습니다.'
+          : '확인 메일을 요청하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+        return;
+      }
+      setEmailCheckPhase('sent');
+    } catch {
+      setEmailCheckError('확인 메일을 요청하지 못했습니다. 연결을 확인해 주세요.');
+    } finally {
+      setEmailCheckLoading(false);
+    }
+  };
 
   const getKoreanErrorMessage = (error: any) => {
     const msg = error?.message || '';
@@ -60,6 +117,9 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         });
         if (error) throw error;
       } else {
+        if (emailCheckEnabled && emailCheckPhase !== 'available') {
+          throw new Error('이메일 소유 확인을 먼저 완료해 주세요.');
+        }
         if (!nickname.trim()) {
           throw new Error('닉네임을 입력해주세요.');
         }
@@ -79,7 +139,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         }
       }
     } catch (error: any) {
-      if (error.message === '닉네임을 입력해주세요.') {
+      if (error.message === '닉네임을 입력해주세요.' ||
+          error.message === '이메일 소유 확인을 먼저 완료해 주세요.') {
         setErrorMsg(error.message);
       } else {
         setErrorMsg(getKoreanErrorMessage(error));
@@ -98,7 +159,9 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
       if (error) throw error;
       setConfirmationEmail(address);
       setShowExpiredLink(false);
-      setResendMessage('요청을 접수했습니다. 새 가입 대상인 주소라면 받은편지함이나 스팸함에 확인 메일이 도착합니다.');
+      setResendMessage(emailCheckEnabled && emailCheckPhase === 'pending'
+        ? '가입 확인 메일 재요청을 접수했습니다. 받은편지함과 스팸함을 확인해 주세요.'
+        : '요청을 접수했습니다. 새 가입 대상인 주소라면 받은편지함이나 스팸함에 확인 메일이 도착합니다.');
     } catch (error) {
       setErrorMsg(getKoreanErrorMessage(error));
     } finally {
@@ -125,6 +188,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               ? '가입 확인 링크를 사용할 수 없습니다.'
               : confirmationEmail
               ? '가입 요청 결과를 확인해 주세요.'
+              : emailCheckEnabled && emailCheckPhase === 'verifying'
+              ? '이메일 소유권을 확인하고 있습니다.'
+              : emailCheckEnabled && emailCheckPhase === 'registered'
+              ? '이미 가입한 이메일입니다. 로그인해 주세요.'
+              : emailCheckEnabled && emailCheckPhase === 'pending'
+              ? '가입 확인이 아직 끝나지 않았습니다.'
+              : emailCheckEnabled && emailCheckPhase === 'available'
+              ? '새 계정으로 가입할 수 있는 이메일입니다.'
               : isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입하고 완전한 익명성으로 활동하세요.'}
           </p>
         </div>
@@ -157,7 +228,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         ) : confirmationEmail ? (
           <div className="space-y-4 text-left" role="status" aria-live="polite">
             <p className="text-sm text-[#1C1C1C]">
-              <strong>{confirmationEmail}</strong>의 가입 요청을 접수했습니다. 새 가입 대상인 주소라면 확인 메일이 도착합니다. 받은편지함과 스팸함에 없다면 이미 가입한 주소일 수 있으니 아래에서 로그인해 주세요.
+              {emailCheckEnabled && emailCheckPhase === 'pending' ? (
+                <><strong>{confirmationEmail}</strong>의 가입 확인 메일 재요청을 접수했습니다. 받은편지함과 스팸함을 확인해 주세요.</>
+              ) : (
+                <><strong>{confirmationEmail}</strong>의 가입 요청을 접수했습니다. 새 가입 대상인 주소라면 확인 메일이 도착합니다. 받은편지함과 스팸함에 없다면 이미 가입한 주소일 수 있으니 아래에서 로그인해 주세요.</>
+              )}
             </p>
             {resendMessage && <p className="text-xs text-[#1C1C1C]">{resendMessage}</p>}
             {errorMsg && <p className="text-xs text-red-600" role="alert">{errorMsg}</p>}
@@ -183,7 +258,45 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               다른 이메일로 가입하기
             </button>
           </div>
+        ) : emailCheckEnabled && emailCheckPhase === 'pending' ? (
+          <div className="space-y-4 text-left" role="status">
+            <p className="text-sm text-[#1C1C1C]">이 이메일은 가입 확인이 아직 끝나지 않았습니다. 받은 가입 확인 메일의 링크를 열거나 확인 메일을 다시 요청해 주세요.</p>
+            {errorMsg && <p role="alert" className="text-xs text-red-600">{errorMsg}</p>}
+            <button type="button" disabled={isResending}
+              onClick={() => void handleResend(email)}
+              className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
+              {isResending ? '요청 중…' : '가입 확인 메일 다시 요청하기'}
+            </button>
+            <button type="button" onClick={() => { setEmail(''); setEmailCheckPhase('entry'); }}
+              className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">다른 이메일 사용하기</button>
+          </div>
+        ) : emailCheckEnabled && !isLoginMode && emailCheckPhase !== 'available' ? (
+          <form onSubmit={handleEmailCheck} className="space-y-4 text-left">
+            {emailCheckPhase === 'verifying' ? (
+              <p className="text-sm text-[#1C1C1C]">확인 링크를 처리하는 중입니다.</p>
+            ) : emailCheckPhase === 'sent' ? (
+              <p className="text-sm text-[#1C1C1C]">입력한 이메일의 받은편지함과 스팸함에서 소유 확인 링크를 열어 주세요. 링크는 10분 동안 사용할 수 있습니다.</p>
+            ) : (
+              <p className="text-sm text-[#1C1C1C]">가입 여부는 해당 이메일을 받을 수 있는 사람에게만 알려드립니다. 확인 링크를 먼저 보내겠습니다.</p>
+            )}
+            {emailCheckPhase !== 'verifying' && <>
+              <label htmlFor="signup-check-email" className="block text-xs font-bold text-[#1C1C1C]">이메일</label>
+              <input id="signup-check-email" type="email" value={email}
+                onChange={(event) => setEmail(event.target.value)} required
+                className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]"
+                placeholder="example@email.com" />
+              {emailCheckError && <p role="alert" className="text-xs text-red-600">{emailCheckError}</p>}
+              <button type="submit" disabled={emailCheckLoading}
+                className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
+                {emailCheckLoading ? '요청 중…' : emailCheckPhase === 'sent' ? '확인 링크 다시 요청하기' : '이메일 소유 확인하기'}
+              </button>
+            </>}
+          </form>
         ) : <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          {emailCheckEnabled && emailCheckPhase === 'registered' && isLoginMode &&
+            <p className="text-sm text-[#1C1C1C]">이 이메일로 등록된 계정이 있습니다. 비밀번호를 입력해 로그인해 주세요.</p>}
+          {emailCheckEnabled && emailCheckPhase === 'available' && !isLoginMode &&
+            <p className="text-sm text-[#1C1C1C]">이메일 소유 확인이 끝났습니다. 가입을 마치면 가입 확인 메일이 한 번 더 도착합니다.</p>}
           
           <div>
             <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">이메일</label>
@@ -191,6 +304,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              readOnly={emailCheckEnabled && emailCheckPhase === 'available' && !isLoginMode}
               className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl font-bold text-[#1C1C1C] focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
               placeholder="example@email.com"
               required
@@ -260,6 +374,10 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           <button 
             type="button" 
             onClick={() => {
+              if (emailCheckEnabled && isLoginMode && emailCheckPhase === 'registered') {
+                setEmail('');
+                setEmailCheckPhase('entry');
+              }
               setIsLoginMode(confirmationEmail || showExpiredLink ? true : !isLoginMode);
               setConfirmationEmail(null);
               setShowExpiredLink(false);

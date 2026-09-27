@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { buildEmpathyPrompt, buildSimulationPrompt, changeEmpathyRatio, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts";
 import { consumePotensStream } from "./potensStream";
+import { registerEmailOwnershipRoutes } from "./emailOwnership";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
+registerEmailOwnershipRoutes(app, storyWriteClient);
 
 // Random nickname helper
 const ADJECTIVES = [

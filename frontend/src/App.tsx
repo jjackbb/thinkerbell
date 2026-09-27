@@ -37,6 +37,7 @@ const authorPrivateLaunchEnabled = import.meta.env.DEV ||
 
 // Supabase가 만료된 인증 링크를 앱으로 돌려보낼 때 URL 조각에 오류 코드를 담는다.
 const signupLinkExpired = new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
+const emailCheckToken = new URLSearchParams(window.location.hash.slice(1)).get('email_check');
 
 // 사연 기반 AI 시뮬레이션에서 대화 상대를 부르는 호칭
 const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
@@ -96,7 +97,7 @@ const makeDefaultUser = (): UserProfile => ({
 
 export default function App() {
   useEffect(() => {
-    if (signupLinkExpired) {
+    if (signupLinkExpired || emailCheckToken) {
       window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
   }, []);
@@ -117,7 +118,7 @@ export default function App() {
   */
   const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired);
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired || Boolean(emailCheckToken));
   const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
@@ -181,7 +182,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setShowWelcomeModal(false);
+        if (!emailCheckToken) setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
@@ -1921,6 +1922,7 @@ export default function App() {
         onComplete={handleCompleteWelcome}
         onGuestBrowse={handleGuestBrowse}
         signupLinkExpired={signupLinkExpired}
+        emailCheckToken={emailCheckToken}
       />
 
       <CrisisSupportModal
