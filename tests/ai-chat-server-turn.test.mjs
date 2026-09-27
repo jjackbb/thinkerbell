@@ -216,8 +216,16 @@ test('feedback requires a saved normal answer and stores score without conversat
   assert.equal(changed.status, 409);
   assert.equal(changed.body.error, 'AI_FEEDBACK_CONFLICT');
 
-  const skip = await postFeedback('persona-old', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', null);
+  const modeUnknown = await postFeedback('persona-old', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', null);
+  assert.equal(modeUnknown.status, 409);
+  assert.equal(modeUnknown.body.error, 'AI_FEEDBACK_MODE_UNKNOWN');
+  assert.equal(feedback.has('dddddddd-dddd-4ddd-8ddd-dddddddddddd'), false);
+
+  const skipEpisode = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  const saved = await turn('partial', skipEpisode);
+  assert.match(saved.text, /"persisted":true/);
+  const skip = await postFeedback('persona-partial', skipEpisode, null);
   assert.equal(skip.status, 201);
-  assert.equal(feedback.get('dddddddd-dddd-4ddd-8ddd-dddddddddddd').outcome, 'skipped');
-  assert.equal(feedback.get('dddddddd-dddd-4ddd-8ddd-dddddddddddd').mode, 'legacy');
+  assert.equal(feedback.get(skipEpisode).outcome, 'skipped');
+  assert.equal(feedback.get(skipEpisode).mode, 'simulation');
 });

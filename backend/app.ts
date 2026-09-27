@@ -668,6 +668,9 @@ app.post("/api/ai/feedback", async (req: Request, res: Response) => {
     if (!room || room.userId !== user.id) {
       throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
     }
+    if (!room.opening && !room.ratio) {
+      throw new StoryRequestFailure(409, "AI_FEEDBACK_MODE_UNKNOWN");
+    }
     const hasSavedAnswer = Array.isArray(room.chatHistory) && room.chatHistory.some(
       (entry: unknown) => entry && typeof entry === "object" &&
         (entry as Record<string, unknown>).sender === "ai" &&
@@ -676,9 +679,7 @@ app.post("/api/ai/feedback", async (req: Request, res: Response) => {
         Boolean(((entry as Record<string, unknown>).text as string).trim()),
     );
     if (!hasSavedAnswer) throw new StoryRequestFailure(409, "AI_FEEDBACK_NOT_READY");
-    // Two operating legacy rooms have neither choice field. Keep them usable
-    // without guessing their original mode or reading their conversation.
-    const mode = room.opening ? "simulation" : room.ratio ? "explanation" : "legacy";
+    const mode = room.opening ? "simulation" : "explanation";
 
     const row = {
       episode_id: episodeId.toLowerCase(), user_id: user.id,

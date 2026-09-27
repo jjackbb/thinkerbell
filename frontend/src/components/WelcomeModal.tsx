@@ -98,7 +98,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
       if (error) throw error;
       setConfirmationEmail(address);
       setShowExpiredLink(false);
-      setResendMessage('확인 메일을 다시 요청했습니다. 메일함과 스팸함을 확인해 주세요.');
+      setResendMessage('요청을 접수했습니다. 새 가입 대상인 주소라면 받은편지함이나 스팸함에 확인 메일이 도착합니다.');
     } catch (error) {
       setErrorMsg(getKoreanErrorMessage(error));
     } finally {
@@ -124,7 +124,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             {showExpiredLink
               ? '가입 확인 링크를 사용할 수 없습니다.'
               : confirmationEmail
-              ? '메일함에서 가입 확인 링크를 열어주세요.'
+              ? '가입 요청 결과를 확인해 주세요.'
               : isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입하고 완전한 익명성으로 활동하세요.'}
           </p>
         </div>
@@ -138,7 +138,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             }}
             className="space-y-4 text-left"
           >
-            <p className="text-sm text-[#1C1C1C]">링크가 만료됐거나 이미 사용됐을 수 있습니다. 가입할 때 입력한 이메일로 확인 메일을 다시 요청해 주세요.</p>
+            <p className="text-sm text-[#1C1C1C]">링크가 만료됐거나 이미 사용됐을 수 있습니다. 새 가입 대상인 주소에만 확인 메일이 다시 도착할 수 있습니다. 이미 가입했다면 로그인해 주세요.</p>
             <label htmlFor="expired-signup-email" className="block text-xs font-bold text-[#1C1C1C]">가입 이메일</label>
             <input
               id="expired-signup-email"
@@ -157,7 +157,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         ) : confirmationEmail ? (
           <div className="space-y-4 text-left" role="status" aria-live="polite">
             <p className="text-sm text-[#1C1C1C]">
-              <strong>{confirmationEmail}</strong>로 확인 메일을 요청했습니다. 메일이 보이지 않으면 스팸함을 확인하고, 링크가 만료됐다면 다시 요청해 주세요.
+              <strong>{confirmationEmail}</strong>의 가입 요청을 접수했습니다. 새 가입 대상인 주소라면 확인 메일이 도착합니다. 받은편지함과 스팸함에 없다면 이미 가입한 주소일 수 있으니 아래에서 로그인해 주세요.
             </p>
             {resendMessage && <p className="text-xs text-[#1C1C1C]">{resendMessage}</p>}
             {errorMsg && <p className="text-xs text-red-600" role="alert">{errorMsg}</p>}

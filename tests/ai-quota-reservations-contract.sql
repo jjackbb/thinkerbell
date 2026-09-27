@@ -305,6 +305,19 @@ values
    'new-own', 'explanation', null, 'skipped',
    '2026-09-28 12:00:00+09', '2026-10-28 12:00:00+09');
 do $$
+declare rejected boolean := false;
+begin
+  begin
+    insert into public.ai_feedback
+      (episode_id, user_id, persona_id, mode, score, outcome)
+    values ('99991111-9999-4999-8999-999999999999',
+      '33333333-3333-3333-3333-333333333333',
+      'new-own', 'legacy', 5, 'submitted');
+  exception when check_violation then rejected := true;
+  end;
+  if not rejected then raise exception 'mode-unknown feedback was stored'; end if;
+end $$;
+do $$
 declare
   removed integer;
   removed_again integer;
@@ -346,6 +359,100 @@ begin
   if exists (select 1 from public.ai_feedback
       where episode_id='cccc1111-cccc-4111-8111-cccccccccccc') then
     raise exception 'deleted room retained personal feedback';
+  end if;
+end $$;
+
+-- A 31-day calendar boundary is conservative: the first rating has expired,
+-- while five distinct scored users remain provable at month close.
+insert into public.ai_personas(id, "userId")
+select 'month-room-' || n,
+  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid
+from generate_series(1, 6) as n;
+insert into public.ai_feedback
+  (episode_id, user_id, persona_id, mode, score, outcome, created_at, expires_at)
+select ('44444444-4444-4444-8444-' || lpad(n::text, 12, '0'))::uuid,
+  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+  'month-room-' || n,
+  case when n % 2 = 0 then 'simulation' else 'explanation' end,
+  case when n <= 4 then 5 else 3 end,
+  'submitted',
+  '2026-09-01 00:00:00+09'::timestamptz + (n - 1) * interval '5 days',
+  '2026-09-01 00:00:00+09'::timestamptz + (n - 1) * interval '5 days'
+    + interval '29 days'
+from generate_series(1, 6) as n;
+do $$
+begin
+  if public.purge_ai_feedback('2026-10-01 03:00:00+09') <> 1
+      or (select rated_count from public.ai_feedback_monthly_totals
+          where month_start='2026-09-01') <> 6
+      or (select positive_count from public.ai_feedback_monthly_totals
+          where month_start='2026-09-01') <> 4
+      or exists (select 1 from public.ai_feedback_month_pending
+          where month_start='2026-09-01') then
+    raise exception 'qualified calendar month total failed';
+  end if;
+  if public.purge_ai_feedback('2026-10-30 03:00:00+09') <> 5
+      or (select rated_count from public.ai_feedback_monthly_totals
+          where month_start='2026-09-01') <> 6
+      or exists (select 1 from public.ai_feedback_month_pending
+          where month_start='2026-09-01') then
+    raise exception 'monthly total changed after personal expiry';
+  end if;
+end $$;
+
+insert into public.ai_personas(id, "userId")
+select 'small-month-room-' || n,
+  ('00000000-0000-4000-8001-' || lpad(n::text, 12, '0'))::uuid
+from generate_series(1, 4) as n;
+insert into public.ai_feedback
+  (episode_id, user_id, persona_id, mode, score, outcome, created_at, expires_at)
+select ('55555555-5555-4555-8555-' || lpad(n::text, 12, '0'))::uuid,
+  ('00000000-0000-4000-8001-' || lpad(n::text, 12, '0'))::uuid,
+  'small-month-room-' || n, 'simulation', 5, 'submitted',
+  '2026-10-01 00:00:00+09'::timestamptz + (n - 1) * interval '1 day',
+  '2026-10-01 00:00:00+09'::timestamptz + (n - 1) * interval '1 day'
+    + interval '29 days'
+from generate_series(1, 4) as n;
+do $$
+begin
+  if public.purge_ai_feedback('2026-11-01 03:00:00+09') <> 3
+      or exists (select 1 from public.ai_feedback_monthly_totals
+          where month_start='2026-10-01')
+      or exists (select 1 from public.ai_feedback_month_pending
+          where month_start='2026-10-01') then
+    raise exception 'small cohort was not discarded at month close';
+  end if;
+  if public.purge_ai_feedback('2026-11-03 03:00:00+09') <> 1
+      or exists (select 1 from public.ai_feedback_monthly_totals
+          where month_start='2026-10-01')
+      or exists (select 1 from public.ai_feedback_month_pending
+          where month_start='2026-10-01')
+      or has_table_privilege('authenticated',
+          'public.ai_feedback_monthly_totals', 'SELECT') then
+    raise exception 'small cohort leaked after personal expiry';
+  end if;
+end $$;
+
+-- Five ratings from one account are not five respondents.
+insert into public.ai_personas(id, "userId")
+values ('repeat-month-room', '00000000-0000-4000-8002-000000000001');
+insert into public.ai_feedback
+  (episode_id, user_id, persona_id, mode, score, outcome, created_at, expires_at)
+select ('66666666-6666-4666-8666-' || lpad(n::text, 12, '0'))::uuid,
+  '00000000-0000-4000-8002-000000000001'::uuid,
+  'repeat-month-room', 'explanation', 5, 'submitted',
+  '2026-11-01 00:00:00+09'::timestamptz + (n - 1) * interval '1 day',
+  '2026-11-01 00:00:00+09'::timestamptz + (n - 1) * interval '1 day'
+    + interval '29 days'
+from generate_series(1, 5) as n;
+do $$
+begin
+  perform public.purge_ai_feedback('2026-12-01 03:00:00+09');
+  if exists (select 1 from public.ai_feedback_monthly_totals
+      where month_start='2026-11-01')
+      or exists (select 1 from public.ai_feedback_month_pending
+      where month_start='2026-11-01') then
+    raise exception 'repeated ratings from one user qualified a month';
   end if;
 end $$;
 

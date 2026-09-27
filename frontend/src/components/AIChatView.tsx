@@ -424,19 +424,27 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const latestCompletedAnswer = [...messages].reverse().find(
     m => m.sender === 'ai' && Boolean(m.requestId) && Boolean(m.text.trim()),
   );
+  // Two historical rooms have neither mode field. They can still be finished
+  // and kept, but a rating must not be attributed to an invented AI mode.
+  const feedbackModeKnown = Boolean(selectedPersona?.opening || selectedPersona?.ratio);
   const canFinish = !isGuest && !isLoading && !isSaving && !failedText && !saveFailed &&
     Boolean(latestCompletedAnswer);
 
   const beginFinish = () => {
     if (!canFinish) return;
     track('ai_chat_finish', { mode: activeSession?.chatMode });
+    if (!feedbackModeKnown) {
+      finishAndKeep();
+      return;
+    }
     track('ai_feedback_view', { mode: activeSession?.chatMode });
     setFeedbackError(false);
     setShowFeedback(true);
   };
 
   const finishWithFeedback = async (score: 1 | 2 | 3 | 4 | 5 | null) => {
-    if (!selectedPersona || !latestCompletedAnswer?.requestId || feedbackSaving) return;
+    if (!selectedPersona || !feedbackModeKnown ||
+        !latestCompletedAnswer?.requestId || feedbackSaving) return;
     setFeedbackSaving(true);
     setFeedbackError(false);
     try {
