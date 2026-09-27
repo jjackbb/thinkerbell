@@ -4,19 +4,12 @@ import { X, Sparkles } from 'lucide-react';
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDemoClick?: () => void;
   /** 하루에 주어지는 무료 체험 횟수 */
   dailyQuota?: number;
 }
 
-/**
- * 무료 횟수를 다 썼을 때 뜨는 안내.
- *
- * 색은 서비스 토큰(잉크 #1C1C1C · 코랄 #FF6B5A · 경계 #E5E7EB)을 그대로 쓴다.
- * 예전에는 이 모달만 크림/골드였는데, 결제를 권하는 화면이 다른 서비스처럼
- * 보이면 그 순간 신뢰가 깎인다. 파는 화면일수록 나머지와 같아 보여야 한다.
- */
-export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onDemoClick, dailyQuota = 3 }) => {
+/** 무료 횟수를 다 썼을 때 뜨는 안내. 구독 기능은 아직 준비 중이다. */
+export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, dailyQuota = 3 }) => {
   if (!isOpen) return null;
 
   return (
@@ -58,25 +51,12 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
           </div>
 
           <div className="space-y-2">
+            <p className="text-center text-xs text-[#5f5e5e]">구독 기능은 준비 중입니다.</p>
             <button
               onClick={onClose}
               className="w-full px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
             >
-              구독 알아보기
-            </button>
-            {onDemoClick && (
-              <button
-                onClick={onDemoClick}
-                className="w-full px-5 py-3 bg-white border border-[#E5E7EB] text-[#1C1C1C] font-bold text-xs rounded-lg hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-colors cursor-pointer"
-              >
-                지금 한 번 둘러보기
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="w-full px-5 py-3 bg-transparent text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer"
-            >
-              나중에 하기
+              확인
             </button>
           </div>
         </div>

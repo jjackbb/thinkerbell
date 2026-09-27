@@ -1060,20 +1060,20 @@ export default function App() {
     });
   }, [queuePersonaSave]);
 
-  const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
+  const handleStartAIChatWithStory = async (story: Story) => {
     /*
       AI로 가는 길목의 첫 걸음. 무료 횟수 판정보다 먼저 센다 —
       '눌렀는데 막혔다'도 눌렀다는 사실이다.
       이 뒤로 모드 선택·시작점 선택이 남아 있고, 그 사이 낙폭이 H2의 답이다.
     */
-    if (!bypassPremium) track('ai_entry_click', { storyId: story.id, category: story.category });
+    track('ai_entry_click', { storyId: story.id, category: story.category });
 
     /*
       둘러보는 사람은 무료 횟수를 세지 않는다. 어차피 AI가 먼저 거는
       첫 마디까지만 보고 답장은 못 하므로 쓴 것이 없다. 여기서 세면
       답장도 못 하는 사람에게 결제 안내(프리미엄 모달)가 뜬다.
     */
-    if (story.authorId === user.id || bypassPremium || isGuest) {
+    if (story.authorId === user.id || isGuest) {
       setAiChatModeStory(story);
       setSelectedStory(null);
       return;
@@ -1880,12 +1880,6 @@ export default function App() {
         isOpen={!!premiumModalStory}
         dailyQuota={DAILY_AI_QUOTA}
         onClose={() => setPremiumModalStory(null)}
-        onDemoClick={() => {
-          if (premiumModalStory) {
-            handleStartAIChatWithStory(premiumModalStory, true);
-            setPremiumModalStory(null);
-          }
-        }}
       />
 
       {/* AI Chat Mode Selection Modal */}
