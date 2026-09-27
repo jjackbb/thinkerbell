@@ -24,6 +24,12 @@
 
 격리된 Supabase PostgreSQL 이미지에서 [SQL 계약 시험](../../tests/vote-story-contract.sql)을 실행해 최초 선택, 동일 선택 재시도, 한 번 변경, 두 번째 변경 거부, 본인·비공개 사연 거부, 익명 거부를 확인했다. 지연 트리거를 둔 **동일 계정의 동시 최초 요청 2건**은 둘 다 결과 `votesA=1`을 받았고, 최종 투표 행 1개·집계 1·변경 횟수 0을 확인했다. 임시 컨테이너는 삭제했다. 이는 로컬 PostgreSQL의 축소 스키마 시험이며, 니편내편 운영 RLS·REST·실제 계정·브라우저 시험은 아니다. SQL은 운영 DB에 **미적용**이다.
 
+후속 로컬 시험에서는 같은 축소 스키마에 RLS를 켜고 서로 다른 JWT 계정 두 개와 `authenticated`·`anon` 역할을 전환해 동일 계약과 계정별 투표 조회 분리를 다시 실행해 PASS를 확인했다. 운영 적용 전에는 사용자가 선택한 대로 격리 환경 시험을 마친 뒤 운영 전용 두 계정의 직접 REST·브라우저 최종 확인을 진행한다. 현재는 **로컬 역할 모의 PASS / 운영 역할·운영 REST NOT_RUN**이다.
+
+추가로 Supabase PostgreSQL 17.6 이미지와 PostgREST 16.3을 임시 Docker 네트워크에서 연결하고, [HTTP 계약 시험](../../tests/vote-story-rest.test.mjs)을 서명된 가상 JWT 두 개로 실행했다. 익명 RPC 거부, 작성자 투표 거부, 첫 투표·동일 선택 재시도·1회 변경·추가 변경 거부, 다른 계정의 독립 투표와 본인 표만 조회, `votes` 직접 INSERT 거부, 비공개 사연 투표 거부가 **1/1 PASS**였다. 첫 실행에서 로컬 PostgREST가 Supabase 이미지의 `auth.uid()`가 읽는 옛 JWT 설정을 전달하지 않아 로그인 오류가 났다. 임시 DB의 시험 전용 `db-pre-request` 함수로 `request.jwt.claims.sub`를 `request.jwt.claim.sub`에 옮긴 뒤 통과했다. 시험용 컨테이너·네트워크는 삭제했다. 이는 축소 로컬 환경의 HTTP 시험이며 **운영 Supabase REST·실제 계정·브라우저는 NOT_RUN**이다. SQL도 운영 DB에 미적용이다.
+
+Docker가 설치된 환경에서는 저장소 루트에서 `bash tests/run-vote-rest-local.sh`로 같은 SQL·HTTP 계약을 다시 실행할 수 있다. 스크립트는 임시 컨테이너·네트워크를 만들고 종료 시 정리하며, 로컬 주소만 허용한다. 사용자 계정·운영 DB 주소나 비밀키를 사용하지 않는다.
+
 ## 운영 반영 전 경계
 
 사연·댓글의 직접 쓰기 정책은 운영 DB에 남아 있어 브라우저가 서버의 포텐스 검사를 우회할 수 있다. 서버 인증 저장과 실제 계정 시험이 끝나기 전 [사연 정책 초안](sql/story-write-boundary.sql)·[댓글 정책 초안](sql/comment-write-boundary.sql)을 적용하지 않는다. 작성자 비공개와 AI 하루 3회 서버 제한도 완료되지 않았다. 이 코드는 검토·시험용 브랜치에 보존하고, 공개 `main` 배포와 구분한다.

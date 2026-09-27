@@ -26,15 +26,27 @@ create table public.votes (
   primary key ("storyId", "userId")
 );
 
+alter table public.stories enable row level security;
+create policy stories_select_public on public.stories for select to anon, authenticated
+  using (visibility = 'public');
+alter table public.votes enable row level security;
+create policy votes_select_own on public.votes for select to authenticated
+  using ("userId" = auth.uid());
+grant usage on schema public to anon, authenticated;
+grant select on public.stories to anon, authenticated;
+grant select on public.votes to authenticated;
+
 \ir ../docs/plan-execution/sql/vote-story-idempotent.sql
 
 insert into public.stories (id, "authorId") values
   ('public-story', '11111111-1111-1111-1111-111111111111'),
+  ('http-story', '11111111-1111-1111-1111-111111111111'),
   ('own-story', '22222222-2222-2222-2222-222222222222'),
   ('private-story', '11111111-1111-1111-1111-111111111111');
 update public.stories set visibility = 'private' where id = 'private-story';
 
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
+set role authenticated;
 
 do $$
 declare
@@ -86,22 +98,43 @@ begin
   end;
   if not rejected then raise exception 'private-story vote was accepted'; end if;
 
+end $$;
+reset role;
+
+do $$ begin
   if has_function_privilege('anon', 'public.vote_story(text,text)', 'EXECUTE') then
     raise exception 'anon still has execute privilege';
   end if;
 end $$;
 
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
+set role authenticated;
+do $$
+declare result public.stories;
+begin
+  result := public.vote_story('public-story', 'A');
+  if result."votesA" <> 1 or result."votesB" <> 1 then
+    raise exception 'second account vote count mismatch';
+  end if;
+  if (select count(*) from public.votes where "storyId" = 'public-story') <> 1 then
+    raise exception 'second account can read another account vote';
+  end if;
+end $$;
+reset role;
+
 select set_config('request.jwt.claim.sub', '', false);
+set role anon;
 do $$
 declare rejected boolean := false;
 begin
   begin
     perform public.vote_story('public-story', 'A');
   exception when others then
-    if sqlerrm = '로그인이 필요합니다.' then rejected := true;
+    if sqlstate = '42501' then rejected := true;
     else raise; end if;
   end;
   if not rejected then raise exception 'anonymous vote was accepted'; end if;
 end $$;
+reset role;
 
 select 'PASS: vote_story contract' as result;

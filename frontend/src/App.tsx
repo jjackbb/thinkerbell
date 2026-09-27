@@ -428,6 +428,7 @@ export default function App() {
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
+  const [myStoriesNavigationKey, setMyStoriesNavigationKey] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [undoHiddenStoryId, setUndoHiddenStoryId] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
@@ -1675,6 +1676,7 @@ export default function App() {
             }}
             user={user}
             myStories={myStories}
+            storiesNavigationKey={myStoriesNavigationKey}
             hiddenStories={hiddenStories}
             hiddenStoriesReady={hiddenStoriesReady}
             hiddenStoriesLoadError={hiddenStoriesLoadError}
@@ -1880,6 +1882,17 @@ export default function App() {
         isOpen={!!premiumModalStory}
         dailyQuota={DAILY_AI_QUOTA}
         onClose={() => setPremiumModalStory(null)}
+        hasExistingChats={personas.length > 0}
+        onOpenMyStories={() => {
+          setPremiumModalStory(null);
+          setMyStoriesNavigationKey(value => value + 1);
+          setActiveTab('mypage');
+        }}
+        onOpenExistingChats={() => {
+          setPremiumModalStory(null);
+          setActiveChatSession(null);
+          setActiveTab('ai-chat');
+        }}
       />
 
       {/* AI Chat Mode Selection Modal */}

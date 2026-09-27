@@ -4,12 +4,17 @@ import { X, Sparkles } from 'lucide-react';
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenMyStories: () => void;
+  onOpenExistingChats: () => void;
+  hasExistingChats: boolean;
   /** 하루에 주어지는 무료 체험 횟수 */
   dailyQuota?: number;
 }
 
 /** 무료 횟수를 다 썼을 때 뜨는 안내. 구독 기능은 아직 준비 중이다. */
-export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, dailyQuota = 3 }) => {
+export const PremiumModal: React.FC<PremiumModalProps> = ({
+  isOpen, onClose, onOpenMyStories, onOpenExistingChats, hasExistingChats, dailyQuota = 3,
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -53,11 +58,20 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, dai
           <div className="space-y-2">
             <p className="text-center text-xs text-[#5f5e5e]">구독 기능은 준비 중입니다.</p>
             <button
-              onClick={onClose}
+              onClick={onOpenMyStories}
               className="w-full px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
             >
-              확인
+              내 사연 보기
             </button>
+            {hasExistingChats && (
+              <button
+                onClick={onOpenExistingChats}
+                className="w-full px-5 py-3 bg-white border border-[#E5E7EB] text-[#1C1C1C] font-bold text-xs rounded-lg hover:border-[#FF6B5A] transition-colors cursor-pointer"
+              >
+                기존 대화 이어가기
+              </button>
+            )}
+            <button onClick={onClose} className="w-full px-5 py-2 text-[#5f5e5e] font-bold text-xs cursor-pointer">닫기</button>
           </div>
         </div>
       </div>

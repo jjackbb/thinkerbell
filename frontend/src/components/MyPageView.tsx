@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Story, Comment } from '../types';
 import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -18,6 +18,8 @@ interface MyPageViewProps {
   onUpdateNickname: (nickname: string) => Promise<boolean>;
   onGenerateRandomNickname: () => Promise<string | null>;
   onSelectStory: (story: Story) => void;
+  /** 한도 안내에서 '내 사연 보기'를 눌렀을 때 작성한 사연 탭으로 이동한다. */
+  storiesNavigationKey?: number;
   /** 지금 남아 있는 AI 대화방 수 */
   aiChatCount?: number;
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
@@ -51,6 +53,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   onUpdateNickname,
   onGenerateRandomNickname,
   onSelectStory,
+  storiesNavigationKey,
   aiChatCount = 0,
   onDeleteAllAiChats,
   isGuest = false,
@@ -62,6 +65,18 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
   const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support' | 'inquiryAdmin'>('summary');
   const [currentPage, setCurrentPage] = useState(1);
+  const storiesSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!storiesNavigationKey) return;
+    setActiveTab('stories');
+    setViewMode('summary');
+    setCurrentPage(1);
+    const frame = window.requestAnimationFrame(() => {
+      storiesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [storiesNavigationKey]);
   
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user.nickname);
@@ -853,7 +868,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       </section>
 
       {/* Activity Tabs */}
-      <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4 relative">
+      <section ref={storiesSectionRef} className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4 relative scroll-mt-20">
         <div className="flex border-b border-[#E5E7EB] pb-3 gap-3 font-mono text-xs">
           <button
             onClick={() => handleTabChange('stories')}
