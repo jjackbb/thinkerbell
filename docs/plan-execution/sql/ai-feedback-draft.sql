@@ -1,4 +1,6 @@
--- REVIEW DRAFT ONLY. No conversation text, story text, email, or nickname.
+-- REVIEW DRAFT ONLY. Do not apply: the daily small-cell aggregate below is
+-- provisional until the user decides the minimum cohort/period. No conversation
+-- text, story text, email, or nickname is stored in either table.
 -- A rating is optional. One finish action has one outcome, even on retry.
 create table if not exists public.ai_feedback (
   episode_id uuid primary key,
@@ -18,7 +20,8 @@ create table if not exists public.ai_feedback (
 create index if not exists ai_feedback_expiry_idx on public.ai_feedback(expires_at);
 create index if not exists ai_feedback_user_idx on public.ai_feedback(user_id);
 
--- These totals carry no account, room, episode, story, or raw text identifier.
+-- These totals carry no direct identifier. A one-person day/mode/score cell may
+-- still allow inference; it is not yet an approved anonymous aggregation rule.
 create table if not exists public.ai_feedback_daily_totals (
   feedback_day date not null,
   mode text not null check (mode in ('simulation', 'explanation', 'legacy')),

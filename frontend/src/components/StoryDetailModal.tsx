@@ -33,6 +33,7 @@ interface StoryDetailModalProps {
   onReportComment: (commentId: string) => void;
   onEditStory?: (storyId: string) => void;
   onHideStory?: (storyId: string) => Promise<boolean>;
+  onSetVisibility?: (storyId: string, visibility: 'public' | 'private') => Promise<boolean>;
   onDeleteStory?: (storyId: string) => void;
   onEditComment?: (storyId: string, commentId: string, newContent: string) => Promise<boolean>;
   onDeleteComment?: (storyId: string, commentId: string) => Promise<boolean>;
@@ -55,6 +56,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onReportComment,
   onEditStory,
   onHideStory,
+  onSetVisibility,
   onDeleteStory,
   onEditComment,
   onDeleteComment,
@@ -71,6 +73,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [commentSort, setCommentSort] = useState<'latest' | 'likes'>('latest');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isVisibilitySaving, setIsVisibilitySaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -167,6 +170,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isMyStory = story ? currentUser.id === story.authorId : false;
 
   if (!story) return null;
+  const isPrivate = story.visibility === 'private';
 
   const isSensitive = detectCrisis(story.body) || detectCrisis(story.title);
 
@@ -211,6 +215,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   };
 
   const handleVote = async (option: 'A' | 'B') => {
+    if (isPrivate) return;
     if (voteSubmittingRef.current || votedOption === option) return;
     if (isMyStory) {
       showToast('사연 작성자는 투표할 수 없으며, 여론 확인만 가능합니다.');
@@ -232,6 +237,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isPrivate) return;
     if (!commentText.trim() || isCommentSubmitting || !story) return;
 
     setIsCommentSubmitting(true);
@@ -297,14 +303,29 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                       <Edit2 className="w-3.5 h-3.5" /> 수정
                     </button>
                   )}
+                  {isMyStory && onSetVisibility && (
+                    <button disabled={isVisibilitySaving} onClick={async () => {
+                      const next = isPrivate ? 'public' : 'private';
+                      if (next === 'private' && !window.confirm(
+                        '사연을 비공개로 옮길까요? 다른 이용자는 원문과 댓글을 볼 수 없지만, 이미 만든 다른 사람의 AI 대화에는 사연 내용이 남아 있을 수 있습니다.'
+                      )) return;
+                      setIsVisibilitySaving(true);
+                      try {
+                        if (await onSetVisibility(story.id, next)) setIsMenuOpen(false);
+                        else showToast('공개 상태를 바꾸지 못했습니다. 다시 시도해 주세요.');
+                      } finally { setIsVisibilitySaving(false); }
+                    }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-white flex items-center gap-2 cursor-pointer disabled:opacity-50">
+                      <EyeOff className="w-3.5 h-3.5" /> {isPrivate ? '다시 공개' : '나만 보기'}
+                    </button>
+                  )}
                   {onHideStory && (
                     <button onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                       <EyeOff className="w-3.5 h-3.5" /> 숨기기
                     </button>
                   )}
-                  <button onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                  {!isPrivate && <button onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
                     <ShieldAlert className="w-3.5 h-3.5" /> 신고
-                  </button>
+                  </button>}
                   {isMyStory && onDeleteStory && (
                     <button onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
                       <Trash2 className="w-3.5 h-3.5" /> 삭제
@@ -334,6 +355,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   내 글
                 </span>
               )}
+              {isPrivate && isMyStory && <span className="rounded border border-white/30 px-2 py-0.5 text-xs text-white">나만 보기</span>}
             </div>
             
             <div>
@@ -404,7 +426,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleVote('B')}
-                    disabled={isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+                    disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'B'
@@ -418,7 +440,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   </button>
                   <button
                     onClick={() => handleVote('A')}
-                    disabled={isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+                    disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'A'
@@ -537,7 +559,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         <div className="flex items-center gap-2 ml-2">
                           <button
                             onClick={() => onLikeComment(c.id)}
-                            disabled={likePendingIds.includes(c.id)}
+                            disabled={isPrivate || likePendingIds.includes(c.id)}
                             aria-pressed={Boolean(c.userLiked)}
                             aria-label={`댓글 공감 ${c.userLiked ? '취소' : '하기'} · ${c.likeCount}개`}
                             className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#FF6B5A] disabled:opacity-50 disabled:cursor-wait"
@@ -552,7 +574,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                               </button>
                               {commentMenuOpenId === c.id && (
                                 <div className="absolute right-0 mt-1 w-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10 text-xs overflow-hidden">
-                                  <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>
+                                  {!isPrivate && <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>}
                                   <button
                                     disabled={commentMutationId === c.id}
                                     onClick={async () => {
@@ -569,11 +591,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                                 </div>
                               )}
                             </div>
-                          ) : (
+                          ) : !isPrivate ? (
                             <button onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
                               <ShieldAlert className="w-4 h-4" />
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                       {editingCommentId === c.id ? (
@@ -622,7 +644,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   200자를 다 쓰고 '등록'을 눌러야 비로소 막히는데, 그때는 이미
                   쓴 글을 잃는다. 못 쓰는 건 처음부터 못 쓰게 보여야 한다.
                 */}
-                {isGuest ? (
+                {isPrivate ? (
+                  <p className="mt-4 rounded-lg border border-[#E5E7EB] bg-white p-4 text-xs text-[#5f5e5e]">비공개 사연의 기존 댓글은 보관됩니다. 다시 공개하면 댓글도 다시 보입니다.</p>
+                ) : isGuest ? (
                   <div className="mt-4 bg-[#f9fafb] border border-[#E5E7EB] rounded-lg p-4 text-center">
                     <p className="text-xs text-[#5f5e5e] font-body-sm leading-relaxed">
                       댓글은 <span className="font-bold text-[#1C1C1C]">로그인한 뒤</span>에 남길 수 있어요.
@@ -669,7 +693,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
         {/* 결과를 본 사람에게만 공유를 연다. 투표 전에는 결과 자체가 가려져 있으므로
             공유 버튼이 먼저 나오면 그 가림이 무의미해진다 */}
-        {(!!votedOption || isMyStory) && (
+        {!isPrivate && (!!votedOption || isMyStory) && (
           <ShareResultBar
             input={shareInput}
             url={shareUrl}

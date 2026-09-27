@@ -6,6 +6,7 @@ import { detectSimEnd, stripSimEnd } from '../lib/prompts';
 import { track, trackOnce } from '../lib/events';
 import { supabase } from '../lib/supabase';
 import { submitAiFeedback } from '../lib/aiFeedback';
+import { messagesBeforeRetry } from '../lib/chatRetry';
 
 const FEEDBACK_CHOICES = [
   '전혀 도움 안 됨', '별로 도움 안 됨', '보통', '조금 도움 됨', '매우 도움 됨',
@@ -143,6 +144,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 이미 열려 있는 대화방이면 그 화면으로 돌아가고, 아니면 새로 시작한다.
    */
   const openPersona = (persona: AIPersona) => {
+    if (!isGuest) track('ai_chat_open', {
+      mode: persona.opening ? 'simulation' : persona.ratio ? 'explanation' : 'legacy',
+    });
     if (activeSession && activeSession.personaId === persona.id) {
       setShowChat(true);
     } else {
@@ -167,17 +171,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 같은 길을 쓰도록 분리해 두었다.
    */
   const sendMessage = async (userMsgText: string, retry = false) => {
-    if (!selectedPersona || isLoading || isSaving || saveFailed || (failedText && !retry)) return;
+    if (!selectedPersona || isLoading || isSaving || (saveFailed && !retry) || (failedText && !retry)) return;
 
     // 실패한 전송의 말풍선과 안내를 교체한다. 그대로 덧붙이면 재시도 한 번이
     // 두 번의 사용자 발언처럼 저장되고 다음 AI 요청의 이력에도 중복된다.
-    const retryBase = retry && messages.at(-1)?.sender === 'system' &&
-      messages.at(-2)?.sender === 'ai' && messages.at(-3)?.sender === 'user' &&
-      messages.at(-3)?.text === userMsgText
-      ? messages.slice(0, -3)
-      : retry && messages.at(-1)?.sender === 'system' &&
-        messages.at(-2)?.sender === 'user' && messages.at(-2)?.text === userMsgText
-        ? messages.slice(0, -2) : messages;
+    const retryBase = retry ? messagesBeforeRetry(messages, userMsgText) : messages;
     const requestId = pendingRequestId.current ?? crypto.randomUUID();
     pendingRequestId.current = requestId;
     setFailedText(null);
@@ -301,7 +299,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
       if (completed && stripSimEnd(aiResponseText).trim()) {
         const ended = detectSimEnd(aiResponseText);
-        if (ended) setSimEndResult(ended);
         const finalText = stripSimEnd(aiResponseText);
         const finalMessages: ChatMessage[] = [...updatedMessages, { id: aiMsgId, sender: 'ai', text: finalText, timestamp: aiTimestamp, requestId }];
         setMessages(finalMessages);
@@ -318,6 +315,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           setIsSaving(false);
         }
         setSaveFailed(!saved);
+        if (saved && ended) setSimEndResult(ended);
         track(saved ? 'operation_success' : 'operation_error', {
           operation: 'ai_reply_save',
           ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
@@ -353,18 +351,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     }
   };
 
-  const retrySave = async () => {
-    if (!selectedPersona || !onSaveTurn || isSaving) return;
-    setIsSaving(true);
-    let saved = false;
-    try { saved = await onSaveTurn(selectedPersona.id, messages); }
-    catch { saved = false; }
-    setIsSaving(false);
-    setSaveFailed(!saved);
-    track(saved ? 'operation_success' : 'operation_error', {
-      operation: 'ai_reply_save',
-      ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
-    });
+  const retrySave = () => {
+    if (!saveFailed || isLoading || isSaving) return;
+    const lastInput = [...messages].reverse().find(m => m.sender === 'user')?.text;
+    if (lastInput) void sendMessage(lastInput, true);
   };
 
   /**
@@ -830,8 +820,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           {isSaving && <p className="mb-2 text-xs text-[#5f5e5e]" role="status">대화를 저장하는 중입니다…</p>}
           {saveFailed && (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3" role="alert">
-              <p className="text-xs font-bold text-[#A32E1D]">답변은 받았지만 대화를 저장하지 못했습니다. 이 화면을 닫거나 새로고침하면 내용이 사라질 수 있어요.</p>
-              <button type="button" onClick={retrySave} disabled={isSaving} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">다시 저장</button>
+              <p className="text-xs font-bold text-[#A32E1D]">답변은 받았지만 대화를 저장하지 못했습니다. 입력은 이 화면에 남아 있습니다. 다시 요청하면 새 답변을 받습니다.</p>
+              <button type="button" onClick={retrySave} disabled={isSaving || isLoading} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">새 답변 요청</button>
             </div>
           )}
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">

@@ -18,7 +18,6 @@ import { ReportModal } from './components/ReportModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { LoginPromptModal } from './components/LoginPromptModal';
 import { CrisisSupportModal } from './components/CrisisSupportModal';
-import { AdultVerificationModal } from './components/AdultVerificationModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
@@ -30,8 +29,11 @@ import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRa
 import { track, trackOnce } from './lib/events';
 import { resetPageViewDeduplication, setupGA4, trackPageView } from './lib/ga4';
 import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
+import { submitInquiry } from './lib/inquiries';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
+const authorPrivateLaunchEnabled = import.meta.env.DEV ||
+  import.meta.env.VITE_AUTHOR_PRIVATE_ENABLED === 'true';
 
 // Supabase가 만료된 인증 링크를 앱으로 돌려보낼 때 URL 조각에 오류 코드를 담는다.
 const signupLinkExpired = new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
@@ -408,6 +410,83 @@ export default function App() {
    */
   const [personas, setPersonas] = useState<AIPersona[]>([]);
 
+  // Check the schema itself: a fresh project may have zero visible stories.
+  // Before this migration, the button and invalidation channel stay disabled.
+  const [storyPrivateReady, setStoryPrivateReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.from('stories').select('visibility').limit(0).then(({ error }) => {
+      if (active) setStoryPrivateReady(!error);
+    });
+    return () => { active = false; };
+  }, [authUserId]);
+
+  useEffect(() => {
+    if (!storyPrivateReady) return;
+    let active = true;
+    let generation = 0;
+    const refreshVisibleStories = async () => {
+      const current = ++generation;
+      const [storyResult, commentResult] = await Promise.all([
+        supabase.from('stories').select('*').order('createdAt', { ascending: false }),
+        supabase.from('comments').select('*').order('createdAt', { ascending: true }),
+      ]);
+      if (!active || current !== generation) return;
+      if (!storyResult.error && storyResult.data) {
+        const visible = storyResult.data as Story[];
+        setStories(visible);
+        setSelectedStory(prev => {
+          if (!prev || visible.some(s => s.id === prev.id)) return prev;
+          const url = new URL(window.location.href);
+          url.searchParams.delete('story');
+          window.history.replaceState(null, '', url.toString());
+          return null;
+        });
+      }
+      if (!commentResult.error && commentResult.data) {
+        const next: Record<string, Comment[]> = {};
+        for (const comment of commentResult.data as Comment[]) {
+          (next[comment.storyId] ??= []).push(comment);
+        }
+        setCommentsMap(next);
+      }
+    };
+    const channel = supabase.channel('story-access-invalidations')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'story_access_invalidations',
+      }, async (payload) => {
+        const id = payload.new.story_id;
+        if (typeof id !== 'string') return;
+        const current = ++generation;
+        // Remove previously visible raw content before the fresh RLS read.
+        setStories(prev => prev.filter(s => s.id !== id || s.authorId === authUserId));
+        setCommentsMap(prev => { const next = { ...prev }; delete next[id]; return next; });
+        setSelectedStory(prev => {
+          if (prev?.id !== id || prev.authorId === authUserId) return prev;
+          const url = new URL(window.location.href);
+          url.searchParams.delete('story');
+          window.history.replaceState(null, '', url.toString());
+          return null;
+        });
+        const [storyResult, commentResult] = await Promise.all([
+          supabase.from('stories').select('*').eq('id', id).maybeSingle(),
+          supabase.from('comments').select('*').eq('storyId', id).order('createdAt', { ascending: true }),
+        ]);
+        if (!active || current !== generation) return;
+        if (!storyResult.error && storyResult.data) {
+          const visible = storyResult.data as Story;
+          setStories(prev => prev.some(s => s.id === id)
+            ? prev.map(s => s.id === id ? visible : s) : [visible, ...prev]);
+          setSelectedStory(prev => prev?.id === id ? visible : prev);
+        }
+        if (!commentResult.error && commentResult.data) {
+          setCommentsMap(prev => ({ ...prev, [id]: commentResult.data as Comment[] }));
+        }
+      })
+      .subscribe(status => { if (status === 'SUBSCRIBED') void refreshVisibleStories(); });
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, [storyPrivateReady, authUserId]);
+
   // Filters & Tabs
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
   const [sortBy, setSortBy] = useState<'latest' | 'votes'>('latest');
@@ -434,7 +513,6 @@ export default function App() {
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
-  const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
   const [myStoriesNavigationKey, setMyStoriesNavigationKey] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -565,10 +643,6 @@ export default function App() {
         setShowLandingPage(false);
   };
 
-  const handleVerifyAdult = () => {
-    setUser(prev => ({ ...prev, isAdultVerified: true }));
-  };
-
   const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
     if (!authUserId) return false;
     try {
@@ -631,7 +705,8 @@ export default function App() {
         setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
         setTimeout(() => setToastMessage(null), 3000);
       }
-      trackOnce(`vote_submit:${storyId}`, 'vote_submit', { storyId, option });
+      if (isChange) track('vote_change_success');
+      else trackOnce(`vote_submit:${authUserId}:${storyId}`, 'vote_submit', { storyId, option });
       await loadMyVotes();
       return true;
     } catch {
@@ -669,6 +744,7 @@ export default function App() {
       const result = await response.json();
       const saved = result?.comment as Comment | undefined;
       if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) return false;
+      trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success');
       setCommentsMap(prev => ({
         ...prev,
         [storyId]: (prev[storyId] || []).some(comment => comment.id === commentId)
@@ -805,6 +881,30 @@ export default function App() {
     }
   };
 
+  const handleSetStoryVisibility = async (
+    storyId: string, visibility: 'public' | 'private',
+  ): Promise<boolean> => {
+    const existing = stories.find(s => s.id === storyId);
+    if (!authorPrivateLaunchEnabled || !storyPrivateReady || !authUserId ||
+        existing?.authorId !== authUserId) return false;
+    const { data, error } = await supabase.rpc('set_story_visibility', {
+      p_story_id: storyId, p_visibility: visibility,
+    });
+    if (error || !data || data.id !== storyId || data.authorId !== authUserId ||
+        data.visibility !== visibility) {
+      setToastMessage('공개 상태를 저장하지 못했습니다. 다시 시도해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return false;
+    }
+    const saved = data as Story;
+    setStories(prev => prev.map(s => s.id === storyId ? saved : s));
+    setSelectedStory(prev => prev?.id === storyId ? saved : prev);
+    setToastMessage(visibility === 'private'
+      ? '사연을 비공개로 옮겼습니다.' : '사연을 다시 공개했습니다.');
+    setTimeout(() => setToastMessage(null), 3000);
+    return true;
+  };
+
   const handleHideStory = async (storyId: string): Promise<boolean> => {
     if (!authUserId) {
       setLoginPromptMessage('사연을 나에게만 숨기려면 로그인해 주세요.');
@@ -925,11 +1025,17 @@ export default function App() {
     }
   };
 
-  const handleSubmitAIError = (personaId: string, errorContent: string) => {
-    console.log('Reported AI Error for Persona ID:', personaId, errorContent);
+  const handleSubmitAIError = async (personaId: string, errorContent: string): Promise<boolean> => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user || user.id !== authUserId ||
+        !personas.some(persona => persona.id === personaId)) return false;
+    const saved = await submitInquiry(user.id,
+      `대화방 ID: ${personaId}\n설명: ${errorContent.trim()}`, 'AI 오류');
+    if (!saved) return false;
     setErrorReportPersona(null);
-    setToastMessage('오류 신고가 접수되었습니다. 신속히 확인하겠습니다.');
+    setToastMessage('AI 오류 신고가 접수되었습니다. 내 문의 내역에서 확인할 수 있습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   const handleCreateStory = async (storyData: {
@@ -975,6 +1081,7 @@ export default function App() {
       setToastMessage('사연이 성공적으로 수정되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
     } else {
+      trackOnce(`story_publish_success:${authUserId}:${savedStory.id}`, 'story_publish_success');
       setStories(prev => prev.some(s => s.id === savedStory.id)
         ? prev.map(s => s.id === savedStory.id ? { ...s, ...savedStory } : s)
         : [savedStory, ...prev]);
@@ -1174,6 +1281,7 @@ export default function App() {
         status: 'active',
         chatMode: 'simulation'
       });
+      if (!isGuest) track('ai_chat_open', { mode: 'simulation' });
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
@@ -1184,6 +1292,7 @@ export default function App() {
   };
 
   const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
+    track('ai_settings_confirm', { mode: 'explanation' });
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
     const systemInstruction = buildEmpathyPrompt({
       storyBody: story?.body || '',
@@ -1269,6 +1378,7 @@ export default function App() {
         chatMode: 'explanation',
         explanationRatio: ratio
       });
+      if (!isGuest) track('ai_chat_open', { mode: 'explanation' });
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
@@ -1378,7 +1488,7 @@ export default function App() {
     // 가려진 글도 작성자에게는 보인다. 왜 가려졌는지 모르는 채로 사라지면
     // 이의를 제기할 방법이 없기 때문 — 본문 대신 상태 카드가 뜬다.
     if (s.isBlind && s.authorId !== user.id) return false;
-    if (s.isHidden || hiddenStoryIds.includes(s.id)) return false;
+    if (s.isHidden || s.isAdult || s.visibility === 'private' || hiddenStoryIds.includes(s.id)) return false;
     if (selectedCategory === '전체') return true;
     return s.category === selectedCategory;
   }).sort((a, b) => {
@@ -1422,7 +1532,7 @@ export default function App() {
   const myVotes = myVoteRecords.filter(v => !hiddenStoryIds.includes(v.storyId)).map(v => ({
     storyId: v.storyId,
     option: v.option,
-    title: stories.find(s => s.id === v.storyId)?.title ?? '삭제된 사연',
+    title: stories.find(s => s.id === v.storyId)?.title ?? '볼 수 없는 사연',
   }));
 
   // Current week date calculation (Monday to Sunday)
@@ -1434,11 +1544,11 @@ export default function App() {
   currentMonday.setHours(0, 0, 0, 0);
 
   const weeklyTopStories = [...stories]
-    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !hiddenStoryIds.includes(s.id) && new Date(s.createdAt) >= currentMonday)
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !s.isAdult && s.visibility !== 'private' && !hiddenStoryIds.includes(s.id) && new Date(s.createdAt) >= currentMonday)
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   const realtimeTopStories = [...stories]
-    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !hiddenStoryIds.includes(s.id))
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !s.isAdult && s.visibility !== 'private' && !hiddenStoryIds.includes(s.id))
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   // My Written Stories & Comments
@@ -1465,7 +1575,9 @@ export default function App() {
   };
 
   const openStoryDetail = (story: Story) => {
-    if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id)) return;
+    if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id) ||
+        (story.isAdult && story.authorId !== user.id) ||
+        (story.visibility === 'private' && story.authorId !== user.id)) return;
     /*
       둘러보는 사람도 사연 본문과 댓글은 읽을 수 있다.
 
@@ -1628,8 +1740,7 @@ export default function App() {
                     key={story.id}
                     story={story}
                     currentUser={user}
-                    isUserAdultVerified={user.isAdultVerified}
-                    onRequireAdultVerification={() => setIsAdultVerificationOpen(true)}
+                    isUserAdultVerified={false}
                     onSelect={openStoryDetail}
                     onVote={handleVote}
                     onStartAIChatWithStory={handleStartAIChatWithStory}
@@ -1888,6 +1999,8 @@ export default function App() {
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}
         onHideStory={selectedStory?.authorId === user.id ? undefined : handleHideStory}
+        onSetVisibility={authorPrivateLaunchEnabled && storyPrivateReady && selectedStory?.authorId === user.id
+          ? handleSetStoryVisibility : undefined}
         onReportComment={handleReport}
         onEditComment={handleEditComment}
         onDeleteComment={handleDeleteComment}
@@ -1909,12 +2022,6 @@ export default function App() {
         targetId={reportTargetId}
         onClose={() => setIsReportOpen(false)}
         onSubmitReport={handleSubmitReport}
-      />
-
-      <AdultVerificationModal
-        isOpen={isAdultVerificationOpen}
-        onClose={() => setIsAdultVerificationOpen(false)}
-        onVerify={handleVerifyAdult}
       />
 
       <DeleteConfirmModal

@@ -36,6 +36,8 @@ export interface Story {
   appealText?: string;
   /** 사연을 다 읽지 않고도 투표할 수 있게 AI가 뽑은 양측 논점 */
   isHidden?: boolean;
+  /** 작성자만 볼 수 있는 비공개 상태. 이전 DB에는 컬럼이 없다. */
+  visibility?: 'public' | 'private';
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
 

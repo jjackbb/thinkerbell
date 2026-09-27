@@ -5,16 +5,26 @@ import { AIPersona } from '../types';
 interface AIErrorReportModalProps {
   persona: AIPersona;
   onClose: () => void;
-  onSubmit: (personaId: string, errorContent: string) => void;
+  onSubmit: (personaId: string, errorContent: string) => Promise<boolean>;
 }
 
 export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona, onClose, onSubmit }) => {
   const [errorContent, setErrorContent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!errorContent.trim()) return;
-    onSubmit(persona.id, errorContent);
+    if (!errorContent.trim() || sending) return;
+    setSending(true);
+    setSubmitFailed(false);
+    try {
+      if (!await onSubmit(persona.id, errorContent)) setSubmitFailed(true);
+    } catch {
+      setSubmitFailed(true);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -37,15 +47,21 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
           <p className="text-sm font-body-sm text-[#1C1C1C] mb-4">
             <strong className="text-[#FF6B5A] font-bold">[{persona.name}]</strong> 와의 대화 중 발생한 오류를 자세히 적어주세요. 신속히 확인하여 개선하겠습니다.
           </p>
+          <p className="mb-3 text-xs text-[#5f5e5e]">대화방 번호와 작성하신 설명만 운영자에게 전달됩니다. 대화 내용은 자동 첨부되지 않습니다.</p>
 
           <textarea
             value={errorContent}
-            onChange={(e) => setErrorContent(e.target.value)}
+            onChange={(e) => { setErrorContent(e.target.value); setSubmitFailed(false); }}
             className="w-full bg-[#f8f9fa] border border-[#E5E7EB] rounded px-4 py-3 font-body-sm text-sm focus:outline-none focus:border-[#FF6B5A] resize-none h-32"
             placeholder="예: AI가 문맥에 맞지 않는 엉뚱한 대답을 합니다."
             required
             autoFocus
           />
+          {submitFailed && (
+            <p role="alert" className="mt-2 text-sm text-[#ba1a1a]">
+              접수하지 못했습니다. 작성한 내용은 그대로 있습니다. 다시 시도해 주세요.
+            </p>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 mt-6">
@@ -58,10 +74,10 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
             </button>
             <button
               type="submit"
-              disabled={!errorContent.trim()}
+              disabled={!errorContent.trim() || sending}
               className="flex-1 py-3 px-4 bg-[#ba1a1a] text-white rounded font-mono font-bold text-xs hover:bg-[#93000a] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              신고 접수
+              {sending ? '접수 중…' : '신고 접수'}
             </button>
           </div>
         </form>

@@ -63,6 +63,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
+  const [storyVisibilityFilter, setStoryVisibilityFilter] = useState<'all' | 'public' | 'private'>('all');
   const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support' | 'inquiryAdmin'>('summary');
   const [currentPage, setCurrentPage] = useState(1);
   const storiesSectionRef = useRef<HTMLElement | null>(null);
@@ -240,6 +241,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             <span className="font-mono text-[10px] px-2 py-0.5 bg-[#FF6B5A]/20 text-[#A32E1D] font-bold rounded mr-2">
               {s.category}
             </span>
+            <span className={`mr-2 rounded px-2 py-0.5 text-[10px] font-bold ${s.visibility === 'private' ? 'bg-[#1C1C1C] text-white' : 'bg-white text-[#5f5e5e]'}`}>{s.visibility === 'private' ? '비공개' : '공개'}</span>
             <h4 className="text-xs sm:text-sm font-bold text-[#1C1C1C] inline">{s.title}</h4>
             <p className="text-xs text-[#5f5e5e] mt-1 line-clamp-1">{s.body}</p>
           </div>
@@ -282,7 +284,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return null;
   };
 
-  const currentList = activeTab === 'stories' ? myStories : activeTab === 'votes' ? myVotes : myComments;
+  const currentList = activeTab === 'stories'
+    ? myStories.filter(s => storyVisibilityFilter === 'all' ||
+        (storyVisibilityFilter === 'private' ? s.visibility === 'private' : s.visibility !== 'private'))
+    : activeTab === 'votes' ? myVotes : myComments;
 
   /*
     게스트 화면.
@@ -573,6 +578,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                     {q.reply ? '답변 완료' : '답변 대기'}
                   </span>
                 </div>
+                <p className="text-[11px] font-bold text-[#5f5e5e]">{q.category}</p>
 
                 <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.content}</p>
 
@@ -752,6 +758,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                     {q.reply ? '답변 완료' : '답변 대기'}
                   </span>
                 </div>
+                <p className="text-[11px] font-bold text-[#5f5e5e]">{q.category}</p>
                 <p className="text-xs text-[#1C1C1C] leading-relaxed whitespace-pre-wrap">{q.content}</p>
                 {q.reply && (
                   <div className="mt-2 pt-3 border-t border-[#E5E7EB]">
@@ -896,6 +903,18 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           </button>
         </div>
 
+        {activeTab === 'stories' && (
+          <div className="flex flex-wrap gap-2" aria-label="작성한 사연 공개 상태 필터">
+            {(['all', 'public', 'private'] as const).map(filter => (
+              <button key={filter} type="button" onClick={() => { setStoryVisibilityFilter(filter); setCurrentPage(1); }}
+                aria-pressed={storyVisibilityFilter === filter}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold cursor-pointer ${storyVisibilityFilter === filter ? 'bg-[#1C1C1C] text-white' : 'bg-[#f3f4f5] text-[#5f5e5e]'}`}>
+                {filter === 'all' ? '전체' : filter === 'public' ? '공개' : '비공개'}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3">
           {renderTabItems(summaryItems)}
         </div>
@@ -985,11 +1004,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   {aiChatCount > 0
                     ? `지금 ${aiChatCount}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.`
                     : '지울 대화가 없어요.'}
-                </p>
-                {/* 자동 삭제는 예고 없이 일어나면 안 된다. 정책을 눈에 보이는 곳에 적어둔다 */}
-                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-1.5">
-                  마지막으로 대화한 지 <span className="font-bold text-[#1C1C1C]">6개월</span>이 지난 대화방은
-                  자동으로 지워집니다.
                 </p>
               </div>
             </div>
