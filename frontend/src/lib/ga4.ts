@@ -4,7 +4,6 @@ type GtagWindow = Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) 
 
 const measurementId = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim();
 const validMeasurementId = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
-let lastPageView: string | null = null;
 
 const safePageLocation = () => `${location.origin}${location.pathname}`;
 const safeReferrer = () => {
@@ -49,20 +48,4 @@ export function sendGA4Event(name: string, props: Record<string, string | number
     page_referrer: safeReferrer(),
     ...props,
   });
-}
-
-/** 쿼리 문자열·해시·사연 제목을 페이지 정보로 보내지 않는다. */
-export function trackPageView(screenName: 'welcome' | 'feed' | 'ai_chat' | 'mypage'): void {
-  if (!hasAnalyticsConsent() || !validMeasurementId || lastPageView === screenName) return;
-  lastPageView = screenName;
-  sendGA4Event('page_view', {
-    page_location: safePageLocation(),
-    page_title: '니편내편',
-    screen_name: screenName,
-    event_schema_version: 2,
-  });
-}
-
-export function resetPageViewDeduplication(): void {
-  lastPageView = null;
 }

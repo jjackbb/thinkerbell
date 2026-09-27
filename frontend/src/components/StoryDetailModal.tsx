@@ -645,7 +645,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   쓴 글을 잃는다. 못 쓰는 건 처음부터 못 쓰게 보여야 한다.
                 */}
                 {isPrivate ? (
-                  <p className="mt-4 rounded-lg border border-[#E5E7EB] bg-white p-4 text-xs text-[#5f5e5e]">비공개 사연의 기존 댓글은 보관됩니다. 다시 공개하면 댓글도 다시 보입니다.</p>
+                  <p className="mt-4 rounded-lg border border-[#E5E7EB] bg-white p-4 text-xs text-[#5f5e5e]">비공개 상태에서는 작성자도 새 댓글을 달지 못합니다. 기존 댓글은 보관되며 다시 공개하면 보입니다.</p>
                 ) : isGuest ? (
                   <div className="mt-4 bg-[#f9fafb] border border-[#E5E7EB] rounded-lg p-4 text-center">
                     <p className="text-xs text-[#5f5e5e] font-body-sm leading-relaxed">

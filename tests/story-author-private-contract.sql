@@ -125,6 +125,26 @@ begin
 end $$;
 
 do $$
+declare rejected boolean := false;
+begin
+  begin
+    insert into public.comments(id,"storyId",content)
+      values('author-private-comment','story-1','synthetic blocked');
+  exception when others then
+    rejected := sqlerrm = 'STORY_NOT_FOUND';
+  end;
+  if not rejected then raise exception 'author created a private comment'; end if;
+  rejected := false;
+  begin
+    insert into public.comments(id,"storyId",content)
+      values('other-private-comment','story-1','synthetic blocked');
+  exception when others then
+    rejected := sqlerrm = 'STORY_NOT_FOUND';
+  end;
+  if not rejected then raise exception 'other user created a private comment'; end if;
+end $$;
+
+do $$
 begin
   if (select "viewCount" from public.stories where id='story-1') <> 0 then
     raise exception 'private story view was counted';
@@ -137,12 +157,14 @@ select public.set_story_visibility('story-1','public');
 reset role;
 insert into public.ai_personas(id,"storyId","userId")
   values('other-republic-room','story-1','22222222-2222-4222-8222-222222222222');
+insert into public.comments(id,"storyId",content)
+  values('comment-after-republic','story-1','synthetic allowed');
 select set_config('request.jwt.claim.sub','',false);
 set role anon;
 do $$
 begin
   if (select count(*) from public.stories where id='story-1') <> 1
-      or (select count(*) from public.comments where "storyId"='story-1') <> 1
+      or (select count(*) from public.comments where "storyId"='story-1') <> 2
       or (select count(*) from public.story_access_invalidations where story_id='story-1') <> 2 then
     raise exception 'republication did not restore original rows and notify';
   end if;

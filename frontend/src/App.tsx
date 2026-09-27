@@ -27,7 +27,7 @@ import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
-import { resetPageViewDeduplication, setupGA4, trackPageView } from './lib/ga4';
+import { setupGA4 } from './lib/ga4';
 import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
 import { submitInquiry } from './lib/inquiries';
 
@@ -494,13 +494,8 @@ export default function App() {
   const analyticsConsent = useAnalyticsConsent();
 
   useEffect(() => {
-    if (analyticsConsent !== 'accepted') {
-      resetPageViewDeduplication();
-      return;
-    }
-    setupGA4();
-    trackPageView(showLandingPage ? 'welcome' : activeTab === 'ai-chat' ? 'ai_chat' : activeTab);
-  }, [analyticsConsent, showLandingPage, activeTab]);
+    if (analyticsConsent === 'accepted') setupGA4();
+  }, [analyticsConsent]);
 
   // Active Modals & Selected Items
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -1588,8 +1583,10 @@ export default function App() {
     setSelectedStory(story);
     syncStoryUrl(story.id);
 
-    /* 사연마다 한 번씩 센다 — 뒤로 갔다 다시 들어와도 숫자가 부풀지 않게 */
-    trackOnce(`story_view:${story.id}`, 'story_view', { storyId: story.id, category: story.category });
+    /* 공개 사연만 분석한다. 비공개·운영 차단 사연의 조회는 외부 계측에서 뺀다. */
+    if (story.visibility !== 'private' && !story.isAdult && !story.isBlind && !story.isHidden) {
+      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category });
+    }
 
     /*
       조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.

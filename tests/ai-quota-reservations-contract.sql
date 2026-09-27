@@ -305,17 +305,47 @@ values
    'new-own', 'explanation', null, 'skipped',
    '2026-09-28 12:00:00+09', '2026-10-28 12:00:00+09');
 do $$
+declare
+  removed integer;
+  removed_again integer;
 begin
-  if public.purge_ai_feedback('2026-10-29 00:00:00+09') <> 2
-      or public.purge_ai_feedback('2026-10-29 00:00:00+09') <> 0
-      or (select count from public.ai_feedback_daily_totals
-          where mode='simulation' and outcome='submitted' and score=5) <> 1
-      or (select count from public.ai_feedback_daily_totals
-          where mode='explanation' and outcome='skipped' and score=0) <> 1
-      or has_table_privilege('authenticated', 'public.ai_feedback', 'SELECT')
+  removed := public.purge_ai_feedback('2026-10-29 00:00:00+09');
+  removed_again := public.purge_ai_feedback('2026-10-29 00:00:00+09');
+  if removed <> 2 or removed_again <> 0 then
+    raise exception 'feedback purge count failed: %, %', removed, removed_again;
+  end if;
+  if (select count(*) from public.ai_feedback) <> 0 then
+    raise exception 'expired feedback remains';
+  end if;
+  if to_regclass('public.ai_feedback_daily_totals') is not null then
+    raise exception 'disallowed daily small-cell aggregate exists';
+  end if;
+  if has_table_privilege('authenticated', 'public.ai_feedback', 'SELECT')
       or has_function_privilege('authenticated',
-          'public.purge_ai_feedback(timestamptz)', 'EXECUTE') then
-    raise exception 'feedback retention or permissions failed';
+        'public.purge_ai_feedback(timestamptz)', 'EXECUTE') then
+    raise exception 'feedback permissions failed';
+  end if;
+end $$;
+
+insert into public.ai_feedback
+  (episode_id, user_id, persona_id, mode, score, outcome)
+values
+  ('cccc1111-cccc-4111-8111-cccccccccccc',
+   '11111111-1111-1111-1111-111111111111',
+   'room-8', 'simulation', 4, 'submitted');
+do $$
+begin
+  if (select expires_at - created_at from public.ai_feedback
+      where episode_id='cccc1111-cccc-4111-8111-cccccccccccc') <> interval '29 days' then
+    raise exception 'feedback default expiry does not fit daily purge';
+  end if;
+end $$;
+delete from public.ai_personas where id='room-8';
+do $$
+begin
+  if exists (select 1 from public.ai_feedback
+      where episode_id='cccc1111-cccc-4111-8111-cccccccccccc') then
+    raise exception 'deleted room retained personal feedback';
   end if;
 end $$;
 

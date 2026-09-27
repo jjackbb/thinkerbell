@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { hasAnalyticsConsent } from './analyticsConsent';
 import { sendGA4Event } from './ga4';
+import { shouldSendToGA4 } from './ga4EventPolicy';
 
 export type EventName =
   | 'app_open'
@@ -67,7 +68,9 @@ function ga4Props(props: Record<string, unknown>): Record<string, string | numbe
 export function track(name: EventName, props: Record<string, unknown> = {}): void {
   if (!hasAnalyticsConsent()) return;
 
-  try { sendGA4Event(name, ga4Props(props)); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
+  if (shouldSendToGA4(name, props)) {
+    try { sendGA4Event(name, ga4Props(props)); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
+  }
 
   // 운영 DB는 현재 9개 이름만 허용한다. 새 결과 이벤트는 스키마 동기화 전까지 GA4 전용이다.
   if (!DB_EVENT_NAMES.has(name)) return;

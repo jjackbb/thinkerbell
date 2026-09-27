@@ -134,6 +134,31 @@ drop trigger if exists ai_room_story_access on public.ai_personas;
 create trigger ai_room_story_access before insert on public.ai_personas
   for each row execute function public.enforce_new_ai_room_story_access();
 
+-- The app checks the story before calling the provider, but that SELECT and
+-- comment INSERT are separate transactions. Lock the parent during INSERT so
+-- a simultaneous privacy change cannot admit a new comment. This applies to
+-- the author as well as everyone else; old comments stay readable to author.
+create or replace function public.enforce_new_comment_story_public()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_story public.stories;
+begin
+  select * into v_story from public.stories
+    where id = new."storyId" for share;
+  if not found or v_story.visibility <> 'public'
+      or coalesce(v_story."isBlind", false)
+      or coalesce(v_story."isAdult", false)
+      or coalesce(v_story."isHidden", false) then
+    raise exception 'STORY_NOT_FOUND';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.enforce_new_comment_story_public()
+  from public, anon, authenticated;
+drop trigger if exists comment_story_public_on_insert on public.comments;
+create trigger comment_story_public_on_insert before insert on public.comments
+  for each row execute function public.enforce_new_comment_story_public();
+
 create or replace function public.increment_story_view(p_story_id text)
 returns void
 language plpgsql security definer set search_path = '' as $$
