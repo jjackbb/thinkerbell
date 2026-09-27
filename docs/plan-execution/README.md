@@ -35,3 +35,5 @@
 니편내편 Supabase MCP의 마이그레이션 목록에서 `20260925065252`, `20260925065347`, `20260925075943`, `20260925080558`의 버전·이름을 다시 확인했다. 저장소의 네 마이그레이션 SQL 파일은 적용 이력을 팀에 남기기 위한 것이다. `sql/story-hides.sql`은 초기 검토용 초안이므로 다시 실행하지 않는다. `sql/story-write-boundary.sql`, `sql/comment-write-boundary.sql`, `sql/vote-story-idempotent.sql`, `sql/ai-quota-reservations-draft.sql`, `sql/ai-room-choice-unique-draft.sql`도 **운영 미적용 초안**이므로 임의 실행하지 않는다.
 
 사용자 결정·설정 작업과 AI가 수행한 코드 수정·조회·검사를 섞어 개인 기여로 기록하지 않는다. 포트폴리오 원천 자료는 사용자가 지정한 개인비서의 니편내편 폴더에 별도로 보존한다.
+
+AI 전환과 마무리 UX에서 남은 선택은 [질문 화면](2026-09-28-open-decisions.html)에 5개로 모았다. 추천 선택지는 제안이며 답변 전 확정된 정책이나 배포 승인으로 취급하지 않는다.

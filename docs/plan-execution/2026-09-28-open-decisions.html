@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>니편내편 PLAN 남은 결정 5개</title>
+<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:24px;color:#20232a;background:#f8f9fb}h1{font-size:1.6rem}p{line-height:1.55}fieldset{border:1px solid #d8dce2;border-radius:12px;background:white;padding:18px;margin:18px 0}legend{font-weight:700;font-size:1.08rem;padding:0 5px}label{display:block;padding:10px;margin:8px 0;border:1px solid #e6e9ed;border-radius:8px;line-height:1.45;cursor:pointer}label:has(input:checked){border-color:#eb654f;background:#fff3f0}small{display:block;color:#555;margin-left:24px}input[type=text]{display:block;width:calc(100% - 24px);padding:10px;margin:8px 0 0 24px;border:1px solid #aaa;border-radius:6px;box-sizing:border-box}button{background:#e95f4d;color:white;border:0;border-radius:8px;padding:12px 18px;font-weight:700;cursor:pointer}textarea{width:100%;height:170px;box-sizing:border-box;margin-top:14px;padding:10px}footer{margin:20px 0 40px;color:#555}</style></head><body>
+<h1>니편내편 PLAN 진행 전 남은 결정</h1>
+<p>추천안을 표시했지만 아직 확정한 것으로 취급하지 않습니다. 각 질문에서 하나를 고르고, 기타를 선택했다면 내용을 적은 뒤 <b>답변 복사</b>를 눌러 채팅에 붙여 주세요. 비밀번호나 API 키는 적지 마세요.</p>
+<form id="form">
+<fieldset><legend>1. 기존 AI 대화방 7개의 새 횟수 규칙 적용</legend><p>운영 DB의 구조 집계: 이력 0개인 방 2개, 사연 ID가 없는 방 2개. 예전 자동 저장 때문에 정상 답변 여부는 이력만으로 입증할 수 없습니다.</p>
+<label><input type="radio" name="q1" value="전환 전 만들어진 방 7개는 모두 무료 이어하기로 인정" checked> 추천: 전환 전 방은 모두 무료 이어하기로 인정<small>기존 이용자에게 재차감하지 않습니다. 답변을 받지 않은 방도 첫 답변이 무료일 수 있습니다.</small></label>
+<label><input type="radio" name="q1" value="첫 정상 답변 증거가 불확실한 방은 첫 답변 때 차감"> 불확실한 방은 첫 정상 답변 때 차감<small>무료 예외가 줄지만 과거에 이미 쓴 방을 다시 차감할 수 있습니다.</small></label>
+<label><input type="radio" name="q1" value="기타"> 기타 <input type="text" name="q1_other" placeholder="원하는 기준을 적어 주세요"></label></fieldset>
+<fieldset><legend>2. AI 답변은 화면에 나왔지만 DB 저장이 실패한 경우</legend><p>분석 이벤트의 '답변 완료'와 저장 결과는 이미 따로 보기로 했습니다. 여기서는 횟수 차감과 재시도 방식을 정합니다.</p>
+<label><input type="radio" name="q2" value="저장 실패는 차감하지 않고 입력을 보존해 새 답변 재요청" checked> 추천: 차감하지 않고 입력을 보존해 새 답변 재요청<small>화면의 미저장 답변은 경고와 함께 보여주되 새로고침 후 복원되지 않습니다. 다시 보내면 AI가 새로 답합니다.</small></label>
+<label><input type="radio" name="q2" value="미저장 답변을 안전하게 재저장할 별도 복구 기능 구현"> 미저장 답변의 재저장 기능 구현<small>같은 답변을 살릴 수 있지만 서버가 답변 진위를 확인할 추가 서명·복구 설계가 필요합니다.</small></label>
+<label><input type="radio" name="q2" value="기타"> 기타 <input type="text" name="q2_other" placeholder="원하는 동작을 적어 주세요"></label></fieldset>
+<fieldset><legend>3. 내가 개인 숨김한 남의 사연에 이미 만든 AI 대화가 있는 경우</legend>
+<label><input type="radio" name="q3" value="사연만 숨기고 기존 내 AI 대화는 목록에서 계속 이용" checked> 추천: 사연만 숨기고 기존 AI 대화는 계속 이용<small>개인 숨김의 범위를 사연 화면에 한정합니다. 대화는 별도 삭제할 수 있습니다.</small></label>
+<label><input type="radio" name="q3" value="사연을 숨기는 동안 기존 AI 대화도 목록에서 숨김"> 기존 AI 대화도 함께 숨김<small>복원 경로와 대화 목록 필터를 추가해야 합니다.</small></label>
+<label><input type="radio" name="q3" value="기타"> 기타 <input type="text" name="q3_other" placeholder="원하는 범위를 적어 주세요"></label></fieldset>
+<fieldset><legend>4. 5점 도움 평가를 보여줄 마무리 위치</legend><p>현재 명시적 '여기서 마무리'는 시뮬레이션 요약 화면에 치우쳐 있습니다.</p>
+<label><input type="radio" name="q4" value="두 AI 모드 모두 정상 답변 1회 이상 뒤 대화 마무리 버튼에서 평가 제시" checked> 추천: 두 모드 모두 '대화 마무리'에서 평가<small>대화는 보존하고, 1~5점과 건너뛰기를 한 번 보여줍니다. 삭제는 별도 메뉴로 둡니다.</small></label>
+<label><input type="radio" name="q4" value="시뮬레이션 요약 화면에서만 평가 제시"> 시뮬레이션 요약에서만 평가<small>변경 범위는 작지만 공감 대화 평가가 빠집니다.</small></label>
+<label><input type="radio" name="q4" value="기타"> 기타 <input type="text" name="q4_other" placeholder="원하는 화면·시점을 적어 주세요"></label></fieldset>
+<fieldset><legend>5. 운영 시험용 새 이메일 계정 두 개</legend><p>합의한 시험 순서는 격리 로컬 시험 뒤 실제 가입·이메일 확인을 거친 전용 계정 두 개로 운영 확인하는 것입니다.</p>
+<label><input type="radio" name="q5" value="내가 관리하는 새 메일함 두 개를 준비하고 브라우저 로그인·인증을 직접 진행" checked> 추천: 새 메일함 두 개를 준비해 직접 인증<small>주소와 로그인 비밀번호는 채팅에 보낼 필요 없습니다. 준비 완료만 알려주면 테스트 절차를 이어갑니다.</small></label>
+<label><input type="radio" name="q5" value="테스트용 메일 수신 환경 마련 방법부터 함께 정하기"> 테스트용 메일 수신 환경부터 정하기<small>새 메일함을 아직 만들지 않았다면 사용 가능한 방법을 먼저 비교합니다.</small></label>
+<label><input type="radio" name="q5" value="기타"> 기타 <input type="text" name="q5_other" placeholder="현재 준비 상태를 적어 주세요"></label></fieldset>
+</form><button id="copy" type="button">답변 복사</button><textarea id="out" aria-label="복사할 답변" placeholder="선택한 답변이 여기에 나타납니다"></textarea><footer>이 문서는 질문 화면이며 제품 설정이나 운영 DB를 바꾸지 않습니다.</footer>
+<script>document.getElementById('copy').onclick=async()=>{const f=new FormData(document.getElementById('form'));const lines=[];for(let i=1;i<=5;i++){let v=f.get('q'+i)||'미선택';if(v==='기타')v='기타: '+(f.get('q'+i+'_other')||'내용 미입력');lines.push(i+'. '+v)}const out=lines.join('\n');document.getElementById('out').value=out;try{await navigator.clipboard.writeText(out);alert('답변을 복사했습니다. 채팅에 붙여 주세요.')}catch{document.getElementById('out').select();alert('아래 답변을 선택했습니다. 복사해 채팅에 붙여 주세요.')}};</script></body></html>
