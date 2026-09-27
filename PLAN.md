@@ -126,7 +126,7 @@ AI 이용 횟수의 기존 경로를 [접근 경계](docs/plan-execution/2026-09
 
 | 구분 | 이벤트와 발생 기준 |
 |---|---|
-| 화면·버튼 | `page_view`, `ui_click` — 실제 화면 노출과 사용자 활성화 |
+| 화면·버튼 (첫 공개 GA4 제외) | `page_view`, `ui_click` — 기능 검증 후보. 수동 화면 이동·전체 클릭은 외부 전송하지 않음 |
 | 작업 결과 | `operation_start / success / error` — 실제 요청과 서버 결과 |
 | 실행 제한 | `action_blocked` — 로그인·권한·횟수 등으로 실행하지 못한 시도 |
 | 사연·참여 | `story_view`, `story_publish_success`, `vote_submit`, `vote_change_success`, `comment_create_success` |

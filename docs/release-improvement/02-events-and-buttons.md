@@ -4,6 +4,8 @@
 
 기준: 2026-09-22. **미구현 명세**이며 실제 GA4 수집 결과가 아니다. 사용자가 선택한 첫 목표는 **첫 사용 흐름과 AI 대화의 도움 여부**다.
 
+**2026-09-28 적용 범위 정정:** 사용자는 GA4를 핵심 과업의 진입·선택·저장 결과에만 사용하고, 가입·로그인·계정·신고·위기 지원 행동과 화면 전환 수동 페이지뷰를 제외했다. 아래의 전수 버튼 ID와 `ui_click`·`page_view`·`operation_start` 등은 **기능 계약 또는 초기 후보 명세**로 보존한다. 전체 버튼 클릭과 모든 화면 이동을 GA4에 보내라는 지시가 아니다. 현재 코드 허용 목록은 [ga4EventPolicy.ts](../../frontend/src/lib/ga4EventPolicy.ts)에 있다.
+
 ## 무엇을 구분해서 기록할까
 
 - `ui_click`: 사용자가 어느 버튼을 작동시켰는가. 클릭은 의도이며 성공은 아니다.
@@ -38,7 +40,7 @@
 | `story_id / persona_id` | 같은 대상에서 진행했는지 검증하는 내부 키 | 기본은 앱 이벤트에만. 제목·사연과 외부 결합 최소화 |
 | `occurred_at / received_at / sequence` | 실제 발생·서버 수신·흐름 내 순서 | 앱 이벤트. 네트워크 수신 순서만으로 퍼널 구성하지 않음 |
 
-위 표의 모든 값을 모든 이벤트에 보내지 않는다. 이벤트별 허용 목록을 만들고 공통 필수 5~7개와 필요한 속성만 전송한다. [이벤트 수집 제한](https://support.google.com/analytics/answer/9267744?hl=en)을 넘지 않도록 자동 점검한다.
+위 표는 9월 22일 설계 후보이며 현재 전송 구현 상태가 아니다. 첫 공개 GA4에 실제로 허용한 값은 정제된 모드·AI 답변 저장 결과와 고정 스키마 버전뿐이다. 이벤트별 허용 목록을 검토해 확장한다. [이벤트 수집 제한](https://support.google.com/analytics/answer/9267744?hl=en)을 넘지 않도록 자동 점검한다.
 
 GA4에는 이메일, 닉네임, 사연 제목/본문, 댓글, AI 질문/답변, 시스템 프롬프트, 문의·신고·탈퇴 사유 원문, 기분·소감 원문, 계정 ID, 도움 평가값을 보내지 않는다. 버튼 텍스트/DOM `innerText` 자동 수집도 하지 않는다. 자유 입력이 URL·페이지 제목·오류 메시지로 새지 않는지 검사한다. [Google 개인정보 전송 방지 지침](https://support.google.com/analytics/answer/6366371?hl=en)을 기준으로 삼는다.
 
@@ -62,15 +64,15 @@ GA4에는 이메일, 닉네임, 사연 제목/본문, 댓글, AI 질문/답변, 
 
 | 이벤트 | 상태 | 발생 조건 | 중복 단위 / 핵심 속성 | 주요 이벤트 |
 |---|---|---|---|---|
-| `page_view` | 추가 | 주요 화면이 실제 노출됨 | 화면 전환당 1회; 정제 URL·이전 화면 | 아니오 |
-| `ui_click` | 추가 | 등록된 버튼의 사용자 활성화 | 작동 1회; button/entry | 아니오 |
-| `operation_start` | 추가 | 유효 입력으로 실제 요청 시작 | request당 1회; operation | 아니오 |
-| `operation_success` | 추가 | 서버/API의 확정 성공 | request당 1회; operation/outcome/duration | 아니오 |
-| `operation_error` | 추가 | 확정 실패·시간 초과 | request당 최종 결과 1회; error_code | 아니오 |
+| `page_view` | 첫 공개 수동 전송 제외 | 주요 화면이 실제 노출됨 | 기능 확인 대상, GA4 화면 이동 전송 없음 | 아니오 |
+| `ui_click` | 첫 공개 일괄 전송 제외 | 등록된 버튼의 사용자 활성화 | 기능 계약은 유지, GA4 버튼 전체 전송 없음 | 아니오 |
+| `operation_start` | 후보·미전송 | 유효 입력으로 실제 요청 시작 | request당 1회; operation | 아니오 |
+| `operation_success` | AI 답변 저장 결과만 로컬 연결 | 서버/API의 확정 성공 | `operation=ai_reply_save`만 GA4 허용 | 아니오 |
+| `operation_error` | AI 답변 저장 결과만 로컬 연결 | 확정 실패·시간 초과 | `operation=ai_reply_save`만 GA4 허용 | 아니오 |
 | `action_blocked` | 추가 | 로그인·한도·권한·검증으로 실행 못 함 | 실제 시도당 1회; reason/operation | 아니오 |
-| `app_open` | 기존→정의 보완 | 앱 진입 | 앱 방문 기준 명시. GA4 방문 분모는 GA4 세션 사용 | 아니오 |
-| `login_success` | 기존→수정 | 명시적 로그인 요청 성공 | auth request당 1회; `method=email` | 아니오 |
-| `sign_up` | 추가 | 이메일 확인 후 가입 완료 확인 | 가입 완료 1회; 단순 계정 생성·이메일 확인 대기는 완료로 세지 않음 | 아니오 |
+| `app_open` | 내부 동의 이벤트만 유지 | 앱 진입 | GA4 외부 전송 제외 | 아니오 |
+| `login_success` | 내부 동의 이벤트만 유지 | 명시적 로그인 요청 성공 | GA4 외부 전송 제외 | 아니오 |
+| `sign_up` | 후보·GA4 제외 | 이메일 확인 후 가입 완료 확인 | 실제 인증 기능 검증과 외부 분석을 구분 | 아니오 |
 | `auth_restored` | 추가 | 기존 로그인 세션 복원 | 앱 초기 인증 확정당 1회 | 아니오 |
 | `story_view` | 기존→수정 | 유효한 사연 상세가 실제 표시 | 앱 흐름+사연당 1회; entry_point | 아니오 |
 | `story_create_start` | 추가 | 작성 폼에서 처음 입력/선택 | 작성 시도당 1회. 키 입력마다 기록하지 않음 | 아니오 |
@@ -97,7 +99,7 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 
 `ai_chat_turn3`는 충분히 사용해본 행동의 대리 지표다. **도움·감정 해소의 증거가 아니다.** 도움 여부는 별도 선택형 질문/인터뷰로 확인하며 개인별 응답은 접근을 제한한 저장소에서 분석한다. 기분 변화를 진단이나 치료 효과로 해석하지 않는다.
 
-대표 주요 이벤트는 **`ai_chat_turn1`로 확정**했다. `ai_chat_turn3`는 추가 이용 지표, 투표·사연 등록은 별도 경로의 실제 성공 지표다. 모두를 하나로 합친 성공률을 만들지 않는다. 대표 도달률은 관측된 첫 방문 세션 중 사연 조회 → 첫 정상 AI 답변 도달 비율이며 GA4 동의·관측 범위의 한계를 명시한다.
+대표 주요 이벤트는 **`ai_chat_turn1`로 확정**했다. `ai_chat_turn3`는 추가 이용 지표, 투표·사연 등록은 별도 경로의 실제 성공 지표다. 모두를 하나로 합친 성공률을 만들지 않는다. 대표 도달률은 **동의한 세션의 사연 조회 → 첫 정상 AI 답변 도달 비율**이며 GA4 동의·관측 범위의 한계를 명시한다.
 
 ## 버튼별 구현 목록
 
@@ -105,7 +107,7 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 
 실제 소스 위치는 [source-interactions.csv](source-interactions.csv)에 있다. 정적 button 위치 153곳과 DOM 이벤트·컨트롤 227행을 추출했다. 동적 반복/조건부 화면과 컴포넌트 콜백 71행은 별도이므로 이를 실제 버튼 298개라고 해석하지 않는다.
 
-외부 전송 허용 행의 사용자 활성화는 동의 후 `ui_click` 대상이다. 위기 지원·출시 보류/제거 행의 예외를 적용한다. 추가 결과 열의 `op`는 `operation_start/success/error`, `blocked`는 `action_blocked`를 뜻한다. 단순 열기·닫기에 가짜 서버 성공 이벤트를 만들지 않는다.
+아래 버튼 행은 **기능 검증 대상**이다. 첫 공개에서는 전체 `ui_click`을 GA4로 보내지 않는다. 외부 전송은 현재 허용 목록의 핵심 과업 이벤트로 제한하고 위기 지원·계정·신고 행동은 제외한다. 추가 결과 열의 `op`와 `blocked`는 설계 후보를 뜻하며 현재 구현 완료를 뜻하지 않는다. 단순 열기·닫기에 가짜 서버 성공 이벤트를 만들지 않는다.
 
 | 화면·소스 | 버튼 ID / 실제 동작 | 추가 결과·주의 |
 |---|---|---|
@@ -113,7 +115,7 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 | WelcomeModal | `auth_mode_login`, `auth_mode_signup`, `guest_browse` | 모드 전환/둘러보기 표시 확인 |
 | LoginPromptModal | `login_prompt_continue`, `login_prompt_close` | 요청한 행동 맥락 보관; 복귀 경로 검증 |
 | Header | `home_logo`, `profile_open`, `story_create_open` | 화면 전환; 로고 키보드 접근 보완 |
-| Navbar | `nav_feed`, `nav_ai`, `nav_mypage` | 화면 표시 뒤 page_view, active 상태 |
+| Navbar | `nav_feed`, `nav_ai`, `nav_mypage` | active 상태·실제 화면 표시 확인. 첫 공개 GA4 수동 page_view 없음 |
 | App 피드 | `feed_category_select`, `feed_sort_latest`, `feed_sort_hot` | 고정 선택 값; 새 목록 표시 |
 | App 피드 | `story_create_open` (빈 화면/상단/플로팅) | 위치는 entry_point로 구분; 로그인 blocked |
 | WeeklyTopBanner | `ranking_weekly`, `ranking_realtime`, `ranking_slide_select` | 표시 내용 변경; 순위별 고정 index만 |
@@ -170,7 +172,7 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 
 비공개 사연에서 작성자가 아닌 이용자가 새 대화를 만들려는 실제 요청은 `action_blocked`의 정제 사유 `story_private`로 구분한다. 작성자는 자기 비공개 사연으로 새 대화를 만들 수 있다. 기존 공감 대화의 관점 변경은 보존된 맥락을 사용한다. 이미 소유한 대화를 열고 이어하는 것은 허용되므로 `ai_chat_open`의 `is_resume=true`로 기록한다. 공개 상태 변경 때문에 기존 대화를 새 생성 성공으로 세지 않는다. 이 이벤트 사유·속성은 구현할 허용 목록에 추가한다.
 
-위기 지원처럼 민감한 상태와 직결되는 버튼은 **전수 기능 검증에는 포함하되 GA4 전송 제외**다. 이것을 이벤트 누락으로 오인하지 않도록 최종 목록에 사유를 남긴다.
+위기 지원·가입/로그인/계정·신고처럼 민감한 상태와 직결되는 버튼은 **전수 기능 검증에는 포함하되 GA4 전송 제외**다. 이것을 이벤트 누락으로 오인하지 않도록 최종 목록에 사유를 남긴다.
 
 ## 동의와 도움 평가
 
@@ -183,8 +185,8 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 
 1. 실제 소유 계정의 웹 속성/스트림, 운영 URL, 시간대 `Asia/Seoul`, 보관 기간, 담당자를 기록한다. 테스트용 속성을 따로 두는 것을 추천한다. GA4를 위해 Firebase로 DB를 옮길 필요는 없다.
 2. 동의 전송 제어 구현을 검증한 뒤 Preview와 Production에 맞는 `VITE_GA4_ID`를 설정하고 각각 다시 빌드·배포한다. Vite의 이 값은 빌드 때 들어가므로 환경변수 저장만으로 기존 배포가 바뀌지 않는다.
-3. 현재 탭 전환은 대부분 React state이므로 자동 URL 변화만으로 전체 화면이 기록되지 않는다. `page_view`는 주요 화면 전환을 직접 관리한다. 정제 URL 예: `/feed`, `/story`, `/ai/setup`, `/ai/chat`, `/mypage`; 실제 사연 제목·본문을 넣지 않는다.
-4. 직접 page_view를 보내는 경우 초기 자동 전송(`send_page_view`)과 향상된 측정의 **브라우저 history 기반 page_view** 중복을 함께 막는다. 마이페이지 내부 섹션은 screen_section으로 구분한다. [SPA 계측](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications), [자동·수동 페이지뷰](https://developers.google.com/analytics/devguides/collection/ga4/views).
+3. 현재 탭 전환은 대부분 React state이지만, 첫 공개에서는 화면 전환을 GA4 수동 `page_view`로 보내지 않는다. 공개 사연 상세 조회와 AI 과업 이벤트로 합의한 경로만 측정한다.
+4. GA4의 초기 자동 페이지뷰는 `send_page_view:false`로 막고, 향상된 측정 설정과 실제 QA 수집을 확인한다. 마이페이지·인증 화면의 이동을 별도 GA4 이벤트로 추가하지 않는다. [SPA 계측](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications), [자동·수동 페이지뷰](https://developers.google.com/analytics/devguides/collection/ga4/views).
 5. 보고서에 필요한 낮은 종류 수의 속성(`button_id`, `entry_point`, `mode`, `is_resume`, `auth_state`, `release_id`, `ui_revision`, `event_schema_version`, `traffic_class`, `operation`, `error_code`)을 맞춤 측정기준으로 먼저 등록한다. 요청·사연·사용자 UUID를 차원으로 등록하지 않는다. [맞춤 정의](https://support.google.com/analytics/answer/14240153?hl=en).
 6. 내부 트래픽·개발 트래픽은 먼저 시험 상태에서 분리 동작을 확인한다. 운영 데이터에서 제외할 범위를 확정한 뒤 활성화한다. Preview 데이터는 운영 기준선에 합치지 않는다.
 7. DebugView에 실제 클릭·성공·실패가 들어오는지 확인한다. QA 기기만 debug를 켜고, 운영 전체에 켜두지 않는다. 이후 일반 보고서에서도 같은 릴리스의 데이터가 나타나는지 확인한다. 처리 지연을 고려해 당일 수치로 최종 판정하지 않는다. [DebugView](https://support.google.com/analytics/answer/7201382?hl=en).
@@ -192,7 +194,7 @@ AI 에피소드는 **이번에 대화방을 열어 시작한 이용 구간**이�
 
 ## DB 이벤트와 GA4의 역할
 
-GA4는 유입·기기·화면·사용자 흐름·대표 지표를 본다. 앱 이벤트/DB는 같은 사연·같은 요청에서 성공했는지, 저장이 맞는지, 정확한 AI 진입 순서와 시간을 확인한다. GA4의 사용자 기반 퍼널만으로 같은 사연/대화에서 순서대로 진행했음을 단정하지 않는다.
+GA4는 동의한 세션의 공개 사연 조회→AI 핵심 과업과 대표 지표를 본다. 앱 이벤트/DB는 같은 사연·같은 요청에서 성공했는지, 저장이 맞는지, 정확한 AI 진입 순서와 시간을 확인한다. GA4의 사용자 기반 퍼널만으로 같은 사연/대화에서 순서대로 진행했음을 단정하지 않는다.
 
 기존 `events`는 보존한다. 새 이벤트 허용 목록·속성·버전·idempotency를 검토하고 **DB 확장 → 테스트 → 이벤트를 보내는 클라이언트 배포** 순으로 적용한다. 복구 시 새 버전의 데이터가 이전 정의로 섞이지 않게 한다. 운영 테이블 초기화로 과거 테스트 데이터를 지우지 않는다.
 
