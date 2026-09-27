@@ -8,10 +8,15 @@
 
 1. 가입 화면에서 이메일 소유 확인을 요청한다. 서버는 별도 Resend **Sending access** 키로 10분 유효 링크를 보낸다. 요청 API는 계정 존재 여부를 응답하지 않는다.
 2. 링크를 연 브라우저가 서버에 토큰을 제출한다. DB는 토큰 해시를 1회만 소비하고 나서 `auth.users`를 조회한다. 결과는 **가입 가능 / 가입 확인 미완료 / 가입 확인 완료**로 구분한다. 미완료는 기존 가입 확인 메일 재요청, 완료는 로그인으로 안내한다.
-3. 가입 가능이면 기존 `signUp()` 화면으로 이어진다. 이 경우 소유 확인 메일과 Supabase 가입 확인 메일을 **두 번** 받는다. 한 통으로 합치려면 Auth 가입 흐름을 다시 설계해야 하므로 아직 결정하지 않았다.
+3. 사용자는 **새 가입에 메일 한 통**을 선택했다. 가입 가능이면 링크를 받은 브라우저에만 별도 1회 가입 증명을 발급한다. 이용자가 비밀번호·닉네임을 입력하면 서버가 그 증명을 소비하고 `auth.admin.createUser({ email_confirm: true })`로 계정을 만든 뒤 비밀번호 로그인을 시도한다. 기존 `signUp()`의 두 번째 확인 메일을 보내지 않는다. 계정 생성 관리자 키는 서버에만 있다. [Supabase 관리자 생성 API](https://supabase.com/docs/reference/javascript/auth-admin-createuser)
+4. 기존 계정이 비밀번호를 잊은 경우 Supabase `resetPasswordForEmail()`로 재설정 메일을 요청하고, 링크로 돌아온 세션에서 `updateUser({ password })`를 호출한다. 계정이 없는 주소에도 같은 접수 안내를 보여준다. [Supabase 비밀번호 안내](https://supabase.com/docs/guides/auth/passwords)
 
-[SQL 초안](sql/signup-email-ownership-draft.sql)은 주소·원문 토큰을 저장하지 않고 서로 다른 키로 만든 해시와 만료 시각만 보관한다. 한 주소는 한 시간에 세 번, 전체는 24시간에 50번까지 요청하는 **검토용 상한**이다. 링크는 10분·1회 사용이며, 해시는 [15분 간격 정리 작업 초안](sql/signup-email-ownership-retention-job-draft.sql)이 정상 실행될 때 생성 뒤 약 24시간 15분 이내에 삭제된다. 이 숫자는 운영 정책으로 확정하지 않았다. 사용자에게 보여줄 문안과 비용·차단 영향을 함께 확인해야 한다.
+[SQL 초안](sql/signup-email-ownership-draft.sql)은 주소·원문 토큰을 저장하지 않고 서로 다른 키로 만든 해시와 만료 시각만 보관한다. 사용자는 **주소당 시간당 3회, 전체 24시간에 50회, 링크 10분, 기록 약 24시간 뒤 삭제**를 선택했다. [15분 간격 정리 작업 초안](sql/signup-email-ownership-retention-job-draft.sql)이 정상 실행되면 해시는 생성 뒤 약 24시간 15분 이내에 삭제된다. 메일 확인 링크와 가입 증명은 각각 1회 사용이다. 전체 상한에 닿으면 다른 이용자의 요청도 막히므로 운영 발송 로그를 보고 조정할 수 있다.
 
-서버 플래그 `EMAIL_CHECK_ENABLED`와 화면 플래그 `VITE_EMAIL_CHECK_ENABLED`는 기본적으로 꺼져 있다. 활성화에는 운영 DB SQL, 별도의 도메인 제한 Resend 발송 키, 정확한 `APP_URL`, 32바이트 암호화 키, 시험용 메일함의 실제 링크 확인이 필요하다. 기존 Supabase SMTP 키를 자동 재사용하지 않는다. 현재는 로컬 타입 검사·빌드, 합성 HTTP의 링크 전 비노출/1회 사용, 격리 PostgreSQL의 가입 가능·미완료·완료 및 권한 시험만 통과했다. 실제 Resend 발송·브라우저·운영 DB·배포는 `NOT_RUN`이다.
+서버 플래그 `EMAIL_CHECK_ENABLED`와 화면 플래그 `VITE_EMAIL_CHECK_ENABLED`는 기본적으로 꺼져 있다. 사용자는 기존 SMTP 키와 분리된 `auth.jjackbb.com` 범위의 **Sending access** 키를 선택했다. 활성화에는 운영 DB SQL, 새 Resend 키를 서버 전용 `RESEND_EMAIL_CHECK_API_KEY`에 설정, 정확한 `APP_URL`, 32바이트 암호화 키, 시험용 메일함의 실제 링크 확인이 필요하다. 기존 SMTP 키를 자동 재사용하지 않는다. 비밀번호 재설정의 복귀 URL `https://thinkerbell-eight.vercel.app/?auth=recovery`는 Supabase Auth Redirect URLs에 허용해야 한다. 한국어 제목 `니편내편 비밀번호 재설정`과 [본문 초안](../email-templates/reset-password.ko.html)은 사용자가 Supabase Email Templates → Reset Password에 저장한 뒤 실제 메일로 확인해야 한다. 로컬 코드·격리 시험 결과와 실제 서비스 결과는 구분한다.
 
-출시 전 판단: 새 가입자에게 메일 두 통을 허용할지, 검토용 발송 상한과 보관 시간을 확정할지, 별도 발송 키를 마련할지. 직접 가입 API의 경합 때문에 소유 확인 직후에도 다른 가입이 먼저 완료될 수 있으므로 가입 결과 안내는 계속 중립으로 유지한다. 이메일 소유 확인은 가입 UX 단계이며, 직접 Supabase `signUp()`을 서버 권한 없이 막는 보안 장치라고 설명하지 않는다.
+로컬 `.env`에는 무작위 32바이트 `EMAIL_CHECK_SECRET`을 생성했고 파일 권한을 소유자만 읽도록 바꿨다. Resend API에서 인증 완료된 `auth.jjackbb.com` 도메인을 확인하고, `thinkerbell-email-check`라는 별도 `sending_access` 키를 이 도메인 ID 범위로 생성해 로컬 `.env`에 저장했다. 이 키로 도메인 관리 API를 읽으면 `restricted_api_key`가 반환돼 발송 외 관리 권한이 없음을 확인했다. 키 값은 출력·문서화·Git 추가하지 않았다. Vercel Preview·Production 비밀값은 아직 설정되지 않았다. 최종 로컬 TypeScript 검사·빌드는 통과했다. 모의 HTTP 2건은 상태 비노출·1회 링크·확인 후 관리자 계정 생성 1회만 호출을 통과했고, 격리 PostgreSQL은 1회 가입 증명·시간/전체 발송 상한·역할 제한을 통과했다. 이 검사는 실제 Supabase Auth 관리자 API·Resend 발송·복귀 링크가 동작한다는 증거가 아니다.
+
+운영 DB에는 테이블과 함수가 없음을 읽기 전용으로 재확인했다. 쓰기 MCP의 재인증 페이지 열기는 요청 권한이 DB 쓰기보다 넓어 자동 승인 검토에서 거절됐으므로, 운영 마이그레이션을 적용하지 않았다. 동일 변경을 다른 경로로 우회 적용하지 않는다. [SQL 초안](sql/signup-email-ownership-draft.sql)과 [정리 작업 초안](sql/signup-email-ownership-retention-job-draft.sql)은 준비된 검토 자료다.
+
+새 가입 경로에서 관리자 API의 확인 완료는 **Resend 링크 사용으로 메일함 소유를 증명했다는 전제**에 의존한다. 링크를 잃거나 가입 생성 결과가 불확실하면 같은 증명으로 재시도하지 않고 로그인 또는 새 소유 확인부터 진행한다. 기존에 생성된 미확인 계정은 삭제·자동 확인하지 않고 원래 가입 확인 메일 재요청으로 처리한다. 직접 Supabase `signUp()`을 서버 권한 없이 막는 보안 장치는 아직 없으므로 `Confirm Email`은 계속 켜 둔다. 운영 SQL·실제 발송·브라우저·배포 검증 전까지 새 경로는 켜지 않는다.

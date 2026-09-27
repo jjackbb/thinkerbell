@@ -8,12 +8,16 @@ create table if not exists public.signup_email_checks (
   created_at timestamptz not null,
   expires_at timestamptz not null,
   consumed_at timestamptz,
+  signup_digest text check (signup_digest ~ '^[0-9a-f]{64}$'),
+  signup_started_at timestamptz,
   constraint signup_email_checks_expiry check (expires_at > created_at)
 );
 create index if not exists signup_email_checks_email_time_idx
   on public.signup_email_checks(email_digest, created_at desc);
 create index if not exists signup_email_checks_created_idx
   on public.signup_email_checks(created_at);
+create unique index if not exists signup_email_checks_signup_digest_idx
+  on public.signup_email_checks(signup_digest) where signup_digest is not null;
 alter table public.signup_email_checks enable row level security;
 revoke all on public.signup_email_checks from public, anon, authenticated;
 grant select, insert, delete on public.signup_email_checks to service_role;
@@ -26,16 +30,19 @@ create or replace function public.reserve_signup_email_check(
 ) returns boolean
 language plpgsql security invoker set search_path = '' as $$
 begin
-  if p_id is null or p_email_digest !~ '^[0-9a-f]{64}$' or
+  if p_id is null or p_email_digest is null or p_token_digest is null or
+      p_email_digest !~ '^[0-9a-f]{64}$' or
       p_token_digest !~ '^[0-9a-f]{64}$' or p_at is null then
     raise exception 'EMAIL_CHECK_INVALID_REQUEST';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(1755299);
   if (select count(*) from public.signup_email_checks
       where created_at > p_at - interval '1 hour'
+        and created_at <= p_at
         and email_digest = p_email_digest) >= 3 or
      (select count(*) from public.signup_email_checks
-      where created_at > p_at - interval '24 hours') >= 50 then
+      where created_at > p_at - interval '24 hours'
+        and created_at <= p_at) >= 50 then
     return false;
   end if;
   insert into public.signup_email_checks
@@ -50,13 +57,16 @@ $$;
 -- from the authenticated token and sends it here with its matching digest.
 create or replace function public.consume_signup_email_check(
   p_id uuid, p_email_digest text, p_token_digest text, p_email text,
+  p_signup_digest text,
   p_at timestamptz default now()
 ) returns text
 language plpgsql security definer set search_path = '' as $$
 declare v_status text;
 begin
-  if p_id is null or p_email_digest !~ '^[0-9a-f]{64}$' or
-      p_token_digest !~ '^[0-9a-f]{64}$' or p_email is null or
+  if p_id is null or p_email_digest is null or p_token_digest is null or
+      p_signup_digest is null or p_email_digest !~ '^[0-9a-f]{64}$' or
+      p_token_digest !~ '^[0-9a-f]{64}$' or
+      p_signup_digest !~ '^[0-9a-f]{64}$' or p_email is null or
       p_email <> pg_catalog.lower(pg_catalog.btrim(p_email)) or
       pg_catalog.length(p_email) > 254 or p_at is null then
     raise exception 'EMAIL_CHECK_INVALID_REQUEST';
@@ -74,6 +84,47 @@ begin
           else pg_catalog.to_jsonb(u)->>'confirmed_at' is not null
         end)
       then 'registered'
+    when exists(select 1 from auth.users
+      where pg_catalog.lower(email) = p_email) then 'pending'
+    else 'available'
+  end into v_status;
+  if v_status = 'available' then
+    update public.signup_email_checks set signup_digest = p_signup_digest
+      where id = p_id;
+  end if;
+  return v_status;
+end;
+$$;
+
+-- A second random bearer is returned only after mailbox proof. It authorizes
+-- at most one server-side Auth Admin create attempt while the original link is
+-- still fresh. A confirmed existing account is never overwritten.
+create or replace function public.claim_signup_email_check(
+  p_email_digest text, p_signup_digest text, p_email text,
+  p_at timestamptz default now()
+) returns text
+language plpgsql security definer set search_path = '' as $$
+declare v_status text;
+begin
+  if p_email_digest is null or p_signup_digest is null or
+      p_email_digest !~ '^[0-9a-f]{64}$' or
+      p_signup_digest !~ '^[0-9a-f]{64}$' or p_email is null or
+      p_email <> pg_catalog.lower(pg_catalog.btrim(p_email)) or
+      pg_catalog.length(p_email) > 254 or p_at is null then
+    raise exception 'EMAIL_CHECK_INVALID_REQUEST';
+  end if;
+  update public.signup_email_checks set signup_started_at = p_at
+    where email_digest = p_email_digest and signup_digest = p_signup_digest
+      and consumed_at is not null and signup_started_at is null
+      and expires_at > p_at;
+  if not found then raise exception 'EMAIL_CHECK_LINK_UNAVAILABLE'; end if;
+  select case
+    when exists(select 1 from auth.users as u
+      where pg_catalog.lower(u.email) = p_email and
+        case when pg_catalog.to_jsonb(u) ? 'email_confirmed_at'
+          then pg_catalog.to_jsonb(u)->>'email_confirmed_at' is not null
+          else pg_catalog.to_jsonb(u)->>'confirmed_at' is not null
+        end) then 'registered'
     when exists(select 1 from auth.users
       where pg_catalog.lower(email) = p_email) then 'pending'
     else 'available'
@@ -96,8 +147,10 @@ end;
 $$;
 
 revoke all on function public.reserve_signup_email_check(uuid,text,text,timestamptz),
-  public.consume_signup_email_check(uuid,text,text,text,timestamptz),
+  public.consume_signup_email_check(uuid,text,text,text,text,timestamptz),
+  public.claim_signup_email_check(text,text,text,timestamptz),
   public.purge_signup_email_checks(timestamptz) from public, anon, authenticated;
 grant execute on function public.reserve_signup_email_check(uuid,text,text,timestamptz),
-  public.consume_signup_email_check(uuid,text,text,text,timestamptz),
+  public.consume_signup_email_check(uuid,text,text,text,text,timestamptz),
+  public.claim_signup_email_check(text,text,text,timestamptz),
   public.purge_signup_email_checks(timestamptz) to service_role;

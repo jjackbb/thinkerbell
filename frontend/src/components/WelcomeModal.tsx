@@ -8,12 +8,17 @@ interface WelcomeModalProps {
   onGuestBrowse: () => void;
   signupLinkExpired?: boolean;
   emailCheckToken?: string | null;
+  passwordRecoveryReturn?: boolean;
+  passwordRecoveryReady?: boolean;
+  recoveryLinkExpired?: boolean;
+  onPasswordRecoveryComplete: () => void;
 }
 
 type EmailCheckPhase = 'entry' | 'sent' | 'verifying' | 'registered' | 'pending' | 'available' | 'failed';
+type RecoveryPhase = 'idle' | 'request' | 'sent' | 'updating' | 'done';
 const emailCheckEnabled = import.meta.env.VITE_EMAIL_CHECK_ENABLED === 'true';
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, signupLinkExpired = false, emailCheckToken = null }) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, signupLinkExpired = false, emailCheckToken = null, passwordRecoveryReturn = false, passwordRecoveryReady = false, recoveryLinkExpired = false, onPasswordRecoveryComplete }) => {
   const [isLoginMode, setIsLoginMode] = useState(!(emailCheckEnabled && emailCheckToken));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +32,17 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
   const [emailCheckPhase, setEmailCheckPhase] = useState<EmailCheckPhase>(emailCheckToken ? 'verifying' : 'entry');
   const [emailCheckError, setEmailCheckError] = useState('');
   const [emailCheckLoading, setEmailCheckLoading] = useState(false);
+  const [signupToken, setSignupToken] = useState<string | null>(null);
+  const [recoveryPhase, setRecoveryPhase] = useState<RecoveryPhase>(passwordRecoveryReturn ? (recoveryLinkExpired ? 'request' : 'updating') : 'idle');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryPasswordConfirm, setRecoveryPasswordConfirm] = useState('');
+  const [recoveryError, setRecoveryError] = useState(recoveryLinkExpired ? '재설정 링크를 사용할 수 없습니다. 새 메일을 요청해 주세요.' : '');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
   const verificationStarted = useRef(false);
+
+  useEffect(() => {
+    if (passwordRecoveryReady) setRecoveryPhase('updating');
+  }, [passwordRecoveryReady]);
 
   useEffect(() => {
     if (!emailCheckEnabled || !emailCheckToken || verificationStarted.current) return;
@@ -42,8 +57,12 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         if (!response.ok) throw new Error('EMAIL_CHECK_UNAVAILABLE');
         const result = await response.json().catch(() => ({}));
         if (!['registered', 'pending', 'available'].includes(result.status) ||
-            typeof result.email !== 'string') throw new Error('EMAIL_CHECK_UNAVAILABLE');
+            typeof result.email !== 'string' ||
+            (result.status === 'available' && typeof result.signupToken !== 'string')) {
+          throw new Error('EMAIL_CHECK_UNAVAILABLE');
+        }
         setEmail(result.email);
+        setSignupToken(result.status === 'available' ? result.signupToken : null);
         setEmailCheckPhase(result.status);
         setIsLoginMode(result.status === 'registered');
       } catch (error) {
@@ -59,6 +78,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     event.preventDefault();
     setEmailCheckLoading(true);
     setEmailCheckError('');
+    setSignupToken(null);
     try {
       const response = await fetch('/api/auth/email-check/request', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -75,6 +95,45 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
       setEmailCheckError('확인 메일을 요청하지 못했습니다. 연결을 확인해 주세요.');
     } finally {
       setEmailCheckLoading(false);
+    }
+  };
+
+  const handleRecoveryRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setRecoveryError('');
+    setRecoveryLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/?auth=recovery`,
+      });
+      if (error) throw error;
+      setRecoveryPhase('sent');
+    } catch {
+      setRecoveryError('재설정 메일을 요청하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const handleRecoveryUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!passwordRecoveryReady) return;
+    if (recoveryPassword.length < 6 || recoveryPassword !== recoveryPasswordConfirm) {
+      setRecoveryError('새 비밀번호를 6자 이상 입력하고 확인란에도 똑같이 입력해 주세요.');
+      return;
+    }
+    setRecoveryError('');
+    setRecoveryLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+      if (error) throw error;
+      setRecoveryPassword('');
+      setRecoveryPasswordConfirm('');
+      setRecoveryPhase('done');
+    } catch {
+      setRecoveryError('비밀번호를 변경하지 못했습니다. 다시 시도하거나 새 재설정 메일을 요청해 주세요.');
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -123,6 +182,43 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         if (!nickname.trim()) {
           throw new Error('닉네임을 입력해주세요.');
         }
+        if (emailCheckEnabled) {
+          if (!signupToken) throw new Error('이메일 소유 확인을 먼저 완료해 주세요.');
+          const response = await fetch('/api/auth/email-check/signup', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, nickname: nickname.trim(), signupToken }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (response.status === 409 && ['registered', 'pending'].includes(result.status)) {
+            setEmailCheckPhase(result.status);
+            setIsLoginMode(result.status === 'registered');
+            setSignupToken(null);
+            setPassword('');
+            return;
+          }
+          if (response.status === 410) {
+            setEmailCheckPhase('failed');
+            setSignupToken(null);
+            setEmailCheckError('확인 시간이 지났습니다. 이메일 소유 확인을 다시 요청해 주세요.');
+            return;
+          }
+          if (!response.ok || result.created !== true) {
+            if (response.status === 400) throw new Error('가입 정보를 다시 확인해 주세요.');
+            setSignupToken(null);
+            setEmailCheckPhase('entry');
+            setIsLoginMode(true);
+            setErrorMsg('가입 결과를 확인할 수 없습니다. 먼저 로그인을 시도하거나 새 확인 링크를 요청해 주세요.');
+            return;
+          }
+          setSignupToken(null);
+          const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginError) {
+            setEmailCheckPhase('registered');
+            setIsLoginMode(true);
+            setErrorMsg('계정이 만들어졌지만 자동 로그인하지 못했습니다. 아래에서 로그인해 주세요.');
+          }
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -140,6 +236,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
       }
     } catch (error: any) {
       if (error.message === '닉네임을 입력해주세요.' ||
+          error.message === '가입 정보를 다시 확인해 주세요.' ||
           error.message === '이메일 소유 확인을 먼저 완료해 주세요.') {
         setErrorMsg(error.message);
       } else {
@@ -184,7 +281,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             니편내편에 오신 것을 환영합니다!
           </h2>
           <p className="text-xs sm:text-sm text-[#5f5e5e]">
-            {showExpiredLink
+            {recoveryPhase !== 'idle'
+              ? recoveryPhase === 'done' ? '새 비밀번호가 저장됐습니다.'
+                : recoveryPhase === 'updating' ? '새 비밀번호를 설정해 주세요.'
+                : '비밀번호 재설정 메일을 요청할 수 있습니다.'
+              : showExpiredLink
               ? '가입 확인 링크를 사용할 수 없습니다.'
               : confirmationEmail
               ? '가입 요청 결과를 확인해 주세요.'
@@ -201,7 +302,57 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         </div>
 
         {/* Form */}
-        {showExpiredLink ? (
+        {recoveryPhase === 'request' ? (
+          <form onSubmit={handleRecoveryRequest} className="space-y-4 text-left">
+            <p className="text-sm text-[#1C1C1C]">계정이 있는 주소라면 비밀번호 재설정 메일이 도착합니다.</p>
+            <label htmlFor="recovery-email" className="block text-xs font-bold text-[#1C1C1C]">이메일</label>
+            <input id="recovery-email" type="email" value={email}
+              onChange={(event) => setEmail(event.target.value)} required
+              className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]" />
+            {recoveryError && <p role="alert" className="text-xs text-red-600">{recoveryError}</p>}
+            <button type="submit" disabled={recoveryLoading}
+              className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
+              {recoveryLoading ? '요청 중…' : '재설정 메일 요청하기'}
+            </button>
+          </form>
+        ) : recoveryPhase === 'sent' ? (
+          <div className="space-y-4 text-left" role="status">
+            <p className="text-sm text-[#1C1C1C]">계정이 있는 주소라면 재설정 링크가 도착합니다. 받은편지함과 스팸함을 확인해 주세요.</p>
+            <button type="button" onClick={() => setRecoveryPhase('request')}
+              className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">다른 이메일 사용하기</button>
+          </div>
+        ) : recoveryPhase === 'updating' ? (
+          passwordRecoveryReady ? (
+            <form onSubmit={handleRecoveryUpdate} className="space-y-4 text-left">
+              <label htmlFor="recovery-new-password" className="block text-xs font-bold text-[#1C1C1C]">새 비밀번호 (6자 이상)</label>
+              <input id="recovery-new-password" type="password" value={recoveryPassword}
+                onChange={(event) => setRecoveryPassword(event.target.value)} minLength={6} required
+                autoComplete="new-password"
+                className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]" />
+              <label htmlFor="recovery-confirm-password" className="block text-xs font-bold text-[#1C1C1C]">새 비밀번호 확인</label>
+              <input id="recovery-confirm-password" type="password" value={recoveryPasswordConfirm}
+                onChange={(event) => setRecoveryPasswordConfirm(event.target.value)} minLength={6} required
+                autoComplete="new-password"
+                className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]" />
+              {recoveryError && <p role="alert" className="text-xs text-red-600">{recoveryError}</p>}
+              <button type="submit" disabled={recoveryLoading}
+                className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
+                {recoveryLoading ? '저장 중…' : '새 비밀번호 저장하기'}
+              </button>
+            </form>
+          ) : (
+            <div className="space-y-4 text-left" role="status">
+              <p className="text-sm text-[#1C1C1C]">재설정 링크를 확인하고 있습니다. 계속 진행되지 않으면 새 메일을 요청해 주세요.</p>
+              <button type="button" onClick={() => setRecoveryPhase('request')}
+                className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">새 재설정 메일 요청하기</button>
+            </div>
+          )
+        ) : recoveryPhase === 'done' ? (
+          <button type="button" onClick={() => { setRecoveryPhase('idle'); onPasswordRecoveryComplete(); }}
+            className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl">
+            니편내편 계속 이용하기
+          </button>
+        ) : showExpiredLink ? (
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -296,7 +447,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           {emailCheckEnabled && emailCheckPhase === 'registered' && isLoginMode &&
             <p className="text-sm text-[#1C1C1C]">이 이메일로 등록된 계정이 있습니다. 비밀번호를 입력해 로그인해 주세요.</p>}
           {emailCheckEnabled && emailCheckPhase === 'available' && !isLoginMode &&
-            <p className="text-sm text-[#1C1C1C]">이메일 소유 확인이 끝났습니다. 가입을 마치면 가입 확인 메일이 한 번 더 도착합니다.</p>}
+            <p className="text-sm text-[#1C1C1C]">이메일 소유 확인이 끝났습니다. 비밀번호와 닉네임을 정하면 가입이 완료됩니다.</p>}
           
           <div>
             <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">이메일</label>
@@ -356,9 +507,15 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             <span>{isLoginMode ? '로그인하기' : '니편내편 시작하기'}</span>
             {!isLoading && <Check className="w-4 h-4 text-[#FF6B5A]" />}
           </button>
+          {isLoginMode && (
+            <button type="button" onClick={() => { setRecoveryError(''); setRecoveryPhase('request'); }}
+              className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">
+              비밀번호를 잊으셨나요?
+            </button>
+          )}
         </form>}
 
-        <button
+        {recoveryPhase === 'idle' && <button
           type="button"
           onClick={() => {
             setShowExpiredLink(false);
@@ -367,15 +524,23 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           className="w-full py-3 bg-white border border-[#E5E7EB] text-[#5f5e5e] font-bold text-sm rounded-2xl hover:bg-[#f3f4f5] active:scale-95 transition-all cursor-pointer"
         >
           로그인 없이 둘러보기
-        </button>
+        </button>}
 
-        <div className="pt-2 border-t border-[#E5E7EB] text-xs font-bold text-[#5f5e5e]">
+        {recoveryPhase !== 'updating' && recoveryPhase !== 'done' && <div className="pt-2 border-t border-[#E5E7EB] text-xs font-bold text-[#5f5e5e]">
+          {recoveryPhase !== 'idle' ? (
+            <button type="button" onClick={() => { setRecoveryPhase('idle'); setRecoveryError(''); }}
+              className="text-[#FF6B5A] hover:underline">로그인으로 돌아가기</button>
+          ) : <>
           {confirmationEmail || showExpiredLink ? '이미 확인하셨나요? ' : isLoginMode ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
           <button 
             type="button" 
             onClick={() => {
               if (emailCheckEnabled && isLoginMode && emailCheckPhase === 'registered') {
                 setEmail('');
+                setEmailCheckPhase('entry');
+              }
+              if (emailCheckEnabled && !isLoginMode && emailCheckPhase === 'available') {
+                setSignupToken(null);
                 setEmailCheckPhase('entry');
               }
               setIsLoginMode(confirmationEmail || showExpiredLink ? true : !isLoginMode);
@@ -388,7 +553,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           >
             {confirmationEmail || showExpiredLink ? '로그인' : isLoginMode ? '회원가입' : '로그인'}
           </button>
-        </div>
+          </>}
+        </div>}
       </div>
     </div>
   );

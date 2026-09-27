@@ -36,7 +36,14 @@ const authorPrivateLaunchEnabled = import.meta.env.DEV ||
   import.meta.env.VITE_AUTHOR_PRIVATE_ENABLED === 'true';
 
 // Supabase가 만료된 인증 링크를 앱으로 돌려보낼 때 URL 조각에 오류 코드를 담는다.
-const signupLinkExpired = new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
+const passwordRecoveryReturn = new URLSearchParams(window.location.search).get('auth') === 'recovery';
+const recoveryHash = new URLSearchParams(window.location.hash.slice(1));
+const recoveryCallbackAccessToken = passwordRecoveryReturn && recoveryHash.get('type') === 'recovery'
+  ? recoveryHash.get('access_token') : null;
+const recoveryLinkExpired = passwordRecoveryReturn &&
+  Boolean(new URLSearchParams(window.location.hash.slice(1)).get('error_code'));
+const signupLinkExpired = !passwordRecoveryReturn &&
+  new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
 const emailCheckToken = new URLSearchParams(window.location.hash.slice(1)).get('email_check');
 
 // 사연 기반 AI 시뮬레이션에서 대화 상대를 부르는 호칭
@@ -97,7 +104,7 @@ const makeDefaultUser = (): UserProfile => ({
 
 export default function App() {
   useEffect(() => {
-    if (signupLinkExpired || emailCheckToken) {
+    if (signupLinkExpired || recoveryLinkExpired || emailCheckToken) {
       window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
   }, []);
@@ -118,7 +125,9 @@ export default function App() {
   */
   const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired || Boolean(emailCheckToken));
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired || passwordRecoveryReturn || Boolean(emailCheckToken));
+  const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false);
+  const passwordRecoveryFlowRef = useRef(passwordRecoveryReturn);
   const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
@@ -181,8 +190,13 @@ export default function App() {
   // Initialize Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (recoveryCallbackAccessToken) {
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+      }
       if (session?.user) {
-        if (!emailCheckToken) setShowWelcomeModal(false);
+        if (!emailCheckToken && !passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
+        if (recoveryCallbackAccessToken && session.access_token === recoveryCallbackAccessToken &&
+            !recoveryLinkExpired) setPasswordRecoveryReady(true);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
@@ -204,7 +218,19 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         trackOnce(`login_success:${session.user.id}`, 'login_success');
-        setShowWelcomeModal(false);
+        if (!passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
+        setShowLandingPage(false);
+        setIsGuest(false);
+        setAuthUserId(session.user.id);
+        setUser(prev => ({
+          ...prev,
+          id: session.user.id,
+          nickname: session.user.user_metadata?.nickname || prev.nickname,
+        }));
+        loadMyVotes();
+      } else if (event === 'PASSWORD_RECOVERY' && session) {
+        setPasswordRecoveryReady(true);
+        setShowWelcomeModal(true);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
@@ -1923,6 +1949,17 @@ export default function App() {
         onGuestBrowse={handleGuestBrowse}
         signupLinkExpired={signupLinkExpired}
         emailCheckToken={emailCheckToken}
+        passwordRecoveryReturn={passwordRecoveryReturn}
+        passwordRecoveryReady={passwordRecoveryReady}
+        recoveryLinkExpired={recoveryLinkExpired}
+        onPasswordRecoveryComplete={() => {
+          passwordRecoveryFlowRef.current = false;
+          setPasswordRecoveryReady(false);
+          window.history.replaceState(window.history.state, '', window.location.pathname);
+          setShowWelcomeModal(false);
+          setShowLandingPage(false);
+          setIsGuest(false);
+        }}
       />
 
       <CrisisSupportModal

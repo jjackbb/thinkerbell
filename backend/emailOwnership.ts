@@ -134,10 +134,12 @@ export function registerEmailOwnershipRoutes(app: Express, client: () => Supabas
     const payload = readToken(rawToken, config.cipherKey);
     if (!payload) return void res.status(410).json({ error: "EMAIL_CHECK_LINK_UNAVAILABLE" });
     try {
+      const signupToken = randomBytes(32).toString("base64url");
       const { data: status, error } = await client().rpc("consume_signup_email_check", {
         p_id: payload.id,
         p_email_digest: emailDigest(payload.email, config.digestKey),
         p_token_digest: tokenDigest(rawToken), p_email: payload.email,
+        p_signup_digest: tokenDigest(signupToken),
       });
       if (error?.message?.includes("EMAIL_CHECK_LINK_UNAVAILABLE")) {
         return void res.status(410).json({ error: "EMAIL_CHECK_LINK_UNAVAILABLE" });
@@ -145,9 +147,60 @@ export function registerEmailOwnershipRoutes(app: Express, client: () => Supabas
       if (error || !["registered", "pending", "available"].includes(status)) {
         throw error || new Error("INVALID_RESULT");
       }
-      return void res.json({ status, email: payload.email });
+      return void res.json({
+        status, email: payload.email,
+        ...(status === "available" ? { signupToken } : {}),
+      });
     } catch {
       return void res.status(503).json({ error: "EMAIL_CHECK_UNAVAILABLE" });
+    }
+  });
+
+  app.post("/api/auth/email-check/signup", async (req: Request, res: Response) => {
+    res.set("Cache-Control", "no-store");
+    const config = settings();
+    if (!config) return void res.status(503).json({ error: "EMAIL_CHECK_UNAVAILABLE" });
+    const email = normalizeEmail(req.body?.email);
+    const signupToken = req.body?.signupToken;
+    const password = req.body?.password;
+    const nickname = typeof req.body?.nickname === "string" ? req.body.nickname.trim() : "";
+    if (!email || typeof signupToken !== "string" ||
+        !/^[A-Za-z0-9_-]{43}$/.test(signupToken) ||
+        typeof password !== "string" || password.length < 6 || password.length > 1024 ||
+        !nickname || nickname.length > 12) {
+      return void res.status(400).json({ error: "INVALID_SIGNUP" });
+    }
+    try {
+      const db = client();
+      const { data: status, error: claimError } = await db.rpc("claim_signup_email_check", {
+        p_email_digest: emailDigest(email, config.digestKey),
+        p_signup_digest: tokenDigest(signupToken), p_email: email,
+      });
+      if (claimError?.message?.includes("EMAIL_CHECK_LINK_UNAVAILABLE")) {
+        return void res.status(410).json({ error: "EMAIL_CHECK_LINK_UNAVAILABLE" });
+      }
+      if (claimError || !["available", "registered", "pending"].includes(status)) {
+        throw claimError || new Error("INVALID_RESULT");
+      }
+      if (status !== "available") return void res.status(409).json({ status });
+
+      // This server-only API creates an already confirmed account because the
+      // mailbox bearer was verified above. It must never be exposed in VITE_*.
+      const { data, error } = await db.auth.admin.createUser({
+        email, password, email_confirm: true, user_metadata: { nickname },
+      });
+      if (error) {
+        if (["email_exists", "user_already_exists"].includes(error.code || "")) {
+          return void res.status(409).json({ status: "registered" });
+        }
+        return void res.status(503).json({ error: "SIGNUP_UNAVAILABLE" });
+      }
+      if (!data.user) throw new Error("MISSING_CREATED_USER");
+      return void res.status(201).json({ created: true });
+    } catch {
+      // An uncertain Admin API result is never retried with the same proof.
+      // The visitor can try password login or request a new mailbox link.
+      return void res.status(503).json({ error: "SIGNUP_UNAVAILABLE" });
     }
   });
 }
