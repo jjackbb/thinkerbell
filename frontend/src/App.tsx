@@ -26,7 +26,7 @@ import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
-import { fetchPersonas, openAiRoom, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
+import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
 import { resetPageViewDeduplication, setupGA4, trackPageView } from './lib/ga4';
 import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
@@ -881,18 +881,26 @@ export default function App() {
   };
 
 
-  const handleTogglePinPersona = (personaId: string) => {
+  const handleTogglePinPersona = async (personaId: string) => {
     const next = !personas.find(p => p.id === personaId)?.isPinned;
-    setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: next } : p));
-    savePersona(personaId, { isPinned: next });
+    try {
+      const saved = await updateAiRoomPin(personaId, next);
+      setPersonas(prev => prev.map(p => p.id === personaId ? saved : p));
+    } catch {
+      setToastMessage('대화방 고정을 저장하지 못했습니다. 다시 시도해 주세요.');
+    }
   };
 
-  const handleDeletePersona = (personaId: string) => {
-    setPersonas(prev => prev.filter(p => p.id !== personaId));
-    if (activeChatSession?.personaId === personaId) setActiveChatSession(null);
-    deletePersona(personaId);
-    setToastMessage('AI 대화가 삭제되었습니다.');
+  const handleDeletePersona = async (personaId: string) => {
+    if (!window.confirm('이 AI 대화방과 저장된 대화를 삭제할까요? 삭제 후에는 복구할 수 없습니다.')) return false;
+    const deleted = await deletePersona(personaId);
+    if (deleted) {
+      setPersonas(prev => prev.filter(p => p.id !== personaId));
+      if (activeChatSession?.personaId === personaId) setActiveChatSession(null);
+    }
+    setToastMessage(deleted ? 'AI 대화가 삭제되었습니다.' : '대화를 삭제하지 못했습니다. 다시 시도해 주세요.');
     setTimeout(() => setToastMessage(null), 3000);
+    return deleted;
   };
 
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
@@ -1113,6 +1121,7 @@ export default function App() {
       if (!existing) {
         let recovered = false;
         let quotaMode: 'legacy' | 'server' = 'legacy';
+        let legacyCharged = false;
         if (!isGuest) {
           if (!authUserId) {
             setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
@@ -1125,7 +1134,7 @@ export default function App() {
               setPremiumModalStory(story);
               return;
             }
-            ({ persona, recovered, quotaMode } = await openAiRoom(story.id, { mode: 'simulation', opening }));
+            ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(story.id, { mode: 'simulation', opening }));
             if (authUserIdRef.current !== authUserId) return;
           } catch {
             if (authUserIdRef.current !== authUserId) return;
@@ -1135,7 +1144,8 @@ export default function App() {
         }
         setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
         if (!recovered && quotaMode === 'legacy' && !isGuest && story.authorId !== user.id) {
-          spendLegacyAiQuota(story.id);
+          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          else spendLegacyAiQuota(story.id);
         }
       }
 
@@ -1208,6 +1218,7 @@ export default function App() {
       if (!existing) {
         let recovered = false;
         let quotaMode: 'legacy' | 'server' = 'legacy';
+        let legacyCharged = false;
         if (!isGuest) {
           if (!authUserId) {
             setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
@@ -1220,7 +1231,7 @@ export default function App() {
               setPremiumModalStory(target);
               return;
             }
-            ({ persona, recovered, quotaMode } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
+            ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
             if (authUserIdRef.current !== authUserId) return;
           } catch {
             if (authUserIdRef.current !== authUserId) return;
@@ -1230,7 +1241,8 @@ export default function App() {
         }
         setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
         if (!recovered && quotaMode === 'legacy' && !isGuest && target.authorId !== user.id) {
-          spendLegacyAiQuota(target.id);
+          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          else spendLegacyAiQuota(target.id);
         }
       }
 
@@ -1260,22 +1272,23 @@ export default function App() {
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
-      // 기존 채팅 세션 진행 도중 비율만 변경한 경우
+      // 비공개 전환 뒤에도 저장된 방의 사연 맥락을 서버에서 보존해 관점만 바꾼다.
+      let saved: AIPersona;
+      try {
+        saved = await updateAiRoomRatio(activeChatSession.personaId, ratio);
+      } catch {
+        setToastMessage('공감 관점을 저장하지 못했습니다. 다시 시도해 주세요.');
+        return;
+      }
       setActiveChatSession(prev => prev ? {
         ...prev,
         explanationRatio: ratio,
-        personaName,
-        personaRole: roleLabel,
+        personaName: saved.name,
+        personaRole: saved.role,
       } : null);
-
       setPersonas(prev => prev.map(p =>
-        p.id === activeChatSession.personaId
-          ? { ...p, name: personaName, role: roleLabel, description: describe, systemInstruction, ratio }
-          : p
+        p.id === activeChatSession.personaId ? saved : p
       ));
-      savePersona(activeChatSession.personaId, {
-        name: personaName, role: roleLabel, description: describe, systemInstruction, ratio,
-      });
     }
 
     setIsExplainSettingsModalOpen(false);
@@ -1685,6 +1698,7 @@ export default function App() {
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
             onSaveTurn={saveCompletedTurn}
+            onQuotaChanged={() => { void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {}); }}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}

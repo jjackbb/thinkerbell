@@ -81,7 +81,10 @@ begin
     if v_existing.persona_id <> p_persona_id then
       raise exception 'AI_QUOTA_REQUEST_CONFLICT';
     end if;
-    return query select v_existing.status, v_existing.quota_day,
+    -- A replay of an active request must not start a second provider call.
+    return query select case when v_existing.status = 'reserved'
+        then 'already_reserved' else v_existing.status end,
+      v_existing.quota_day,
       (select count(*)::integer from public.ai_quota_reservations as q
        where q.user_id = p_user_id and q.quota_day = v_existing.quota_day
          and q.status in ('reserved', 'completed'));

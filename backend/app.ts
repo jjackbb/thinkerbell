@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { buildEmpathyPrompt, buildSimulationPrompt, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts";
+import { buildEmpathyPrompt, buildSimulationPrompt, changeEmpathyRatio, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts";
 import { consumePotensStream } from "./potensStream";
 
 dotenv.config();
@@ -35,15 +35,25 @@ function generateRandomNickname(): string {
 // Health check endpoint
 const POTENS_MODEL = process.env.POTENS_MODEL || "claude-4-6-sonnet";
 
-function aiQuotaMode(): "legacy" | "server" {
+function aiQuotaActivation(): Date | null {
   const raw = process.env.AI_QUOTA_ACTIVATES_AT;
-  if (!raw) return "legacy";
+  if (!raw) {
+    // A deployed app must never silently fall back to browser-owned room and
+    // quota writes after the direct-write policy has been closed.
+    if (process.env.VERCEL_ENV) throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
+    return null;
+  }
   const instant = new Date(raw);
   if (!Number.isFinite(instant.getTime()) ||
       new Date(instant.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(11) !== "00:00:00.000Z") {
     throw new StoryRequestFailure(503, "AI_QUOTA_CONFIG_INVALID");
   }
-  return Date.now() >= instant.getTime() ? "server" : "legacy";
+  return instant;
+}
+
+function aiQuotaMode(at: Date = new Date()): "legacy" | "server" {
+  const activation = aiQuotaActivation();
+  return activation && at.getTime() >= activation.getTime() ? "server" : "legacy";
 }
 
 function seoulQuotaDay(): string {
@@ -54,6 +64,9 @@ app.get("/api/ai/quota", async (req: Request, res: Response) => {
   try {
     const user = await authenticatedStoryUser(req);
     const mode = aiQuotaMode();
+    if (aiQuotaActivation() && process.env.AI_QUOTA_SERVER_READY !== "true") {
+      throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
+    }
     const day = seoulQuotaDay();
     const client = storyWriteClient();
     const query = mode === "server"
@@ -122,15 +135,25 @@ app.post("/api/chat", async (req: Request, res: Response) => {
 
 // AI Chat Streaming (SSE). Provider failure remains an error, never a mock answer.
 app.post("/api/chat-stream", async (req: Request, res: Response) => {
+  const receivedAt = new Date();
   const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
-  if (!prompt) return res.status(400).json({ error: "INVALID_PROMPT" });
+  if (!prompt || prompt.length > 4000) return res.status(400).json({ error: "INVALID_PROMPT" });
   let context: Awaited<ReturnType<typeof authorizedChatContext>>;
+  let userId: string;
+  let activation: Date | null;
   try {
     const user = await authenticatedStoryUser(req);
+    userId = user.id;
     context = await authorizedChatContext(user.id, req.body?.personaId, prompt);
-    if (aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
+    activation = aiQuotaActivation();
   } catch (error) {
     return sendStorySaveError(res, error);
+  }
+  // During the pre-activation day the legacy room-opening charge remains, but
+  // completed turns already use server persistence so direct persona UPDATE can
+  // be closed before deployment.
+  if (activation) {
+    return streamServerAiTurn(req, res, userId, context, prompt, activation, receivedAt);
   }
   const apiKey = process.env.POTENS_API_KEY;
   if (!apiKey) return res.status(503).json({ error: "AI_PROVIDER_UNAVAILABLE" });
@@ -184,6 +207,153 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
     return;
   }
 });
+
+function quotaRpcFailure(message: string): StoryRequestFailure {
+  if (message.includes("AI_QUOTA_REACHED")) return new StoryRequestFailure(429, "AI_QUOTA_REACHED");
+  if (message.includes("AI_QUOTA_PERSONA_IN_PROGRESS")) return new StoryRequestFailure(409, "AI_REQUEST_IN_PROGRESS");
+  if (message.includes("AI_QUOTA_REQUEST_CONFLICT")) return new StoryRequestFailure(409, "AI_REQUEST_CONFLICT");
+  return new StoryRequestFailure(503, "AI_QUOTA_UNAVAILABLE");
+}
+
+async function streamServerAiTurn(
+  req: Request,
+  res: Response,
+  userId: string,
+  context: Awaited<ReturnType<typeof authorizedChatContext>>,
+  prompt: string,
+  activation: Date,
+  receivedAt: Date,
+) {
+  if (process.env.AI_QUOTA_SERVER_READY !== "true") {
+    return res.status(503).json({ error: "AI_QUOTA_NOT_READY" });
+  }
+  const rawId = req.body?.requestId;
+  if (typeof rawId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)) {
+    return res.status(400).json({ error: "INVALID_AI_REQUEST_ID" });
+  }
+  const requestId = rawId.toLowerCase();
+  const client = storyWriteClient();
+  let heldReservation = false;
+  let recoveredAnswer: string | null = null;
+  try {
+    const prior = context.savedHistory.find((entry: unknown) => {
+      if (!entry || typeof entry !== "object") return false;
+      const message = entry as Record<string, unknown>;
+      return message.sender === "ai" && message.requestId === requestId &&
+        typeof message.text === "string" && message.text.trim();
+    }) as Record<string, unknown> | undefined;
+    if (prior) recoveredAnswer = prior.text as string;
+
+    if (!recoveredAnswer) {
+      const createdAt = Date.parse(context.createdAt);
+      if (!Number.isFinite(createdAt)) throw new StoryRequestFailure(503, "AI_ROOM_STATE_INVALID");
+      // Every pre-activation room is grandfathered, including empty histories.
+      if (createdAt >= activation.getTime()) {
+        if (!context.storyId) throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
+        const { data: story, error: storyError } = await client.from("stories")
+          .select("authorId").eq("id", context.storyId).maybeSingle();
+        if (storyError) throw new StoryRequestFailure(503, "AI_QUOTA_UNAVAILABLE");
+        if (!story) throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
+        if (story.authorId !== userId) {
+          const { data: completed, error: completedError } = await client
+            .from("ai_quota_completed_rooms").select("persona_id")
+            .eq("persona_id", context.id).eq("user_id", userId).maybeSingle();
+          if (completedError) throw new StoryRequestFailure(503, "AI_QUOTA_UNAVAILABLE");
+          if (!completed) {
+            const { data: reservation, error: reserveError } = await client.rpc(
+              "reserve_ai_first_reply", {
+                p_user_id: userId,
+                p_persona_id: context.id,
+                p_request_id: requestId,
+                p_received_at: receivedAt.toISOString(),
+                p_expires_at: new Date(receivedAt.getTime() + 90_000).toISOString(),
+              });
+            if (reserveError) throw quotaRpcFailure(reserveError.message);
+            const result = Array.isArray(reservation) ? reservation[0]?.result : null;
+            if (result === "reserved") heldReservation = true;
+            else if (result === "already_reserved") throw new StoryRequestFailure(409, "AI_REQUEST_IN_PROGRESS");
+            else if (result !== "already_completed") throw new StoryRequestFailure(409, "AI_REQUEST_RETRY_REQUIRED");
+          }
+        }
+      }
+    }
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  const send = (value: Record<string, unknown>) => {
+    if (!res.destroyed) res.write(`data: ${JSON.stringify(value)}\n\n`);
+  };
+  if (recoveredAnswer) {
+    send({ type: "text", text: recoveredAnswer });
+    send({ type: "provider_done", recovered: true });
+    send({ type: "done", persisted: true, recovered: true });
+    return res.end();
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  res.on("close", () => { if (!res.writableEnded) controller.abort(); });
+  let providerCompleted = false;
+  try {
+    const historyText = context.history.length > 0
+      ? "\n\n[과거 대화 히스토리 (시나리오 흐름 참고용)]:\n" +
+        context.history.map((entry: unknown) => {
+          const message = entry as Record<string, unknown>;
+          return `${message.sender === "user" ? "작성자(유저)" : "상대방(너)"}: ${message.text}`;
+        }).join("\n") : "";
+    const compiledPrompt = `${context.instruction ? `[System Instruction: ${context.instruction}]\n` : ""}${historyText}\n\n[작성자(유저)의 이번 최신 발언]: "${prompt}"\n[상대방(너)의 실제 대사 및 응답]:`;
+    const key = process.env.POTENS_API_KEY;
+    if (!key) throw new Error("AI_PROVIDER_UNAVAILABLE");
+    const response = await fetch("https://ai.potens.ai/api/chat-stream", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: compiledPrompt, model: POTENS_MODEL }),
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) throw new Error("AI_PROVIDER_FAILED");
+    const answer = await consumePotensStream(response.body, (chunk) => send({ type: "text", text: chunk }));
+    if (controller.signal.aborted) throw new Error("AI_REQUEST_CANCELLED");
+    providerCompleted = true;
+    send({ type: "provider_done" });
+
+    const { data: saved, error: saveError } = await client.rpc("complete_ai_turn", {
+      p_user_id: userId,
+      p_persona_id: context.id,
+      p_request_id: requestId,
+      p_prompt: prompt,
+      p_answer: answer,
+      p_finished_at: new Date().toISOString(),
+      p_activated_at: activation.toISOString(),
+    });
+    if (saveError || (saved?.result !== "saved" && saved?.result !== "recovered")) {
+      throw new Error("AI_REPLY_SAVE_FAILED");
+    }
+    heldReservation = false;
+    send({ type: "done", persisted: true, recovered: saved.result === "recovered" });
+    return res.end();
+  } catch {
+    send({ type: "error", error: providerCompleted ? "ai_save_failed" : "ai_provider_failed" });
+    return res.end();
+  } finally {
+    clearTimeout(timeout);
+    if (heldReservation) {
+      const { error } = await client.rpc("finish_ai_first_reply", {
+        p_user_id: userId,
+        p_request_id: requestId,
+        p_success: false,
+        p_finished_at: new Date().toISOString(),
+      });
+      if (error) console.error("AI reservation return failed:", error.code ?? "unknown");
+    }
+  }
+}
 
 type StoryCheckResult = {
   isAdult: boolean;
@@ -323,10 +493,15 @@ function sameAiRoomChoice(row: Record<string, any>, input: AiRoomInput, userId: 
 
 app.post("/api/ai/rooms", async (req: Request, res: Response) => {
   try {
+    const roomReceivedAt = new Date();
     const user = await authenticatedStoryUser(req);
     const input = readAiRoomInput(req.body);
     // 설정 오류를 저장 후에 발견하면 방은 생성되고 화면에는 실패로 보인다.
-    const quotaMode = aiQuotaMode();
+    const quotaMode = aiQuotaMode(roomReceivedAt);
+    const activation = aiQuotaActivation();
+    if (activation && process.env.AI_QUOTA_SERVER_READY !== "true") {
+      throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
+    }
     const client = storyWriteClient();
     const { data: prior, error: priorError } = await client.from("ai_personas")
       .select("*").eq("id", input.id).maybeSingle();
@@ -384,6 +559,25 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
       opening: input.opening,
       ratio: input.ratio,
     };
+    if (quotaMode === "legacy" && activation) {
+      const { data: opened, error: openError } = await client.rpc("open_legacy_ai_room", {
+        p_user_id: user.id,
+        p_request_id: input.id.slice("persona-".length),
+        p_room: row,
+        p_received_at: roomReceivedAt.toISOString(),
+      });
+      if (openError) {
+        if (openError.message.includes("AI_ROOM_STORY_NOT_FOUND")) {
+          throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
+        }
+        throw quotaRpcFailure(openError.message);
+      }
+      if (!opened?.room?.id) throw new StoryRequestFailure(503, "CHAT_ROOM_SAVE_FAILED");
+      return res.status(opened.recovered ? 200 : 201).json({
+        room: opened.room, recovered: opened.recovered === true,
+        quotaMode, legacyCharged: true,
+      });
+    }
     const { data: saved, error: saveError } = await client.from("ai_personas")
       .insert(row).select("*").single();
     if (saveError?.code === "23505") {
@@ -400,6 +594,112 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
     }
     if (saveError || !saved) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
     return res.status(201).json({ room: saved, recovered: false, quotaMode });
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+});
+
+app.patch("/api/ai/rooms/:id/pin", async (req: Request, res: Response) => {
+  try {
+    const user = await authenticatedStoryUser(req);
+    if (typeof req.body?.isPinned !== "boolean") {
+      throw new StoryRequestFailure(400, "INVALID_ROOM_PIN");
+    }
+    const { data, error } = await storyWriteClient().from("ai_personas")
+      .update({ isPinned: req.body.isPinned, updatedAt: new Date().toISOString() })
+      .eq("id", req.params.id).eq("userId", user.id).select("*").maybeSingle();
+    if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (!data) throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
+    return res.json({ room: data });
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+});
+
+app.patch("/api/ai/rooms/:id/ratio", async (req: Request, res: Response) => {
+  try {
+    const user = await authenticatedStoryUser(req);
+    const ratio = req.body?.ratio;
+    if (ratio !== "High" && ratio !== "Middle" && ratio !== "Low") {
+      throw new StoryRequestFailure(400, "INVALID_EMPATHY_RATIO");
+    }
+    const client = storyWriteClient();
+    const { data: prior, error: priorError } = await client.from("ai_personas")
+      .select("*").eq("id", req.params.id).eq("userId", user.id).maybeSingle();
+    if (priorError) throw new StoryRequestFailure(500, "CHAT_ROOM_LOOKUP_FAILED");
+    if (!prior) throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
+    const instruction = prior.systemInstruction;
+    if (typeof instruction !== "string" ||
+        !instruction.startsWith("[상황 이해 & 위로 대화 시뮬레이션")) {
+      throw new StoryRequestFailure(400, "INVALID_EMPATHY_ROOM");
+    }
+    const { data, error } = await client.from("ai_personas").update({
+      ratio,
+      name: EMPATHY_PERSONA_NAMES[ratio],
+      role: ratioLabel(ratio),
+      systemInstruction: changeEmpathyRatio(instruction, ratio),
+      updatedAt: new Date().toISOString(),
+    }).eq("id", req.params.id).eq("userId", user.id).select("*").maybeSingle();
+    if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (!data) throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
+    return res.json({ room: data });
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+});
+
+app.post("/api/ai/feedback", async (req: Request, res: Response) => {
+  try {
+    const user = await authenticatedStoryUser(req);
+    const episodeId = req.body?.episodeId;
+    const personaId = req.body?.personaId;
+    const score = req.body?.score;
+    if (typeof episodeId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(episodeId) ||
+        typeof personaId !== "string" || !personaId || personaId.length > 100 ||
+        (score !== null && ![1, 2, 3, 4, 5].includes(score))) {
+      throw new StoryRequestFailure(400, "INVALID_AI_FEEDBACK");
+    }
+    const client = storyWriteClient();
+    const { data: room, error: roomError } = await client.from("ai_personas")
+      .select("id,userId,opening,ratio,chatHistory")
+      .eq("id", personaId).maybeSingle();
+    if (roomError) throw new StoryRequestFailure(503, "AI_FEEDBACK_UNAVAILABLE");
+    if (!room || room.userId !== user.id) {
+      throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
+    }
+    const hasSavedAnswer = Array.isArray(room.chatHistory) && room.chatHistory.some(
+      (entry: unknown) => entry && typeof entry === "object" &&
+        (entry as Record<string, unknown>).sender === "ai" &&
+        (entry as Record<string, unknown>).requestId === episodeId.toLowerCase() &&
+        typeof (entry as Record<string, unknown>).text === "string" &&
+        Boolean(((entry as Record<string, unknown>).text as string).trim()),
+    );
+    if (!hasSavedAnswer) throw new StoryRequestFailure(409, "AI_FEEDBACK_NOT_READY");
+    // Two operating legacy rooms have neither choice field. Keep them usable
+    // without guessing their original mode or reading their conversation.
+    const mode = room.opening ? "simulation" : room.ratio ? "explanation" : "legacy";
+
+    const row = {
+      episode_id: episodeId.toLowerCase(), user_id: user.id,
+      persona_id: room.id, mode, score,
+      outcome: score === null ? "skipped" : "submitted",
+      schema_version: 1,
+    };
+    const { error: insertError } = await client.from("ai_feedback").insert(row);
+    if (insertError?.code === "23505") {
+      const { data: prior, error: priorError } = await client.from("ai_feedback")
+        .select("user_id,persona_id,mode,score,outcome")
+        .eq("episode_id", episodeId.toLowerCase()).maybeSingle();
+      if (priorError || !prior || prior.user_id !== user.id ||
+          prior.persona_id !== room.id || prior.mode !== mode ||
+          prior.score !== score || prior.outcome !== row.outcome) {
+        throw new StoryRequestFailure(409, "AI_FEEDBACK_CONFLICT");
+      }
+      return res.json({ saved: true, recovered: true });
+    }
+    if (insertError) throw new StoryRequestFailure(503, "AI_FEEDBACK_UNAVAILABLE");
+    return res.status(201).json({ saved: true, recovered: false });
   } catch (error) {
     return sendStorySaveError(res, error);
   }
@@ -450,7 +750,7 @@ async function authorizedChatContext(userId: string, personaIdValue: unknown, pr
     throw new StoryRequestFailure(400, "INVALID_CHAT_ROOM");
   }
   const { data, error } = await storyWriteClient().from("ai_personas")
-    .select("id,userId,systemInstruction,chatHistory")
+    .select("id,userId,storyId,createdAt,systemInstruction,chatHistory")
     .eq("id", personaId).maybeSingle();
   if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_LOOKUP_FAILED");
   if (!data || data.userId !== userId) {
@@ -472,6 +772,10 @@ async function authorizedChatContext(userId: string, personaIdValue: unknown, pr
     history.pop();
   }
   return {
+    id: data.id as string,
+    storyId: data.storyId as string | null,
+    createdAt: data.createdAt as string,
+    savedHistory: Array.isArray(data.chatHistory) ? data.chatHistory : [],
     instruction: typeof data.systemInstruction === "string" ? data.systemInstruction : "",
     history: history.slice(-8),
   };

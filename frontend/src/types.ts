@@ -80,6 +80,8 @@ export interface ChatMessage {
   sender: 'user' | 'ai' | 'system';
   text: string;
   timestamp: string;
+  /** 정상 완료한 서버 답변과 재시도를 연결한다. 과거 메시지에는 없다. */
+  requestId?: string;
 }
 
 export interface ChatSession {

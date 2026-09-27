@@ -12,6 +12,9 @@ export type EventName =
   | 'ai_start_select'
   | 'ai_chat_turn1'
   | 'ai_chat_turn3'
+  | 'ai_chat_finish'
+  | 'ai_feedback_view'
+  | 'ai_feedback_submit'
   | 'operation_success'
   | 'operation_error';
 
@@ -49,7 +52,9 @@ function ga4Props(props: Record<string, unknown>): Record<string, string | numbe
   if (props.mode === 'simulation' || props.mode === 'explanation') result.mode = props.mode;
   if (props.operation === 'ai_reply_save') result.operation = props.operation;
   if (props.error_code === 'save_failed') result.error_code = props.error_code;
-  if (props.outcome === 'completed') result.outcome = props.outcome;
+  if (props.outcome === 'completed' || props.outcome === 'submitted' || props.outcome === 'skipped') {
+    result.outcome = props.outcome;
+  }
   return result;
 }
 

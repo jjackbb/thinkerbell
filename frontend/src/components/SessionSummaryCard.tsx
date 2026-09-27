@@ -1,54 +1,6 @@
 import React, { useState } from 'react';
 import { ChatMessage } from '../types';
 
-/** 기분 칩. 이모지는 라벨을 거드는 용도로만 쓴다 */
-const MOODS = [
-  { id: 'stuck',  emoji: '😖', label: '답답함' },
-  { id: 'angry',  emoji: '😤', label: '화남' },
-  { id: 'sad',    emoji: '😔', label: '서운함' },
-  { id: 'calm',   emoji: '😌', label: '차분함' },
-  { id: 'clear',  emoji: '😮‍💨', label: '후련함' },
-] as const;
-
-type MoodId = typeof MOODS[number]['id'];
-
-const moodOf = (id: MoodId | null) => MOODS.find(m => m.id === id);
-
-/**
- * 기분 칩 한 줄.
- *
- * 컴포넌트 바깥에 둔다. 안에 두면 렌더마다 새 타입이 되어 React가 DOM을
- * 통째로 다시 만들고, 그러면 선택 상태가 튀거나 클릭이 씹힌다.
- */
-const MoodRow: React.FC<{
-  value: MoodId | null;
-  onPick: (id: MoodId) => void;
-  accent: 'muted' | 'coral';
-}> = ({ value, onPick, accent }) => (
-  <div className="flex flex-wrap gap-1">
-    {MOODS.map(m => {
-      const on = value === m.id;
-      return (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => onPick(m.id)}
-          aria-pressed={on}
-          className={`px-2 py-1 rounded-full text-[11px] border transition-colors cursor-pointer ${
-            on
-              ? accent === 'coral'
-                ? 'bg-[#FF6B5A] text-[#1C1C1C] border-[#FF6B5A] font-bold'
-                : 'bg-white text-[#1C1C1C] border-white font-bold'
-              : 'bg-white/5 text-[#E5E7EB] border-white/20 hover:bg-white/10'
-          }`}
-        >
-          {m.emoji} {m.label}
-        </button>
-      );
-    })}
-  </div>
-);
-
 interface SessionSummaryCardProps {
   result: 'success' | 'fail';
   /** 대화 전체. 여기서 내가 한 말만 뽑아 쓴다 */
@@ -69,9 +21,8 @@ interface SessionSummaryCardProps {
  * 실패를 확인시켜 주는 곳이 된다. 그래서 남는 건 결과가 아니라
  * "무엇이 달라졌는가"여야 한다.
  *
- * 기분 전/후는 AI가 추정하지 않고 본인이 직접 고른다. 감정 추정은 틀렸을 때
- * 대가가 크고, 고르는 행위 자체가 되돌아보는 장치가 된다.
- * 털어놓은 내용도 요약을 만들어내지 않고 내가 실제로 쓴 문장을 그대로 인용한다.
+ * 털어놓은 내용을 AI가 추측한 요약으로 바꾸지 않고 내가 실제로 쓴
+ * 문장을 그대로 인용한다. 도움 평가는 마무리 단계에서 별도로 받는다.
  */
 export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
   result,
@@ -81,9 +32,6 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
   onContinue,
   onFinish,
 }) => {
-  const [moodBefore, setMoodBefore] = useState<MoodId | null>(null);
-  const [moodAfter, setMoodAfter] = useState<MoodId | null>(null);
-  const [takeaway, setTakeaway] = useState('');
   // 원문을 보러 갈 때는 카드를 접는다. 카드가 화면을 덮은 채로 스크롤하면
   // 정작 그때 무슨 대화였는지가 안 보인다.
   const [collapsed, setCollapsed] = useState(false);
@@ -94,9 +42,6 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
     .sort((a, b) => b.text.length - a.text.length)
     .slice(0, 3)
     .sort((a, b) => messages.indexOf(a) - messages.indexOf(b));
-
-  const before = moodOf(moodBefore);
-  const after = moodOf(moodAfter);
 
   if (collapsed) {
     return (
@@ -131,30 +76,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
           </p>
         </div>
 
-        {/* 1. 기분 전 → 후. 본인이 직접 고른다 */}
-        <section className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-xs font-bold text-white">마음이 좀 달라졌나요?</p>
-            {before && after && (
-              <p className="font-mono text-sm font-bold text-[#FF6B5A] shrink-0">
-                {before.emoji} {before.label} → {after.emoji} {after.label}
-              </p>
-            )}
-          </div>
-
-          {/* 두 줄을 동시에 보여준다. 한 줄씩 넘기면 칩 모양이 같아서
-              방금 고른 게 사라진 것처럼 보인다 */}
-          <div className="space-y-2">
-            <p className="text-[11px] text-[#5f5e5e]">대화 전에는</p>
-            <MoodRow value={moodBefore} onPick={setMoodBefore} accent="muted" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-[11px] text-[#5f5e5e]">지금은</p>
-            <MoodRow value={moodAfter} onPick={setMoodAfter} accent="coral" />
-          </div>
-        </section>
-
-        {/* 2. 내가 실제로 한 말. 누르면 그 자리로 올라간다 */}
+        {/* 내가 실제로 한 말. 누르면 그 자리로 올라간다 */}
         {myLines.length > 0 && (
           <section className="space-y-2">
             <p className="text-xs font-bold text-white">이런 이야기를 털어놨어요</p>
@@ -179,23 +101,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
           </section>
         )}
 
-        {/* 3. 한 줄로 남기기. 비워두면 표시하지 않는다 */}
-        <section className="space-y-2">
-          <label htmlFor="takeaway" className="text-xs font-bold text-white block">
-            한 줄로 남긴다면
-          </label>
-          <input
-            id="takeaway"
-            type="text"
-            value={takeaway}
-            onChange={(e) => setTakeaway(e.target.value)}
-            maxLength={60}
-            placeholder="예: 화가 난 게 아니라 서운했던 거였다"
-            className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-[#5f5e5e] focus:outline-none focus:border-[#FF6B5A]"
-          />
-        </section>
-
-        {/* 4. 혼자가 아니라는 사실. 투표가 있을 때만 */}
+        {/* 혼자가 아니라는 사실. 투표가 있을 때만 */}
         {typeof supporterCount === 'number' && supporterCount > 0 && (
           <div className="flex items-center gap-2 rounded-lg bg-[#FF6B5A]/10 border border-[#FF6B5A]/30 p-3">
             <span className="text-lg">🫂</span>

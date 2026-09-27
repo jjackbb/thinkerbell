@@ -14,6 +14,7 @@ const rooms = new Map();
 const hidden = new Set();
 let insertCalls = 0;
 let providerCalls = 0;
+let legacyUsage = 0;
 let providerStream = 'data: {"type":"text","text":"정상 답변"}\n\ndata: {"type":"done"}\n\n';
 
 process.env.SUPABASE_URL = 'https://example.supabase.co';
@@ -48,7 +49,14 @@ globalThis.fetch = async (input, init) => {
     return Response.json(hidden.has(`${userId}:${storyId}`) ? [{ story_id: storyId }] : []);
   }
   if (url.hostname === 'example.supabase.co' && url.pathname === '/rest/v1/ai_chat_usage' && method === 'GET') {
-    return Response.json([]);
+    return Response.json(Array.from({ length: legacyUsage }, (_, n) => ({ id: `legacy-${n}` })));
+  }
+  if (url.hostname === 'example.supabase.co' && url.pathname === '/rest/v1/rpc/open_legacy_ai_room' && method === 'POST') {
+    const args = JSON.parse(init.body);
+    const row = { ...args.p_room, createdAt: args.p_received_at, updatedAt: args.p_received_at };
+    rooms.set(row.id, row);
+    legacyUsage += 1;
+    return Response.json({ room: row, recovered: false, quotaUsed: legacyUsage });
   }
   if (url.hostname === 'example.supabase.co' && url.pathname === '/rest/v1/ai_quota_reservations' && method === 'GET') {
     return Response.json([{ id: 'reserved-local' }]);
@@ -67,6 +75,12 @@ globalThis.fetch = async (input, init) => {
       row.createdAt = '2026-09-28T00:00:00Z';
       rooms.set(row.id, row);
       return Response.json(headers.get('accept')?.includes('object+json') ? row : [row], { status: 201 });
+    }
+    if (method === 'PATCH') {
+      const row = [...rooms.values()].find((candidate) => matches(candidate, url, ['id', 'userId']));
+      if (!row) return Response.json([]);
+      Object.assign(row, JSON.parse(init.body));
+      return Response.json(headers.get('accept')?.includes('object+json') ? row : [row]);
     }
   }
   return originalFetch(input, init);
@@ -97,6 +111,15 @@ async function open(body, token = 'token-owner') {
 async function quota(token = 'token-owner') {
   const response = await originalFetch(`${baseUrl}/api/ai/quota`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return { status: response.status, body: await response.json() };
+}
+
+async function patchRoom(id, action, body, token = 'token-owner') {
+  const response = await originalFetch(`${baseUrl}/api/ai/rooms/${id}/${action}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };
 }
@@ -149,6 +172,27 @@ test('author may open their own private story without reading it from another ac
   assert.equal(ownPrivate.body.room.storyId, 'private-story');
 });
 
+test('server saves pin and empathy perspective only for the owning account, preserving stored story context', async () => {
+  const created = await open({ ...base, mode: 'explanation', ratio: 'High', opening: undefined,
+    requestId: 'abababab-abab-4bab-8bab-abababababab' });
+  assert.equal(created.status, 201);
+  const id = created.body.room.id;
+  const denied = await patchRoom(id, 'ratio', { ratio: 'Low' }, 'token-other');
+  assert.equal(denied.status, 404);
+  const pin = await patchRoom(id, 'pin', { isPinned: true });
+  assert.equal(pin.status, 200);
+  assert.equal(pin.body.room.isPinned, true);
+  const changed = await patchRoom(id, 'ratio', { ratio: 'Low' });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.room.ratio, 'Low');
+  assert.match(changed.body.room.systemInstruction, /DB에 저장된 사연 내용입니다/);
+  const changedAgain = await patchRoom(id, 'ratio', { ratio: 'Middle' });
+  assert.equal(changedAgain.status, 200);
+  assert.equal((changedAgain.body.room.systemInstruction.match(/현재 공감 관점 변경/g) ?? []).length, 1);
+  const simulation = await patchRoom(`persona-${base.requestId}`, 'ratio', { ratio: 'Low' });
+  assert.equal(simulation.status, 400);
+});
+
 test('invalid activation configuration cannot create a room before returning an error', async () => {
   process.env.AI_QUOTA_ACTIVATES_AT = '2020-01-01T16:00:00Z';
   const before = insertCalls;
@@ -168,6 +212,10 @@ test('quota status uses legacy records until a valid Seoul-midnight activation, 
   assert.equal(legacy.body.used, 0);
 
   process.env.AI_QUOTA_ACTIVATES_AT = '2020-01-01T15:00:00Z';
+  const unready = await quota();
+  assert.equal(unready.status, 503);
+  assert.equal(unready.body.error, 'AI_QUOTA_NOT_READY');
+  process.env.AI_QUOTA_SERVER_READY = 'true';
   const server = await quota();
   assert.equal(server.status, 200);
   assert.equal(server.body.mode, 'server');
@@ -178,11 +226,32 @@ test('quota status uses legacy records until a valid Seoul-midnight activation, 
   assert.equal(invalid.status, 503);
   assert.equal(invalid.body.error, 'AI_QUOTA_CONFIG_INVALID');
   delete process.env.AI_QUOTA_ACTIVATES_AT;
+  delete process.env.AI_QUOTA_SERVER_READY;
   const anonymous = await quota(null);
   assert.equal(anonymous.status, 401);
 });
 
-test('chat endpoints fail closed after activation until reservation and completion are wired', async () => {
+test('configured pre-cutover room is charged by the server RPC in one operation', async () => {
+  process.env.AI_QUOTA_ACTIVATES_AT = '2030-01-01T15:00:00Z';
+  process.env.AI_QUOTA_SERVER_READY = 'true';
+  const beforeInsert = insertCalls;
+  const first = await open({ ...base, mode: 'explanation', ratio: 'Low', opening: undefined,
+    requestId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' });
+  assert.equal(first.status, 201);
+  assert.equal(first.body.legacyCharged, true);
+  assert.equal(first.body.quotaMode, 'legacy');
+  assert.equal(insertCalls, beforeInsert);
+  assert.equal(legacyUsage, 1);
+  const retry = await open({ ...base, mode: 'explanation', ratio: 'Low', opening: undefined,
+    requestId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+  assert.equal(retry.status, 200);
+  assert.equal(retry.body.recovered, true);
+  assert.equal(legacyUsage, 1);
+  delete process.env.AI_QUOTA_ACTIVATES_AT;
+  delete process.env.AI_QUOTA_SERVER_READY;
+});
+
+test('chat endpoints fail closed after activation without the database readiness flag', async () => {
   process.env.AI_QUOTA_ACTIVATES_AT = '2020-01-01T15:00:00Z';
   const beforeCalls = providerCalls;
   for (const endpoint of ['/api/chat', '/api/chat-stream']) {

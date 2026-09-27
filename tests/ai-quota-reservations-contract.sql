@@ -5,13 +5,41 @@ create table public.ai_personas (
   id text primary key,
   "userId" uuid not null,
   "storyId" text,
+  name text,
+  role text,
+  category text,
+  "avatarIcon" text,
+  description text,
+  "systemInstruction" text,
+  "cardColor" text,
+  "sampleFirstMessage" text,
+  "isPinned" boolean not null default false,
   opening text,
-  ratio text
+  ratio text,
+  "chatHistory" jsonb not null default '[]'::jsonb,
+  "createdAt" timestamptz not null default '2026-09-28 00:00:00+00',
+  "updatedAt" timestamptz not null default '2026-09-28 00:00:00+00'
 );
 -- The operating project was read-checked: service_role can SELECT/UPDATE ai_personas.
-grant select on public.ai_personas to service_role;
+grant select, insert, update on public.ai_personas to service_role;
+create table public.stories (
+  id text primary key, "authorId" text not null,
+  "isBlind" boolean default false, "isAdult" boolean default false,
+  "isHidden" boolean default false, visibility text default 'public'
+);
+grant select on public.stories to service_role;
+create table public.story_hides (user_id uuid not null, story_id text not null);
+grant select on public.story_hides to service_role;
+create table public.ai_chat_usage (
+  id uuid primary key, "userId" uuid not null, "storyId" text,
+  "usedAt" timestamptz not null, "usedOn" date not null
+);
+grant select, insert on public.ai_chat_usage to service_role;
 \ir ../docs/plan-execution/sql/ai-room-choice-unique-draft.sql
 \ir ../docs/plan-execution/sql/ai-quota-reservations-draft.sql
+\ir ../docs/plan-execution/sql/ai-turn-completion-draft.sql
+\ir ../docs/plan-execution/sql/ai-legacy-room-open-draft.sql
+\ir ../docs/plan-execution/sql/ai-feedback-draft.sql
 
 insert into public.ai_personas (id, "userId")
 select 'room-' || n, '11111111-1111-1111-1111-111111111111'::uuid
@@ -33,7 +61,7 @@ begin
   end if;
   select * into row_result from public.reserve_ai_first_reply(
     u, 'room-1', '00000000-0000-0000-0000-000000000001', t, t + interval '5 minutes');
-  if row_result.result <> 'reserved' or row_result.occupied_count <> 1 then
+  if row_result.result <> 'already_reserved' or row_result.occupied_count <> 1 then
     raise exception 'same request was counted twice';
   end if;
 
@@ -121,6 +149,176 @@ begin
   end if;
 end $$;
 
+insert into public.stories (id, "authorId", visibility) values
+  ('legacy-foreign', '44444444-4444-4444-4444-444444444444', 'public'),
+  ('legacy-own', '55555555-5555-5555-5555-555555555555', 'private'),
+  ('legacy-private', '44444444-4444-4444-4444-444444444444', 'private');
+
+do $$
+declare
+  u uuid := '55555555-5555-5555-5555-555555555555';
+  t timestamptz := '2026-09-28 12:00:00+09';
+  request_id uuid := '55555555-5555-4555-8555-555555555551';
+  payload jsonb;
+  answer jsonb;
+  rejected boolean := false;
+begin
+  payload := jsonb_build_object('id', 'persona-' || request_id::text,
+    'storyId', 'legacy-foreign', 'opening', 'apology',
+    'name', '상대', 'role', '상황', 'systemInstruction', '합성 지시문');
+  answer := public.open_legacy_ai_room(u, request_id, payload, t);
+  if answer->>'recovered' <> 'false' or answer->>'quotaUsed' <> '1'
+      or (select count(*) from public.ai_chat_usage where "userId"=u) <> 1 then
+    raise exception 'legacy room and charge were not atomic';
+  end if;
+  answer := public.open_legacy_ai_room(u, request_id, payload, t);
+  if answer->>'recovered' <> 'true'
+      or (select count(*) from public.ai_chat_usage where "userId"=u) <> 1 then
+    raise exception 'legacy retry charged twice';
+  end if;
+  answer := public.open_legacy_ai_room(u,
+    '55555555-5555-4555-8555-555555555552',
+    jsonb_set(payload, '{id}', '"persona-55555555-5555-4555-8555-555555555552"'), t);
+  if answer->>'recovered' <> 'true' then
+    raise exception 'same legacy room choice did not reuse original';
+  end if;
+
+  perform public.open_legacy_ai_room(u,
+    '55555555-5555-4555-8555-555555555553',
+    payload || jsonb_build_object('id', 'persona-55555555-5555-4555-8555-555555555553',
+      'opening', 'oblivious'), t);
+  perform public.open_legacy_ai_room(u,
+    '55555555-5555-4555-8555-555555555554',
+    payload || jsonb_build_object('id', 'persona-55555555-5555-4555-8555-555555555554',
+      'opening', 'meFirst'), t);
+  if (select count(*) from public.ai_chat_usage where "userId"=u) <> 3 then
+    raise exception 'legacy count mismatch';
+  end if;
+
+  begin
+    perform public.open_legacy_ai_room(u,
+      '55555555-5555-4555-8555-555555555555',
+      payload || jsonb_build_object('id', 'persona-55555555-5555-4555-8555-555555555555',
+        'opening', null, 'ratio', 'High'), t);
+  exception when others then
+    rejected := sqlerrm = 'AI_QUOTA_REACHED';
+  end;
+  if not rejected or exists (select 1 from public.ai_personas
+      where id='persona-55555555-5555-4555-8555-555555555555') then
+    raise exception 'fourth legacy room persisted';
+  end if;
+
+  answer := public.open_legacy_ai_room(u,
+    '55555555-5555-4555-8555-555555555556',
+    payload || jsonb_build_object('id', 'persona-55555555-5555-4555-8555-555555555556',
+      'storyId', 'legacy-own'), t);
+  if answer->>'quotaUsed' <> '3' then raise exception 'own legacy room charged'; end if;
+
+  rejected := false;
+  begin
+    perform public.open_legacy_ai_room(u,
+      '55555555-5555-4555-8555-555555555557',
+      payload || jsonb_build_object('id', 'persona-55555555-5555-4555-8555-555555555557',
+        'storyId', 'legacy-private'), t);
+  exception when others then
+    rejected := sqlerrm = 'AI_ROOM_STORY_NOT_FOUND';
+  end;
+  if not rejected then raise exception 'private legacy room created'; end if;
+
+  if has_function_privilege('authenticated',
+      'public.open_legacy_ai_room(uuid,uuid,jsonb,timestamptz)', 'EXECUTE') then
+    raise exception 'legacy room RPC exposed to browser';
+  end if;
+end $$;
+
+insert into public.stories (id, "authorId") values
+  ('foreign-story', '44444444-4444-4444-4444-444444444444'),
+  ('own-story', '33333333-3333-3333-3333-333333333333');
+insert into public.ai_personas
+  (id, "userId", "storyId", "createdAt") values
+  ('new-foreign', '33333333-3333-3333-3333-333333333333', 'foreign-story', '2026-09-29 00:00:00+09'),
+  ('new-own', '33333333-3333-3333-3333-333333333333', 'own-story', '2026-09-29 00:00:00+09'),
+  ('old-empty', '33333333-3333-3333-3333-333333333333', null, '2026-09-27 00:00:00+09'),
+  ('no-reservation', '33333333-3333-3333-3333-333333333333', 'foreign-story', '2026-09-29 00:00:00+09');
+
+do $$
+declare
+  u uuid := '33333333-3333-3333-3333-333333333333';
+  request_id uuid := '33333333-3333-4333-8333-333333333333';
+  activated timestamptz := '2026-09-28 00:00:00+09';
+  started timestamptz := '2026-09-29 09:00:00+09';
+  reply jsonb;
+  rejected boolean := false;
+begin
+  perform public.reserve_ai_first_reply(
+    u, 'new-foreign', request_id, started, started + interval '2 minutes');
+  reply := public.complete_ai_turn(u, 'new-foreign', request_id,
+    '첫 말', '정상 답변', started + interval '1 minute', activated);
+  if reply->>'result' <> 'saved' or reply->>'charged' <> 'true'
+      or (select jsonb_array_length("chatHistory") from public.ai_personas where id='new-foreign') <> 2
+      or not exists (select 1 from public.ai_quota_completed_rooms where persona_id='new-foreign') then
+    raise exception 'atomic first reply save and charge failed';
+  end if;
+  reply := public.complete_ai_turn(u, 'new-foreign', request_id,
+    '첫 말', '정상 답변', started + interval '1 minute', activated);
+  if reply->>'result' <> 'recovered'
+      or (select jsonb_array_length("chatHistory") from public.ai_personas where id='new-foreign') <> 2 then
+    raise exception 'turn retry duplicated history';
+  end if;
+
+  begin
+    perform public.complete_ai_turn(u, 'no-reservation',
+      '33333333-3333-4333-8333-333333333334', '첫 말', '정상 답변',
+      started + interval '1 minute', activated);
+  exception when others then
+    rejected := sqlerrm = 'AI_TURN_RESERVATION_MISSING';
+  end;
+  if not rejected or (select jsonb_array_length("chatHistory") from public.ai_personas where id='no-reservation') <> 0 then
+    raise exception 'unreserved first reply was saved';
+  end if;
+
+  reply := public.complete_ai_turn(u, 'new-own',
+    '33333333-3333-4333-8333-333333333335', '내 글', '정상 답변',
+    started + interval '1 minute', activated);
+  if reply->>'charged' <> 'false' then raise exception 'own story charged'; end if;
+
+  reply := public.complete_ai_turn(u, 'old-empty',
+    '33333333-3333-4333-8333-333333333336', '오래된 방', '정상 답변',
+    started + interval '1 minute', activated);
+  if reply->>'charged' <> 'false' then raise exception 'old empty room charged'; end if;
+
+  if not has_function_privilege('service_role',
+      'public.complete_ai_turn(uuid,text,uuid,text,text,timestamptz,timestamptz)', 'EXECUTE')
+      or has_function_privilege('authenticated',
+      'public.complete_ai_turn(uuid,text,uuid,text,text,timestamptz,timestamptz)', 'EXECUTE') then
+    raise exception 'turn completion grant mismatch';
+  end if;
+end $$;
+
+insert into public.ai_feedback
+  (episode_id, user_id, persona_id, mode, score, outcome, created_at, expires_at)
+values
+  ('aaaa1111-aaaa-4111-8111-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333',
+   'new-foreign', 'simulation', 5, 'submitted',
+   '2026-09-28 12:00:00+09', '2026-10-28 12:00:00+09'),
+  ('bbbb1111-bbbb-4111-8111-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333',
+   'new-own', 'explanation', null, 'skipped',
+   '2026-09-28 12:00:00+09', '2026-10-28 12:00:00+09');
+do $$
+begin
+  if public.purge_ai_feedback('2026-10-29 00:00:00+09') <> 2
+      or public.purge_ai_feedback('2026-10-29 00:00:00+09') <> 0
+      or (select count from public.ai_feedback_daily_totals
+          where mode='simulation' and outcome='submitted' and score=5) <> 1
+      or (select count from public.ai_feedback_daily_totals
+          where mode='explanation' and outcome='skipped' and score=0) <> 1
+      or has_table_privilege('authenticated', 'public.ai_feedback', 'SELECT')
+      or has_function_privilege('authenticated',
+          'public.purge_ai_feedback(timestamptz)', 'EXECUTE') then
+    raise exception 'feedback retention or permissions failed';
+  end if;
+end $$;
+
 -- Leave two of three slots occupied for the separate-process race in the runner.
 insert into public.ai_personas (id, "userId")
 select 'race-room-' || n, '22222222-2222-2222-2222-222222222222'::uuid
@@ -170,4 +368,24 @@ begin
   if not rejected then raise exception 'duplicate empathy room was accepted'; end if;
 end $$;
 
-select 'PASS: ai quota request-day, idempotency, return, expiry, retention, grants' as result;
+-- Reproduce the operating project's permissive browser grants/policies,
+-- then prove the cutover removes direct AI writes but keeps owner cleanup.
+grant select, insert, update, delete on public.ai_personas, public.ai_chat_usage to authenticated;
+alter table public.ai_personas enable row level security;
+alter table public.ai_chat_usage enable row level security;
+create policy ai_personas_insert_own on public.ai_personas for insert to authenticated with check (true);
+create policy ai_personas_update_own on public.ai_personas for update to authenticated using (true);
+create policy ai_chat_usage_insert_own on public.ai_chat_usage for insert to authenticated with check (true);
+\ir ../docs/plan-execution/sql/ai-direct-write-boundary-draft.sql
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.ai_personas', 'INSERT')
+      or has_table_privilege('authenticated', 'public.ai_personas', 'UPDATE')
+      or has_table_privilege('authenticated', 'public.ai_chat_usage', 'INSERT')
+      or not has_table_privilege('authenticated', 'public.ai_personas', 'DELETE')
+      or not has_table_privilege('service_role', 'public.ai_personas', 'UPDATE') then
+    raise exception 'AI browser-write boundary failed';
+  end if;
+end $$;
+
+select 'PASS: AI quota, feedback retention, direct-write boundary, concurrency fixture' as result;
