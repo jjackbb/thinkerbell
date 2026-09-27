@@ -20,3 +20,10 @@
 운영 DB에는 테이블과 함수가 없음을 읽기 전용으로 재확인했다. 쓰기 MCP의 재인증 페이지 열기는 요청 권한이 DB 쓰기보다 넓어 자동 승인 검토에서 거절됐으므로, 운영 마이그레이션을 적용하지 않았다. 동일 변경을 다른 경로로 우회 적용하지 않는다. [SQL 초안](sql/signup-email-ownership-draft.sql)과 [정리 작업 초안](sql/signup-email-ownership-retention-job-draft.sql)은 준비된 검토 자료다.
 
 새 가입 경로에서 관리자 API의 확인 완료는 **Resend 링크 사용으로 메일함 소유를 증명했다는 전제**에 의존한다. 링크를 잃거나 가입 생성 결과가 불확실하면 같은 증명으로 재시도하지 않고 로그인 또는 새 소유 확인부터 진행한다. 기존에 생성된 미확인 계정은 삭제·자동 확인하지 않고 원래 가입 확인 메일 재요청으로 처리한다. 직접 Supabase `signUp()`을 서버 권한 없이 막는 보안 장치는 아직 없으므로 `Confirm Email`은 계속 켜 둔다. 운영 SQL·실제 발송·브라우저·배포 검증 전까지 새 경로는 켜지 않는다.
+
+## 활성화 전 설정 순서
+
+1. 니편내편 Supabase의 **Authentication → URL Configuration → Redirect URLs**에 `https://thinkerbell-eight.vercel.app/?auth=recovery`를 허용한다. Preview에서 시험할 정확한 URL도 별도로 허용한다. **Authentication → Email Templates → Reset Password**에는 제목 `니편내편 비밀번호 재설정`과 [한국어 본문 초안](../email-templates/reset-password.ko.html)을 검토해 저장한다. 현재 저장·발송 여부는 확인되지 않았다.
+2. 검토된 경로로 [가입 소유 확인 SQL](sql/signup-email-ownership-draft.sql)과 [15분 정리 작업](sql/signup-email-ownership-retention-job-draft.sql)을 순서대로 적용하고 함수 권한·작업 실행을 확인한다. 현재 쓰기 MCP 권한 검토가 막혀 있어 미적용이다.
+3. Vercel `thinkerbell`의 **Preview** 서버 변수에 `EMAIL_CHECK_SECRET`, `RESEND_EMAIL_CHECK_API_KEY`, `APP_URL`을 설정한다. `APP_URL`은 시험할 Preview 원점 주소와 끝의 `/`까지 일치해야 한다. 키 값은 로컬 `.env`에서 관리 화면으로 직접 옮기고 채팅·문서에 보내지 않는다. SQL 준비 전에는 두 기능 플래그를 계속 꺼 둔다.
+4. Preview에서 `EMAIL_CHECK_ENABLED=true`와 빌드 변수 `VITE_EMAIL_CHECK_ENABLED=true`로 새 배포를 만든 뒤, 두 실제 메일함으로 가입 가능·기존 계정·미확인 계정·중복 요청·재설정·만료·복귀를 확인한다. 정상 메일 한 통·DB 생성·로그인까지 확인하기 전에는 **Production** 변수를 켜지 않는다. 운영 SQL이 적용됐어도 화면 플래그가 꺼져 있으면 기존 가입 경로가 유지된다.
