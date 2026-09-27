@@ -2,6 +2,8 @@ import express, { Request, Response } from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { buildEmpathyPrompt, buildSimulationPrompt, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts";
+import { consumePotensStream } from "./potensStream";
 
 dotenv.config();
 
@@ -33,6 +35,41 @@ function generateRandomNickname(): string {
 // Health check endpoint
 const POTENS_MODEL = process.env.POTENS_MODEL || "claude-4-6-sonnet";
 
+function aiQuotaMode(): "legacy" | "server" {
+  const raw = process.env.AI_QUOTA_ACTIVATES_AT;
+  if (!raw) return "legacy";
+  const instant = new Date(raw);
+  if (!Number.isFinite(instant.getTime()) ||
+      new Date(instant.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(11) !== "00:00:00.000Z") {
+    throw new StoryRequestFailure(503, "AI_QUOTA_CONFIG_INVALID");
+  }
+  return Date.now() >= instant.getTime() ? "server" : "legacy";
+}
+
+function seoulQuotaDay(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+app.get("/api/ai/quota", async (req: Request, res: Response) => {
+  try {
+    const user = await authenticatedStoryUser(req);
+    const mode = aiQuotaMode();
+    const day = seoulQuotaDay();
+    const client = storyWriteClient();
+    const query = mode === "server"
+      ? client.from("ai_quota_reservations").select("id")
+          .eq("user_id", user.id).eq("quota_day", day)
+          .in("status", ["reserved", "completed"])
+      : client.from("ai_chat_usage").select("id")
+          .eq("userId", user.id).eq("usedOn", day);
+    const { data, error } = await query;
+    if (error) throw new StoryRequestFailure(503, "AI_QUOTA_UNAVAILABLE");
+    return res.json({ mode, quotaDay: day, used: data?.length ?? 0, limit: 3 });
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+});
+
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -50,6 +87,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
   try {
     const user = await authenticatedStoryUser(req);
     context = await authorizedChatContext(user.id, req.body?.personaId, prompt);
+    if (aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
   } catch (error) {
     return sendStorySaveError(res, error);
   }
@@ -90,6 +128,7 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
   try {
     const user = await authenticatedStoryUser(req);
     context = await authorizedChatContext(user.id, req.body?.personaId, prompt);
+    if (aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
   } catch (error) {
     return sendStorySaveError(res, error);
   }
@@ -115,6 +154,8 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
+  const controller = new AbortController();
+  res.on("close", () => { if (!res.writableEnded) controller.abort(); });
   try {
     const response = await fetch("https://ai.potens.ai/api/chat-stream", {
       method: "POST",
@@ -123,23 +164,24 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ prompt: compiledPrompt, model: POTENS_MODEL }),
+      signal: controller.signal,
     });
     if (!response.ok || !response.body) {
       console.warn("Potens stream failed with status:", response.status);
       res.write(`data: ${JSON.stringify({ type: "error", error: "ai_provider_failed" })}\n\n`);
       return res.end();
     }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
-    }
+    await consumePotensStream(response.body, (chunk) => {
+      if (!res.destroyed) res.write(`data: ${JSON.stringify({ type: "text", text: chunk })}\n\n`);
+    });
+    if (!res.destroyed) res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
     return res.end();
   } catch {
-    res.write(`data: ${JSON.stringify({ type: "error", error: "ai_provider_failed" })}\n\n`);
-    return res.end();
+    if (!res.destroyed) {
+      res.write(`data: ${JSON.stringify({ type: "error", error: "ai_provider_failed" })}\n\n`);
+      return res.end();
+    }
+    return;
   }
 });
 
@@ -240,6 +282,128 @@ function readStoryRequestId(value: unknown): string {
   }
   return value;
 }
+
+type AiRoomInput = {
+  id: string;
+  storyId: string;
+  mode: "simulation" | "explanation";
+  opening: "apology" | "oblivious" | "meFirst" | null;
+  ratio: "High" | "Middle" | "Low" | null;
+};
+
+function readAiRoomInput(value: unknown): AiRoomInput {
+  const input = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const requestId = input.requestId;
+  const storyId = input.storyId;
+  const mode = input.mode;
+  if (typeof requestId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId) ||
+      typeof storyId !== "string" || !storyId || storyId.length > 120 ||
+      (mode !== "simulation" && mode !== "explanation")) {
+    throw new StoryRequestFailure(400, "INVALID_CHAT_ROOM_REQUEST");
+  }
+  if (mode === "simulation") {
+    const opening = input.opening ?? "oblivious";
+    if (opening !== "apology" && opening !== "oblivious" && opening !== "meFirst") {
+      throw new StoryRequestFailure(400, "INVALID_CHAT_ROOM_REQUEST");
+    }
+    return { id: `persona-${requestId}`, storyId, mode, opening, ratio: null };
+  }
+  const ratio = input.ratio;
+  if (ratio !== "High" && ratio !== "Middle" && ratio !== "Low") {
+    throw new StoryRequestFailure(400, "INVALID_CHAT_ROOM_REQUEST");
+  }
+  return { id: `persona-${requestId}`, storyId, mode, opening: null, ratio };
+}
+
+function sameAiRoomChoice(row: Record<string, any>, input: AiRoomInput, userId: string) {
+  return row.userId === userId && row.storyId === input.storyId &&
+    row.opening === input.opening && row.ratio === input.ratio;
+}
+
+app.post("/api/ai/rooms", async (req: Request, res: Response) => {
+  try {
+    const user = await authenticatedStoryUser(req);
+    const input = readAiRoomInput(req.body);
+    // 설정 오류를 저장 후에 발견하면 방은 생성되고 화면에는 실패로 보인다.
+    const quotaMode = aiQuotaMode();
+    const client = storyWriteClient();
+    const { data: prior, error: priorError } = await client.from("ai_personas")
+      .select("*").eq("id", input.id).maybeSingle();
+    if (priorError) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (prior) {
+      if (!sameAiRoomChoice(prior, input, user.id)) {
+        throw new StoryRequestFailure(409, "CHAT_ROOM_REQUEST_CONFLICT");
+      }
+      return res.json({ room: prior, recovered: true, quotaMode });
+    }
+
+    const choice = input.mode === "simulation" ? "opening" : "ratio";
+    const choiceValue = input.mode === "simulation" ? input.opening : input.ratio;
+    const { data: matching, error: matchError } = await client.from("ai_personas")
+      .select("*").eq("userId", user.id).eq("storyId", input.storyId)
+      .eq(choice, choiceValue).maybeSingle();
+    if (matchError) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (matching) return res.json({ room: matching, recovered: true, quotaMode });
+
+    const { data: story, error: storyError } = await client.from("stories")
+      .select("*").eq("id", input.storyId).maybeSingle();
+    if (storyError) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (!story || story.isBlind || story.isAdult || story.isHidden ||
+        (story.visibility && story.visibility !== "public" && story.authorId !== user.id)) {
+      throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
+    }
+    const { data: hidden, error: hiddenError } = await client.from("story_hides")
+      .select("story_id").eq("user_id", user.id).eq("story_id", input.storyId).maybeSingle();
+    if (hiddenError) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    if (hidden) throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
+
+    const category = typeof story.category === "string" ? story.category : "기타";
+    const title = typeof story.title === "string" ? story.title : "";
+    const storyBody = typeof story.body === "string" ? story.body : "";
+    const opponentPersonality = typeof story.personaInstruction === "string" ? story.personaInstruction : "";
+    const opening = input.opening ?? "oblivious";
+    const ratio = input.ratio ?? "Middle";
+    const simulation = input.mode === "simulation";
+    const row = {
+      id: input.id,
+      userId: user.id,
+      name: simulation ? ({ "연애": "연인", "직장": "직장 상대", "친구": "친구", "가족": "가족" } as Record<string, string>)[category] ?? "상대방" : EMPATHY_PERSONA_NAMES[ratio],
+      role: simulation ? "상황" : ratioLabel(ratio),
+      category,
+      avatarIcon: simulation ? "Bot" : "ListTree",
+      description: `사연: "${title}" 의 ${simulation ? "상대방 AI 페르소나" : "공감 대화 상대"}입니다.`,
+      systemInstruction: simulation
+        ? buildSimulationPrompt({ storyBody, opponentPersonality, opening })
+        : buildEmpathyPrompt({ storyBody, opponentPersonality, ratio }),
+      cardColor: simulation ? "pink" : "teal",
+      sampleFirstMessage: simulation ? OPENING_SCRIPTS[opening].first ?? "" : EMPATHY_OPENERS[ratio],
+      isPinned: false,
+      chatHistory: [],
+      storyId: input.storyId,
+      opening: input.opening,
+      ratio: input.ratio,
+    };
+    const { data: saved, error: saveError } = await client.from("ai_personas")
+      .insert(row).select("*").single();
+    if (saveError?.code === "23505") {
+      const retry = await client.from("ai_personas").select("*").eq("id", input.id).maybeSingle();
+      if (!retry.error && retry.data && sameAiRoomChoice(retry.data, input, user.id)) {
+        return res.json({ room: retry.data, recovered: true, quotaMode });
+      }
+      const sameChoice = await client.from("ai_personas").select("*")
+        .eq("userId", user.id).eq("storyId", input.storyId)
+        .eq(choice, choiceValue).maybeSingle();
+      if (!sameChoice.error && sameChoice.data && sameAiRoomChoice(sameChoice.data, input, user.id)) {
+        return res.json({ room: sameChoice.data, recovered: true, quotaMode });
+      }
+    }
+    if (saveError || !saved) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
+    return res.status(201).json({ room: saved, recovered: false, quotaMode });
+  } catch (error) {
+    return sendStorySaveError(res, error);
+  }
+});
 
 function storySupabaseUrl() {
   const serverUrl = process.env.SUPABASE_URL;

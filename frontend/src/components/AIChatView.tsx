@@ -154,9 +154,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 실제로 한 마디를 보내는 곳. 입력창에서도, 실패 후 '다시 보내기'에서도
    * 같은 길을 쓰도록 분리해 두었다.
    */
-  const sendMessage = async (userMsgText: string) => {
+  const sendMessage = async (userMsgText: string, retry = false) => {
     if (!selectedPersona || isLoading || isSaving || saveFailed) return;
 
+    // 실패한 전송의 말풍선과 안내를 교체한다. 그대로 덧붙이면 재시도 한 번이
+    // 두 번의 사용자 발언처럼 저장되고 다음 AI 요청의 이력에도 중복된다.
+    const retryBase = retry && messages.at(-1)?.sender === 'system' &&
+      messages.at(-2)?.sender === 'user' && messages.at(-2)?.text === userMsgText
+      ? messages.slice(0, -2) : messages;
     setFailedText(null);
     setSaveFailed(false);
     onCrisisDetected?.(userMsgText);
@@ -168,7 +173,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const updatedMessages = [...messages, newUserMsg];
+    const updatedMessages = [...retryBase, newUserMsg];
     setMessages(updatedMessages);
     setIsLoading(true);
 
@@ -638,7 +643,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 {failedText && msg.id === messages[messages.length - 1]?.id && (
                   <button
                     type="button"
-                    onClick={() => { const t = failedText; setFailedText(null); sendMessage(t); }}
+                    onClick={() => { void sendMessage(failedText, true); }}
                     disabled={isLoading}
                     className="font-mono text-xs font-bold text-[#FF6B5A] border border-[#FF6B5A] rounded-lg px-4 py-2 hover:bg-[#FF6B5A] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
                   >

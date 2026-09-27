@@ -25,8 +25,8 @@ import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react
 import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
-import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
-import { fetchPersonas, createPersona, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
+import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
+import { fetchPersonas, openAiRoom, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
 import { resetPageViewDeduplication, setupGA4, trackPageView } from './lib/ga4';
 import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
@@ -125,6 +125,8 @@ export default function App() {
    * 대화방을 어느 계정 것으로 담고 비울지는 이 값으로만 판단한다.
    */
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const authUserIdRef = useRef(authUserId);
+  authUserIdRef.current = authUserId;
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(wasBrowsingAsGuest);
@@ -249,9 +251,15 @@ export default function App() {
   // 로그인 상태가 바뀌면 오늘 쓴 무료 횟수를 서버에서 다시 받아온다
   useEffect(() => {
     let alive = true;
-    fetchAiQuotaUsed().then(used => { if (alive) setAiQuotaUsed(used); });
+    if (!authUserId) {
+      setAiQuotaUsed(0);
+      return () => { alive = false; };
+    }
+    fetchAiQuotaUsed()
+      .then(used => { if (alive) setAiQuotaUsed(used); })
+      .catch(() => { if (alive) setAiQuotaUsed(DAILY_AI_QUOTA); });
     return () => { alive = false; };
-  }, [user.id]);
+  }, [authUserId]);
 
   // Main Feed State
   const [stories, setStories] = useState<Story[]>([]);
@@ -437,11 +445,12 @@ export default function App() {
   const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
 
-  /** 한 번 쓰고 나면 서버가 세어준 숫자로 화면을 맞춘다 */
-  const spendAiQuota = (storyId: string) => {
+  // 새 서버 제한이 전환되기 전에는 기존 대화방 생성 시 차감을 유지한다.
+  const spendLegacyAiQuota = (storyId: string) => {
     setAiQuotaUsed(prev => prev + 1);
     consumeAiQuota(storyId).then(setAiQuotaUsed);
   };
+
   const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
@@ -970,26 +979,14 @@ export default function App() {
     // If auto persona creation requested
     let personaSaved = true;
     if (storyData.createAIPersona && !editingStory) {
-      const newPersona: AIPersona = {
-        id: `persona-${Date.now()}`,
-        name: `사연 상대방 (${savedStory.title.slice(0, 10)}...)`,
-        role: `${savedStory.category} 갈등 상대`,
-        category: savedStory.category,
-        avatarIcon: 'Bot',
-        description: `사연: "${savedStory.title}" 의 상대방 AI 페르소나입니다.${savedStory.personaInstruction ? ` (성격: ${savedStory.personaInstruction})` : ''}`,
-        systemInstruction: buildSimulationPrompt({
-          storyBody: savedStory.body,
-          opponentPersonality: savedStory.personaInstruction,
-        }),
-        cardColor: savedStory.cardColor,
-        sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
-      };
       try {
-        personaSaved = await createPersona(newPersona, authUserId);
+        const { persona: newPersona } = await openAiRoom(savedStory.id, { mode: 'simulation', opening: 'oblivious' });
+        if (authUserIdRef.current === authUserId) {
+          setPersonas(prev => prev.some(p => p.id === newPersona.id) ? prev : [newPersona, ...prev]);
+        }
       } catch {
         personaSaved = false;
       }
-      if (personaSaved) setPersonas(prev => [newPersona, ...prev]);
     }
     if (!editingStory) {
       setToastMessage(result.recovered === true
@@ -1001,18 +998,11 @@ export default function App() {
     }
   };
 
-  /**
-   * 대화 내용을 서버에 저장한다. 잦은 호출은 묶어서 한 번만 보낸다.
-   *
-   * AI 답변은 한 글자씩 흘러 들어오고 그때마다 이 경로가 불린다. 그대로
-   * 서버에 붙이면 글자 수만큼 DB 쓰기가 나간다.
-   */
-  const saveTimers = useRef<Record<string, number>>({});
+  // 화면의 스트리밍 상태는 메모리에서만 갱신한다. 부분 답변이나 실패한
+  // 요청을 정상 저장된 대화로 복원하지 않도록 완료 시점에만 DB에 쓴다.
   const pendingSaves = useRef<Record<string, Promise<boolean>>>({});
-  const completedHistories = useRef<Record<string, ChatMessage[]>>({});
   const runPersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
-    // 이전 부분 응답 저장이 완료된 뒤 최종 답변을 쓴다. 요청 순서가 뒤집히면
-    // 최신 대화가 오래된 부분 응답으로 덮일 수 있다.
+    // 이전 완료 턴의 저장이 끝난 뒤 다음 완료 턴을 쓴다.
     const previous = pendingSaves.current[personaId] ?? Promise.resolve(true);
     const next = previous.catch(() => false).then(() => savePersona(personaId, { chatHistory }));
     pendingSaves.current[personaId] = next;
@@ -1021,19 +1011,8 @@ export default function App() {
     }).catch(() => {});
     return next;
   }, []);
-  const queuePersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]) => {
-    if (completedHistories.current[personaId] === chatHistory) return;
-    window.clearTimeout(saveTimers.current[personaId]);
-    saveTimers.current[personaId] = window.setTimeout(() => {
-      void runPersonaSave(personaId, chatHistory);
-      delete saveTimers.current[personaId];
-    }, 800);
-  }, [runPersonaSave]);
 
   const saveCompletedTurn = useCallback(async (personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
-    completedHistories.current[personaId] = chatHistory;
-    window.clearTimeout(saveTimers.current[personaId]);
-    delete saveTimers.current[personaId];
     return runPersonaSave(personaId, chatHistory);
   }, [runPersonaSave]);
 
@@ -1054,12 +1033,11 @@ export default function App() {
         const chatHistory = updates.messages !== undefined ? updates.messages : p.chatHistory;
         if (p.chatHistory === chatHistory) return p;
         changed = true;
-        queuePersonaSave(personaId, chatHistory ?? []);
         return { ...p, chatHistory };
       });
       return changed ? next : prev;
     });
-  }, [queuePersonaSave]);
+  }, []);
 
   const handleStartAIChatWithStory = async (story: Story) => {
     /*
@@ -1080,11 +1058,21 @@ export default function App() {
       return;
     }
 
-    // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 열기 직전에 다시 센다
-    const used = await fetchAiQuotaUsed();
+    if (!authUserId) {
+      setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+      return;
+    }
+    // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 다시 센다.
+    let used: number;
+    try {
+      used = (await fetchAiQuotaStatus()).used;
+    } catch {
+      setToastMessage('AI 이용 횟수를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      return;
+    }
     setAiQuotaUsed(used);
 
-    if (used < DAILY_AI_QUOTA) {
+    if (used < DAILY_AI_QUOTA || personas.some(p => p.storyId === story.id)) {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
@@ -1092,7 +1080,7 @@ export default function App() {
     }
   };
 
-  const handleSelectAiChatMode = (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
+  const handleSelectAiChatMode = async (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
     const story = aiChatModeStory;
 
@@ -1103,7 +1091,7 @@ export default function App() {
       // 같은 사연을 같은 시작점으로 다시 열면 새로 만들지 않고 이어서 한다.
       // 매번 새로 만들면 AI 대화 탭이 똑같은 카드로 뒤덮인다.
       const existing = personas.find(p => p.storyId === story.id && p.opening === opening);
-      const persona: AIPersona = existing ?? {
+      let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: OPPONENT_LABELS[story.category] ?? '상대방',
         role: '상황',
@@ -1123,16 +1111,38 @@ export default function App() {
       };
 
       if (!existing) {
-        setPersonas(prev => [persona, ...prev]);
-        if (authUserId) createPersona(persona, authUserId);
-        // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
-        if (story.authorId !== user.id && !isGuest) spendAiQuota(story.id);
+        let recovered = false;
+        let quotaMode: 'legacy' | 'server' = 'legacy';
+        if (!isGuest) {
+          if (!authUserId) {
+            setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+            return;
+          }
+          try {
+            const quota = await fetchAiQuotaStatus();
+            setAiQuotaUsed(quota.used);
+            if (story.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
+              setPremiumModalStory(story);
+              return;
+            }
+            ({ persona, recovered, quotaMode } = await openAiRoom(story.id, { mode: 'simulation', opening }));
+            if (authUserIdRef.current !== authUserId) return;
+          } catch {
+            if (authUserIdRef.current !== authUserId) return;
+            setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
+            return;
+          }
+        }
+        setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
+        if (!recovered && quotaMode === 'legacy' && !isGuest && story.authorId !== user.id) {
+          spendLegacyAiQuota(story.id);
+        }
       }
 
       // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
       const opener = OPENING_SCRIPTS[opening].first;
-      const messages = existing?.chatHistory?.length
-        ? existing.chatHistory
+      const messages = persona.chatHistory?.length
+        ? persona.chatHistory
         : opener
         ? [{
             id: `msg-${Date.now()}`,
@@ -1163,7 +1173,7 @@ export default function App() {
     }
   };
 
-  const handleConfirmExplainSettings = (ratio: ExplainRatio) => {
+  const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
     const systemInstruction = buildEmpathyPrompt({
       storyBody: story?.body || '',
@@ -1180,7 +1190,7 @@ export default function App() {
       const target = aiExplainSettingsStory;
       // 같은 사연을 같은 비율로 다시 열면 이어서 한다
       const existing = personas.find(p => p.storyId === target.id && p.ratio === ratio);
-      const persona: AIPersona = existing ?? {
+      let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: personaName,
         role: roleLabel,
@@ -1196,14 +1206,37 @@ export default function App() {
       };
 
       if (!existing) {
-        setPersonas(prev => [persona, ...prev]);
-        if (authUserId) createPersona(persona, authUserId);
-        if (target.authorId !== user.id && !isGuest) spendAiQuota(target.id);
+        let recovered = false;
+        let quotaMode: 'legacy' | 'server' = 'legacy';
+        if (!isGuest) {
+          if (!authUserId) {
+            setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+            return;
+          }
+          try {
+            const quota = await fetchAiQuotaStatus();
+            setAiQuotaUsed(quota.used);
+            if (target.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
+              setPremiumModalStory(target);
+              return;
+            }
+            ({ persona, recovered, quotaMode } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
+            if (authUserIdRef.current !== authUserId) return;
+          } catch {
+            if (authUserIdRef.current !== authUserId) return;
+            setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
+            return;
+          }
+        }
+        setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
+        if (!recovered && quotaMode === 'legacy' && !isGuest && target.authorId !== user.id) {
+          spendLegacyAiQuota(target.id);
+        }
       }
 
       // 공감 모드도 AI가 먼저 말을 건다. 빈 화면에 대고 먼저 털어놓기는 어렵다.
-      const messages = existing?.chatHistory?.length
-        ? existing.chatHistory
+      const messages = persona.chatHistory?.length
+        ? persona.chatHistory
         : [{
             id: `msg-${Date.now()}`,
             sender: 'ai' as const,

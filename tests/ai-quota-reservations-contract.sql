@@ -3,10 +3,14 @@
 -- Disposable Supabase PostgreSQL only. Never run this fixture on an operating DB.
 create table public.ai_personas (
   id text primary key,
-  "userId" uuid not null
+  "userId" uuid not null,
+  "storyId" text,
+  opening text,
+  ratio text
 );
 -- The operating project was read-checked: service_role can SELECT/UPDATE ai_personas.
 grant select on public.ai_personas to service_role;
+\ir ../docs/plan-execution/sql/ai-room-choice-unique-draft.sql
 \ir ../docs/plan-execution/sql/ai-quota-reservations-draft.sql
 
 insert into public.ai_personas (id, "userId")
@@ -143,5 +147,27 @@ begin
   if v_result.result <> 'reserved' then raise exception 'service role cannot reserve'; end if;
 end $$;
 reset role;
+
+insert into public.ai_personas (id, "userId", "storyId", opening, ratio) values
+  ('choice-sim', '44444444-4444-4444-4444-444444444444', 'story-1', 'oblivious', null),
+  ('choice-empathy', '44444444-4444-4444-4444-444444444444', 'story-1', null, 'High');
+do $$
+declare rejected boolean;
+begin
+  rejected := false;
+  begin
+    insert into public.ai_personas (id, "userId", "storyId", opening)
+    values ('duplicate-sim', '44444444-4444-4444-4444-444444444444', 'story-1', 'oblivious');
+  exception when unique_violation then rejected := true;
+  end;
+  if not rejected then raise exception 'duplicate simulation room was accepted'; end if;
+  rejected := false;
+  begin
+    insert into public.ai_personas (id, "userId", "storyId", ratio)
+    values ('duplicate-empathy', '44444444-4444-4444-4444-444444444444', 'story-1', 'High');
+  exception when unique_violation then rejected := true;
+  end;
+  if not rejected then raise exception 'duplicate empathy room was accepted'; end if;
+end $$;
 
 select 'PASS: ai quota request-day, idempotency, return, expiry, retention, grants' as result;
