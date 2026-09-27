@@ -79,11 +79,13 @@ export async function savePersona(
   personaId: string,
   patch: Partial<Pick<AIPersona, 'chatHistory' | 'isPinned' | 'name' | 'role' | 'description' | 'systemInstruction' | 'ratio'>>,
 ): Promise<boolean> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('ai_personas')
     .update({ ...patch, updatedAt: new Date().toISOString() })
-    .eq('id', personaId);
-  return !error;
+    .eq('id', personaId)
+    .select('id')
+    .maybeSingle();
+  return !error && data?.id === personaId;
 }
 
 /** 대화방을 지운다. 내가 털어놓은 이야기는 내가 지울 수 있어야 한다 */

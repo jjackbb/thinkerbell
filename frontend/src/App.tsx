@@ -13,6 +13,7 @@ import { AIChatModeSelectionModal, ChatOpening } from './components/AIChatModeSe
 import { AIExplainSettingsModal, ExplainRatio } from './components/AIExplainSettingsModal';
 import { AIErrorReportModal } from './components/AIErrorReportModal';
 import { MyPageView } from './components/MyPageView';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsent';
 import { ReportModal } from './components/ReportModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { LoginPromptModal } from './components/LoginPromptModal';
@@ -27,6 +28,8 @@ import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 import { fetchPersonas, createPersona, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
+import { resetPageViewDeduplication, setupGA4, trackPageView } from './lib/ga4';
+import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
 
@@ -252,6 +255,31 @@ export default function App() {
 
   // Main Feed State
   const [stories, setStories] = useState<Story[]>([]);
+  const [hiddenStoryIds, setHiddenStoryIds] = useState<string[]>([]);
+  const [hiddenStoryOwnerId, setHiddenStoryOwnerId] = useState<string | null>(null);
+  const [hiddenStoriesLoadError, setHiddenStoriesLoadError] = useState(false);
+  const [hiddenStoriesLoadNonce, setHiddenStoriesLoadNonce] = useState(0);
+  const hiddenStoriesReady = !authUserId || hiddenStoryOwnerId === authUserId;
+
+  useEffect(() => {
+    let alive = true;
+    setHiddenStoryIds([]);
+    setHiddenStoryOwnerId(null);
+    setHiddenStoriesLoadError(false);
+    if (!authUserId) {
+      return () => { alive = false; };
+    }
+    supabase.from('story_hides').select('story_id').then(({ data, error }) => {
+      if (!alive) return;
+      if (error) {
+        setHiddenStoriesLoadError(true);
+      } else {
+        setHiddenStoryIds((data ?? []).map((row: { story_id: string }) => row.story_id));
+        setHiddenStoryOwnerId(authUserId);
+      }
+    }, () => { if (alive) setHiddenStoriesLoadError(true); });
+    return () => { alive = false; };
+  }, [authUserId, hiddenStoriesLoadNonce]);
 
   useEffect(() => {
     // Initial fetch
@@ -287,6 +315,29 @@ export default function App() {
   }, []);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
+  const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
+  const [likedCommentOwnerId, setLikedCommentOwnerId] = useState<string | null>(null);
+  const [likedCommentLoadNonce, setLikedCommentLoadNonce] = useState(0);
+  const [likePendingIds, setLikePendingIds] = useState<string[]>([]);
+  const pendingLikeRequests = useRef(new Set<string>());
+  const currentLikeOwner = useRef(authUserId);
+  currentLikeOwner.current = authUserId;
+
+  useEffect(() => {
+    let alive = true;
+    setLikedCommentIds([]);
+    setLikedCommentOwnerId(null);
+    pendingLikeRequests.current.clear();
+    setLikePendingIds([]);
+    if (!authUserId) return () => { alive = false; };
+    supabase.from('comment_likes').select('comment_id').then(({ data, error }) => {
+      if (!alive) return;
+      if (error || !data) return;
+      setLikedCommentIds(data.map((row: { comment_id: string }) => row.comment_id));
+      setLikedCommentOwnerId(authUserId);
+    }, () => {});
+    return () => { alive = false; };
+  }, [authUserId, likedCommentLoadNonce]);
 
   useEffect(() => {
     // Initial fetch
@@ -353,15 +404,32 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
   const [sortBy, setSortBy] = useState<'latest' | 'votes'>('latest');
   const [activeTab, setActiveTab] = useState<'feed' | 'ai-chat' | 'mypage'>('feed');
+  const analyticsConsent = useAnalyticsConsent();
+
+  useEffect(() => {
+    if (analyticsConsent !== 'accepted') {
+      resetPageViewDeduplication();
+      return;
+    }
+    setupGA4();
+    trackPageView(showLandingPage ? 'welcome' : activeTab === 'ai-chat' ? 'ai_chat' : activeTab);
+  }, [analyticsConsent, showLandingPage, activeTab]);
 
   // Active Modals & Selected Items
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  useEffect(() => {
+    if (selectedStory && (!hiddenStoriesReady || hiddenStoryIds.includes(selectedStory.id))) {
+      setSelectedStory(null);
+      syncStoryUrl(null);
+    }
+  }, [hiddenStoriesReady, hiddenStoryIds, selectedStory]);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [undoHiddenStoryId, setUndoHiddenStoryId] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
@@ -377,12 +445,14 @@ export default function App() {
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
   const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
+  const [storyDeleting, setStoryDeleting] = useState(false);
 
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
 
   // My Activity Trackers — 투표 기록은 서버(votes 테이블)가 원본이다
   const [myVoteRecords, setMyVoteRecords] = useState<{ storyId: string; option: 'A' | 'B' }[]>([]);
+  const pendingVoteIds = useRef(new Set<string>());
 
   // Save to LocalStorage
   useEffect(() => {
@@ -436,14 +506,14 @@ export default function App() {
   // 뒤에 한 번만 시도한다
   const deepLinkHandled = useRef(false);
   useEffect(() => {
-    if (deepLinkHandled.current || stories.length === 0) return;
+    if (deepLinkHandled.current || stories.length === 0 || !hiddenStoriesReady) return;
     const id = new URLSearchParams(window.location.search).get('story');
     if (!id) { deepLinkHandled.current = true; return; }
     const target = stories.find(s => s.id === id);
     deepLinkHandled.current = true;
-    if (target) openStoryDetail(target);
+    if (target && !hiddenStoryIds.includes(id) && !target.isHidden) openStoryDetail(target);
     else syncStoryUrl(null);
-  }, [stories]);
+  }, [stories, hiddenStoriesReady, hiddenStoryIds]);
 
   /**
    * 열려 있는 사연 상세를 목록의 최신 값과 맞춰둔다.
@@ -489,24 +559,32 @@ export default function App() {
     setUser(prev => ({ ...prev, isAdultVerified: true }));
   };
 
-  const handleUpdateNickname = (newNickname: string) => {
-    setUser(prev => ({ ...prev, nickname: newNickname }));
-  };
-
-  const handleGenerateRandomNickname = async () => {
+  const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
+    if (!authUserId) return false;
     try {
-      const res = await fetch('/api/nickname/random');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(prev => ({ ...prev, nickname: data.nickname }));
-      }
+      const { data, error } = await supabase.auth.updateUser({ data: { nickname: newNickname } });
+      if (error || data.user?.id !== authUserId) return false;
+      setUser(prev => ({ ...prev, nickname: newNickname }));
+      return true;
     } catch {
-      setUser(prev => ({ ...prev, nickname: '사이다마신곰99' }));
+      return false;
     }
   };
 
-  const handleVote = async (storyId: string, option: 'A' | 'B') => {
-    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
+  const handleGenerateRandomNickname = async (): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/nickname/random');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data.nickname === 'string' ? data.nickname : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleVote = async (storyId: string, option: 'A' | 'B'): Promise<boolean> => {
+    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return false;
+    if (pendingVoteIds.current.has(storyId)) return false;
 
     /**
      * 판정을 먼저 하고, 그 다음에 화면을 바꾼다.
@@ -517,176 +595,196 @@ export default function App() {
      * 가지 않았다.** 새로고침하면 표가 사라졌다.
      */
     const story = stories.find(s => s.id === storyId);
-    if (!story) return;
-    if (story.userVoted === option) return; // 같은 쪽에 다시 누른 경우
+    if (!story) return false;
+    if (story.userVoted === option) return false; // 같은 쪽에 다시 누른 경우
 
     const isChange = Boolean(story.userVoted);
     if (isChange && story.voteChanged) {
       setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      return false;
     }
 
-    const updated: Story = isChange
-      ? {
-          ...story,
-          userVoted: option,
-          votesA: option === 'A' ? story.votesA + 1 : story.votesA - 1,
-          votesB: option === 'B' ? story.votesB + 1 : story.votesB - 1,
-          voteChanged: true,
-        }
-      : {
-          ...story,
-          userVoted: option,
-          votesA: option === 'A' ? story.votesA + 1 : story.votesA,
-          votesB: option === 'B' ? story.votesB + 1 : story.votesB,
-        };
+    pendingVoteIds.current.add(storyId);
+    try {
+      const { data, error } = await supabase.rpc('vote_story', {
+        p_story_id: storyId,
+        p_option: option,
+      });
+      if (error || !data || data.id !== storyId) throw new Error('VOTE_RESULT_UNCONFIRMED');
 
-    setStories(prev => prev.map(s => (s.id === storyId ? updated : s)));
-    if (selectedStory?.id === storyId) setSelectedStory(updated);
-
-    if (isChange) {
-      setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-
-    // 중복·재투표 판정은 서버의 votes 테이블이 최종 결정한다.
-    // 화면은 먼저 바꿔두고, 거절당하면 서버 기준으로 되돌린다.
-    const { error } = await supabase.rpc('vote_story', {
-      p_story_id: storyId,
-      p_option: option,
-    });
-
-    if (error) {
-      setToastMessage(error.message || '투표를 처리하지 못했습니다.');
-      setTimeout(() => setToastMessage(null), 3000);
-
-      const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).single();
-      if (fresh) {
-        setStories(prev => prev.map(s => (s.id === storyId ? { ...s, ...(fresh as Story) } : s)));
+      // 투표 수는 추측해서 더하지 않고 DB 함수가 반환한 확정값으로 갱신한다.
+      const confirmed = { ...story, ...(data as Story), userVoted: option, voteChanged: isChange };
+      setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...confirmed } : s));
+      setSelectedStory(prev => prev?.id === storyId ? { ...prev, ...confirmed } : prev);
+      if (isChange) {
+        setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
+        setTimeout(() => setToastMessage(null), 3000);
       }
-    } else {
-      /*
-        서버가 받아준 투표만 센다. 화면에만 반영되고 거절당한 투표까지 세면
-        "투표는 잘 된다"는 잘못된 결론이 나온다.
-        마음을 바꿔 다시 누른 것은 같은 사연이므로 한 번으로 친다.
-      */
       trackOnce(`vote_submit:${storyId}`, 'vote_submit', { storyId, option });
+      await loadMyVotes();
+      return true;
+    } catch {
+      // 응답을 못 받았다고 DB가 쓰지 않았다고 단정할 수 없다. 가능한 범위에서
+      // 서버의 사연·내 투표 기록을 다시 읽고 성공 이벤트는 보내지 않는다.
+      setToastMessage('투표 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).maybeSingle();
+        if (fresh) setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...(fresh as Story) } : s));
+        await loadMyVotes();
+      } catch {
+        // 재조회도 실패하면 기존 화면 상태를 유지한다.
+      }
+      return false;
+    } finally {
+      pendingVoteIds.current.delete(storyId);
     }
-
-    await loadMyVotes();
   };
 
-  // 화면에 즉시 보여줄 익명 표기. 최종 확정은 서버 트리거(assign_comment_anon_id)가 하고,
-  // 여기서는 같은 규칙으로 미리 계산해 낙관적 업데이트가 어긋나지 않게 한다.
-  const previewAnonymousId = (storyId: string): string => {
-    const story = stories.find(s => s.id === storyId);
-    if (story && story.authorId === user.id) return '글쓴이';
-
-    const storyComments = commentsMap[storyId] || [];
-
-    // 이 사연에 이미 단 적이 있으면 그때 번호를 유지한다
-    const mine = storyComments.find(c => c.authorId === user.id && /^익명 \d+$/.test(c.anonymousId));
-    if (mine) return mine.anonymousId;
-
-    // 없으면 현재 최대 번호 + 1 (댓글 '개수'가 아니라 '최대 번호' 기준)
-    const maxNo = storyComments.reduce((max, c) => {
-      const m = /^익명 (\d+)$/.exec(c.anonymousId);
-      return m ? Math.max(max, parseInt(m[1], 10)) : max;
-    }, 0);
-    return `익명 ${maxNo + 1}`;
-  };
-
-  const handleAddComment = async (storyId: string, content: string) => {
-    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
+  const handleAddComment = async (storyId: string, content: string, commentId: string): Promise<boolean> => {
+    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.') || !authUserId) return false;
 
     notifyIfCrisis(content);
 
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      storyId,
-      authorId: user.id,
-      anonymousId: previewAnonymousId(storyId),
-      content,
-      createdAt: new Date().toISOString(),
-      likeCount: 0,
-      reportsCount: 0,
-      isBlind: false,
-      isEdited: false
-    };
-
-    setCommentsMap(prev => ({
-      ...prev,
-      [storyId]: [...(prev[storyId] || []), newComment]
-    }));
-
-    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
-
-    const { userLiked, ...dbComment } = newComment;
-    await supabase.from('comments').insert(dbComment);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || session.user.id !== authUserId) return false;
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id: commentId, storyId, content }),
+      });
+      if (!response.ok) return false;
+      const result = await response.json();
+      const saved = result?.comment as Comment | undefined;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) return false;
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).some(comment => comment.id === commentId)
+          ? prev[storyId]
+          : [...(prev[storyId] || []), saved]
+      }));
+      try {
+        const { data: savedStory } = await supabase.from('stories')
+          .select('commentCount').eq('id', storyId).single();
+        if (typeof savedStory?.commentCount === 'number') {
+          setStories(prev => prev.map(s => s.id === storyId
+            ? { ...s, commentCount: savedStory.commentCount }
+            : s));
+        }
+      } catch {
+        // 댓글 저장 성공과 별개인 카운터 재조회는 다음 목록 새로고침에 맡긴다.
+      }
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleLikeComment = async (commentId: string) => {
     if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) return;
-
-    /**
-     * 투표와 같은 이유로 판정을 먼저 한다.
-     *
-     * setCommentsMap 콜백은 렌더 시점에 실행되므로, 그 안에서 세운 값을 바로
-     * 아래에서 읽으면 늘 초기값이다. 그래서 **공감 수가 화면에만 오르고 서버로는
-     * 한 번도 가지 않았다.**
-     */
+    if (!authUserId) {
+      setLoginPromptMessage('공감을 누르려면 로그인해 주세요.');
+      return;
+    }
+    if (likedCommentOwnerId !== authUserId) {
+      setToastMessage('공감 상태를 불러오지 못했습니다. 다시 눌러주세요.');
+      setLikedCommentLoadNonce(n => n + 1);
+      return;
+    }
+    const pendingKey = `${authUserId}:${commentId}`;
+    if (pendingLikeRequests.current.has(pendingKey)) return;
     const storyId = Object.keys(commentsMap).find(sid =>
       commentsMap[sid].some(c => c.id === commentId)
     );
     if (!storyId) return;
-
-    const target = commentsMap[storyId].find(c => c.id === commentId);
-    if (!target) return;
-
-    const userLiked = !target.userLiked;
-    const delta = userLiked ? 1 : -1;
-
-    setCommentsMap(prev => ({
-      ...prev,
-      [storyId]: prev[storyId].map(c =>
-        c.id === commentId
-          ? { ...c, userLiked, likeCount: Math.max(0, c.likeCount + delta) }
-          : c
-      ),
-    }));
-
-    // 남의 댓글을 수정하는 동작이라 서버 함수를 통해서만 증감한다
-    await supabase.rpc('like_comment', { p_comment_id: commentId, p_delta: delta });
-  };
-  const handleEditComment = async (storyId: string, commentId: string, newContent: string) => {
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      if (updatedMap[storyId]) {
-        updatedMap[storyId] = updatedMap[storyId].map(c => 
-          c.id === commentId ? { ...c, content: newContent, isEdited: true } : c
-        );
+    const requestedLiked = !likedCommentIds.includes(commentId);
+    const requestOwnerId = authUserId;
+    pendingLikeRequests.current.add(pendingKey);
+    setLikePendingIds(prev => [...prev, commentId]);
+    try {
+      // +1/-1은 서버에서 '원하는 상태'로 해석한다. 서버는 계정별 행을
+      // 중복 없이 저장하고 실제 개수를 반환하므로 낙관적으로 세지 않는다.
+      const { data, error } = await supabase.rpc('like_comment', {
+        p_comment_id: commentId,
+        p_delta: requestedLiked ? 1 : -1,
+      });
+      if (error || !data || data.id !== commentId || data.storyId !== storyId) {
+        throw new Error('comment like save failed');
       }
-      return updatedMap;
-    });
-    
-    await supabase.from('comments').update({ content: newContent, isEdited: true }).eq('id', commentId);
+      if (currentLikeOwner.current !== requestOwnerId) return;
+      setLikedCommentIds(prev => requestedLiked
+        ? (prev.includes(commentId) ? prev : [...prev, commentId])
+        : prev.filter(id => id !== commentId));
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).map(c => c.id === commentId
+          ? { ...c, ...data, userLiked: requestedLiked }
+          : c),
+      }));
+    } catch {
+      if (currentLikeOwner.current === requestOwnerId) {
+        setToastMessage('공감을 저장하지 못했습니다. 다시 시도해 주세요.');
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } finally {
+      pendingLikeRequests.current.delete(pendingKey);
+      if (currentLikeOwner.current === requestOwnerId) {
+        setLikePendingIds(prev => prev.filter(id => id !== commentId));
+      }
+    }
+  };
+  const handleEditComment = async (storyId: string, commentId: string, newContent: string): Promise<boolean> => {
+    if (!authUserId) return false;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || session.user.id !== authUserId) return false;
+      const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ storyId, content: newContent }),
+      });
+      if (!response.ok) return false;
+      const result = await response.json();
+      const saved = result?.comment as Comment | undefined;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) return false;
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).map(c => c.id === commentId ? saved : c),
+      }));
+      return true;
+    } catch {
+      return false;
+    }
   };
 
-  const handleDeleteComment = async (storyId: string, commentId: string) => {
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      if (updatedMap[storyId]) {
-        updatedMap[storyId] = updatedMap[storyId].filter(c => c.id !== commentId);
+  const handleDeleteComment = async (storyId: string, commentId: string): Promise<boolean> => {
+    if (!authUserId) return false;
+    try {
+      const { data, error } = await supabase.from('comments').delete()
+        .eq('id', commentId).eq('authorId', authUserId).eq('storyId', storyId)
+        .select('id').maybeSingle();
+      if (error || !data) return false;
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).filter(c => c.id !== commentId),
+      }));
+      try {
+        const { data: savedStory } = await supabase.from('stories')
+          .select('commentCount').eq('id', storyId).single();
+        if (typeof savedStory?.commentCount === 'number') {
+          setStories(prev => prev.map(s => s.id === storyId
+            ? { ...s, commentCount: savedStory.commentCount }
+            : s));
+        }
+      } catch {
+        // 댓글 삭제 성공과 별개인 카운터 재조회는 다음 목록 새로고침에 맡긴다.
       }
-      return updatedMap;
-    });
-    
-    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
-
-    await supabase.from('comments').delete().eq('id', commentId);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleEditStory = (storyId: string) => {
@@ -697,15 +795,54 @@ export default function App() {
     }
   };
 
-  const handleHideStory = async (storyId: string) => {
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, isHidden: true } : s));
-    if (selectedStory?.id === storyId) {
-      setSelectedStory(null);
+  const handleHideStory = async (storyId: string): Promise<boolean> => {
+    if (!authUserId) {
+      setLoginPromptMessage('사연을 나에게만 숨기려면 로그인해 주세요.');
+      return false;
     }
-    setToastMessage('해당 사연을 숨겼습니다.');
+    if (!hiddenStoriesReady) {
+      setToastMessage('숨긴 사연 목록을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+      return false;
+    }
+    const story = stories.find(s => s.id === storyId);
+    if (!story || story.authorId === authUserId) return false;
+    if (!hiddenStoryIds.includes(storyId)) {
+      let error: { code?: string } | null;
+      try {
+        ({ error } = await supabase.from('story_hides').insert({ user_id: authUserId, story_id: storyId }));
+      } catch {
+        error = { code: 'NETWORK_ERROR' };
+      }
+      if (error && error.code !== '23505') {
+        setToastMessage('사연을 숨기지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return false;
+      }
+      setHiddenStoryIds(prev => prev.includes(storyId) ? prev : [...prev, storyId]);
+    }
+    setToastMessage('이 사연을 나에게만 숨겼습니다. 마이페이지에서 복원할 수 있어요.');
+    setUndoHiddenStoryId(storyId);
+    setTimeout(() => { setToastMessage(null); setUndoHiddenStoryId(null); }, 5000);
+    return true;
+  };
+
+  const handleRestoreStory = async (storyId: string): Promise<void> => {
+    if (!authUserId) return;
+    let error: unknown;
+    try {
+      ({ error } = await supabase.from('story_hides').delete()
+        .eq('user_id', authUserId).eq('story_id', storyId));
+    } catch (failure) {
+      error = failure;
+    }
+    if (error) {
+      setToastMessage('사연을 복원하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } else {
+      setHiddenStoryIds(prev => prev.filter(id => id !== storyId));
+      setToastMessage('사연을 다시 볼 수 있습니다.');
+    }
+    setUndoHiddenStoryId(null);
     setTimeout(() => setToastMessage(null), 3000);
-    
-    await supabase.from('stories').update({ isHidden: true }).eq('id', storyId);
   };
 
   const handleDeleteStory = (storyId: string) => {
@@ -713,18 +850,24 @@ export default function App() {
   };
 
   const confirmDeleteStory = async () => {
-    if (!storyToDelete) return;
+    if (!storyToDelete || !authUserId || storyDeleting) return;
     const storyId = storyToDelete;
-
-    setStories(prev => prev.filter(s => s.id !== storyId));
-    if (selectedStory?.id === storyId) {
-      setSelectedStory(null);
+    setStoryDeleting(true);
+    try {
+      const { data, error } = await supabase.from('stories').delete()
+        .eq('id', storyId).eq('authorId', authUserId)
+        .select('id').maybeSingle();
+      if (error || !data) throw new Error('delete failed');
+      setStories(prev => prev.filter(s => s.id !== storyId));
+      if (selectedStory?.id === storyId) setSelectedStory(null);
+      setStoryToDelete(null);
+      setToastMessage('사연이 삭제되었습니다.');
+    } catch {
+      setToastMessage('사연을 삭제하지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setStoryDeleting(false);
+      setTimeout(() => setToastMessage(null), 3000);
     }
-    setToastMessage('사연이 삭제되었습니다.');
-    setTimeout(() => setToastMessage(null), 3000);
-    
-    await supabase.from('stories').delete().eq('id', storyId);
-    setStoryToDelete(null);
   };
 
 
@@ -777,75 +920,83 @@ export default function App() {
     body: string;
     opponentPersonality?: string;
     createAIPersona: boolean;
-    isAdult: boolean;
+    requestId: string;
   }) => {
+    if (!authUserId) throw new Error('AUTH_REQUIRED');
     notifyIfCrisis(storyData.title, storyData.body);
 
-    const cardColors: ('pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream')[] = ['pink', 'teal', 'lavender', 'peach', 'ochre'];
-    const randomColor = cardColors[Math.floor(Math.random() * cardColors.length)];
-
-    const newStory: Story = {
-      id: `story-${Date.now()}`,
-      authorId: user.id,
-      authorNickname: user.nickname,
-      title: storyData.title,
-      body: storyData.body,
-      category: storyData.category,
-      createdAt: new Date().toISOString(),
-      votesA: 0,
-      votesB: 0,
-      userVoted: undefined,
-      commentCount: 0,
-      viewCount: 1,
-      reportsCount: 0,
-      isBlind: false,
-      isAdult: storyData.isAdult,
-      cardColor: editingStory ? editingStory.cardColor : randomColor,
-      // 작성자가 적어둔 상대방 성격. 저장해 두어야 나중에 AI 대화를 열 때
-      // 그 성격대로 상대를 연기시킬 수 있다
-      personaInstruction: storyData.opponentPersonality || undefined,
-    };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || session.user.id !== authUserId) throw new Error('AUTH_REQUIRED');
+    const response = await fetch(editingStory
+      ? `/api/stories/${encodeURIComponent(editingStory.id)}`
+      : '/api/stories', {
+      method: editingStory ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        title: storyData.title,
+        body: storyData.body,
+        category: storyData.category,
+        opponentPersonality: storyData.opponentPersonality ?? '',
+        requestId: editingStory ? undefined : storyData.requestId,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'STORY_SAVE_FAILED');
+    const savedStory = result.story as Story | undefined;
+    if (!savedStory || typeof savedStory.id !== 'string' || savedStory.authorId !== authUserId) {
+      throw new Error('STORY_SAVE_FAILED');
+    }
 
     if (editingStory) {
-      const updatedStory = { ...newStory, id: editingStory.id, createdAt: editingStory.createdAt, votesA: editingStory.votesA, votesB: editingStory.votesB, userVoted: editingStory.userVoted, commentCount: editingStory.commentCount, viewCount: editingStory.viewCount };
+      const updatedStory = { ...editingStory, ...savedStory };
       setStories(prev => prev.map(s => s.id === editingStory.id ? updatedStory : s));
       setEditingStory(null);
       setToastMessage('사연이 성공적으로 수정되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      
-      const { userVoted, voteChanged, ...dbStory } = updatedStory;
-      await supabase.from('stories').update(dbStory).eq('id', updatedStory.id);
     } else {
-      setStories(prev => [newStory, ...prev]);
-      setToastMessage('사연 등록이 완료되었습니다.');
-      setTimeout(() => setToastMessage(null), 3000);
+      setStories(prev => prev.some(s => s.id === savedStory.id)
+        ? prev.map(s => s.id === savedStory.id ? { ...s, ...savedStory } : s)
+        : [savedStory, ...prev]);
 
       // 등록한 사연을 바로 확인할 수 있도록 홈 피드 상세를 연다
       setActiveTab('feed');
-      setSelectedStory(newStory);
-
-      const { userVoted, voteChanged, ...dbStory } = newStory;
-      await supabase.from('stories').insert([dbStory]);
+      setSelectedStory(savedStory);
     }
 
     // If auto persona creation requested
-    if (storyData.createAIPersona) {
+    let personaSaved = true;
+    if (storyData.createAIPersona && !editingStory) {
       const newPersona: AIPersona = {
         id: `persona-${Date.now()}`,
-        name: `사연 상대방 (${storyData.title.slice(0, 10)}...)`,
-        role: `${storyData.category} 갈등 상대`,
-        category: storyData.category,
+        name: `사연 상대방 (${savedStory.title.slice(0, 10)}...)`,
+        role: `${savedStory.category} 갈등 상대`,
+        category: savedStory.category,
         avatarIcon: 'Bot',
-        description: `사연: "${storyData.title}" 의 상대방 AI 페르소나입니다.${storyData.opponentPersonality ? ` (성격: ${storyData.opponentPersonality})` : ''}`,
+        description: `사연: "${savedStory.title}" 의 상대방 AI 페르소나입니다.${savedStory.personaInstruction ? ` (성격: ${savedStory.personaInstruction})` : ''}`,
         systemInstruction: buildSimulationPrompt({
-          storyBody: storyData.body,
-          opponentPersonality: storyData.opponentPersonality,
+          storyBody: savedStory.body,
+          opponentPersonality: savedStory.personaInstruction,
         }),
-        cardColor: randomColor,
+        cardColor: savedStory.cardColor,
         sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
       };
-      setPersonas(prev => [newPersona, ...prev]);
-      if (authUserId) createPersona(newPersona, authUserId);
+      try {
+        personaSaved = await createPersona(newPersona, authUserId);
+      } catch {
+        personaSaved = false;
+      }
+      if (personaSaved) setPersonas(prev => [newPersona, ...prev]);
+    }
+    if (!editingStory) {
+      setToastMessage(result.recovered === true
+        ? '이전에 저장된 사연을 확인했습니다. 내용이 다르면 수정하기에서 변경해 주세요.'
+        : personaSaved
+          ? '사연 등록이 완료되었습니다.'
+          : '사연은 저장됐지만 AI 대화 준비에 실패했습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
@@ -856,13 +1007,34 @@ export default function App() {
    * 서버에 붙이면 글자 수만큼 DB 쓰기가 나간다.
    */
   const saveTimers = useRef<Record<string, number>>({});
+  const pendingSaves = useRef<Record<string, Promise<boolean>>>({});
+  const completedHistories = useRef<Record<string, ChatMessage[]>>({});
+  const runPersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
+    // 이전 부분 응답 저장이 완료된 뒤 최종 답변을 쓴다. 요청 순서가 뒤집히면
+    // 최신 대화가 오래된 부분 응답으로 덮일 수 있다.
+    const previous = pendingSaves.current[personaId] ?? Promise.resolve(true);
+    const next = previous.catch(() => false).then(() => savePersona(personaId, { chatHistory }));
+    pendingSaves.current[personaId] = next;
+    void next.finally(() => {
+      if (pendingSaves.current[personaId] === next) delete pendingSaves.current[personaId];
+    }).catch(() => {});
+    return next;
+  }, []);
   const queuePersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]) => {
+    if (completedHistories.current[personaId] === chatHistory) return;
     window.clearTimeout(saveTimers.current[personaId]);
     saveTimers.current[personaId] = window.setTimeout(() => {
-      savePersona(personaId, { chatHistory });
+      void runPersonaSave(personaId, chatHistory);
       delete saveTimers.current[personaId];
     }, 800);
-  }, []);
+  }, [runPersonaSave]);
+
+  const saveCompletedTurn = useCallback(async (personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
+    completedHistories.current[personaId] = chatHistory;
+    window.clearTimeout(saveTimers.current[personaId]);
+    delete saveTimers.current[personaId];
+    return runPersonaSave(personaId, chatHistory);
+  }, [runPersonaSave]);
 
   const handleUpdateSession = useCallback((sessionId: string, personaId: string, updates: Partial<ChatSession>) => {
     setActiveChatSession(prev => {
@@ -1080,26 +1252,37 @@ export default function App() {
     setIsReportOpen(true);
   };
 
-  const handleSubmitReport = async (targetId: string, reason: string) => {
-    if (blockedForGuest('신고하려면 로그인이 필요해요.')) return;
+  const handleSubmitReport = async (targetId: string, reason: string): Promise<boolean> => {
+    if (blockedForGuest('신고하려면 로그인이 필요해요.')) return false;
 
     const isStory = stories.some(s => s.id === targetId);
 
     // 중복 신고 차단, 1일 한도, 블라인드 판정은 전부 서버가 결정한다.
     // 거절될 수 있으므로 화면을 먼저 바꾸지 않고 결과를 받아 반영한다.
-    const { data, error } = await supabase.rpc('submit_report', {
-      p_target_type: isStory ? 'story' : 'comment',
-      p_target_id: targetId,
-      p_reason: reason,
-    });
+    let data: unknown;
+    let error: { message?: string } | null;
+    try {
+      ({ data, error } = await supabase.rpc('submit_report', {
+        p_target_type: isStory ? 'story' : 'comment',
+        p_target_id: targetId,
+        p_reason: reason,
+      }));
+    } catch {
+      error = { message: '신고를 처리하지 못했습니다. 다시 시도해 주세요.' };
+    }
 
     if (error) {
       setToastMessage(error.message || '신고를 처리하지 못했습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      return false;
     }
 
-    const result = data as { reports: number; blinded: boolean };
+    const result = data as { reports?: unknown; blinded?: unknown } | null;
+    if (!result || typeof result.reports !== 'number' || typeof result.blinded !== 'boolean') {
+      setToastMessage('신고 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return false;
+    }
 
     if (isStory) {
       setStories(prev => prev.map(s =>
@@ -1121,6 +1304,7 @@ export default function App() {
       ? '신고가 접수되었고, 검토를 위해 가려졌습니다.'
       : '신고가 접수되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   // 가려진 글의 작성자가 이의를 제기한다
@@ -1143,10 +1327,11 @@ export default function App() {
   };
 
   const baseFilteredStories = stories.filter(s => {
+    if (!hiddenStoriesReady) return false;
     // 가려진 글도 작성자에게는 보인다. 왜 가려졌는지 모르는 채로 사라지면
     // 이의를 제기할 방법이 없기 때문 — 본문 대신 상태 카드가 뜬다.
     if (s.isBlind && s.authorId !== user.id) return false;
-    if (s.isHidden) return false;
+    if (s.isHidden || hiddenStoryIds.includes(s.id)) return false;
     if (selectedCategory === '전체') return true;
     return s.category === selectedCategory;
   }).sort((a, b) => {
@@ -1187,7 +1372,7 @@ export default function App() {
     : baseFilteredStories;
 
   // 마이페이지에 보여줄 내 투표 목록 (제목은 현재 사연 목록에서 가져온다)
-  const myVotes = myVoteRecords.map(v => ({
+  const myVotes = myVoteRecords.filter(v => !hiddenStoryIds.includes(v.storyId)).map(v => ({
     storyId: v.storyId,
     option: v.option,
     title: stories.find(s => s.id === v.storyId)?.title ?? '삭제된 사연',
@@ -1202,16 +1387,18 @@ export default function App() {
   currentMonday.setHours(0, 0, 0, 0);
 
   const weeklyTopStories = [...stories]
-    .filter(s => !s.isBlind && new Date(s.createdAt) >= currentMonday)
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !hiddenStoryIds.includes(s.id) && new Date(s.createdAt) >= currentMonday)
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   const realtimeTopStories = [...stories]
-    .filter(s => !s.isBlind)
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !hiddenStoryIds.includes(s.id))
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   // My Written Stories & Comments
   const myStories = stories.filter(s => s.authorId === user.id);
-  const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
+  const hiddenStories = stories.filter(s => hiddenStoryIds.includes(s.id));
+  const myComments = (Object.values(commentsMap) as Comment[][]).flat()
+    .filter(c => c.authorId === user.id && !hiddenStoryIds.includes(c.storyId));
 
   // 게스트는 홈 피드 탐색만 가능하므로, 나머지 진입점은 로그인 안내로 대체한다
   /**
@@ -1231,6 +1418,7 @@ export default function App() {
   };
 
   const openStoryDetail = (story: Story) => {
+    if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id)) return;
     /*
       둘러보는 사람도 사연 본문과 댓글은 읽을 수 있다.
 
@@ -1295,7 +1483,18 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
         
         {/* TAB 1: FEED VIEW */}
-        {activeTab === 'feed' && (
+        {activeTab === 'feed' && !hiddenStoriesReady && (
+          <div className="rounded-lg border border-[#E5E7EB] bg-white p-6 text-sm text-[#1C1C1C]">
+            <p>{hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '사연 목록을 불러오는 중입니다.'}</p>
+            {hiddenStoriesLoadError && (
+              <button type="button" className="mt-3 text-[#A32E1D] font-bold underline"
+                onClick={() => setHiddenStoriesLoadNonce(n => n + 1)}>
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
+        {activeTab === 'feed' && hiddenStoriesReady && (
           <div className="space-y-8 pb-24 md:pb-44">
             
             {/* Today's Balance Game (Hot Logic Hero) */}
@@ -1390,7 +1589,7 @@ export default function App() {
                     onReport={handleReport}
                     onEdit={handleEditStory}
                     onDelete={handleDeleteStory}
-                    onHide={handleHideStory}
+                    onHide={story.authorId === user.id ? undefined : handleHideStory}
                     comments={commentsMap[story.id] || []}
                     isGuest={isGuest}
                     onAppeal={(id) => setAppealTargetId(id)}
@@ -1451,6 +1650,7 @@ export default function App() {
             }}
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
+            onSaveTurn={saveCompletedTurn}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
@@ -1475,6 +1675,11 @@ export default function App() {
             }}
             user={user}
             myStories={myStories}
+            hiddenStories={hiddenStories}
+            hiddenStoriesReady={hiddenStoriesReady}
+            hiddenStoriesLoadError={hiddenStoriesLoadError}
+            onRetryHiddenStories={() => setHiddenStoriesLoadNonce(n => n + 1)}
+            onRestoreStory={handleRestoreStory}
             myVotes={myVotes}
             myComments={myComments}
             onUpdateNickname={handleUpdateNickname}
@@ -1536,6 +1741,7 @@ export default function App() {
       )}
 
       {/* Bottom Navigation */}
+      {!showWelcomeModal && <AnalyticsConsentBanner />}
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => {
@@ -1612,8 +1818,12 @@ export default function App() {
       />
 
       <StoryDetailModal 
-        story={selectedStory} 
-        comments={selectedStory ? (commentsMap[selectedStory.id] || []) : []}
+        story={hiddenStoriesReady ? selectedStory : null}
+        comments={selectedStory ? (commentsMap[selectedStory.id] || []).map(comment => ({
+          ...comment,
+          userLiked: likedCommentOwnerId === authUserId && likedCommentIds.includes(comment.id),
+        })) : []}
+        likePendingIds={likePendingIds}
         currentUser={user}
         onClose={closeStoryDetail} 
         onVote={handleVote}
@@ -1628,7 +1838,7 @@ export default function App() {
         onReportStory={handleReport}
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}
-        onHideStory={handleHideStory}
+        onHideStory={selectedStory?.authorId === user.id ? undefined : handleHideStory}
         onReportComment={handleReport}
         onEditComment={handleEditComment}
         onDeleteComment={handleDeleteComment}
@@ -1660,8 +1870,9 @@ export default function App() {
 
       <DeleteConfirmModal
         isOpen={!!storyToDelete}
-        onClose={() => setStoryToDelete(null)}
+        onClose={() => { if (!storyDeleting) setStoryToDelete(null); }}
         onConfirm={confirmDeleteStory}
+        isDeleting={storyDeleting}
         title="삭제 하시겠습니까?"
       />
 
@@ -1714,6 +1925,10 @@ export default function App() {
         <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-[#1C1C1C] text-white px-6 py-3 rounded-full shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2 text-sm font-bold">
           <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
           {toastMessage}
+          {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
+            <button type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
+              className="ml-2 text-[#FF6B5A] underline shrink-0">되돌리기</button>
+          )}
         </div>
       )}
     </div>

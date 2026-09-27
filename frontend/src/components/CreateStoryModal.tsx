@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StoryCategory, Story } from '../types';
-import { X, Sparkles, MessageSquareHeart, CheckCircle2, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { X, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface CreateStoryModalProps {
   isOpen: boolean;
@@ -11,8 +11,8 @@ interface CreateStoryModalProps {
     body: string;
     opponentPersonality?: string;
     createAIPersona: boolean;
-    isAdult: boolean;
-  }) => void;
+    requestId: string;
+  }) => Promise<void>;
   initialData?: Story | null;
 }
 
@@ -24,22 +24,30 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   onSubmit,
   initialData,
 }) => {
-  if (!isOpen) return null;
-
   const [title, setTitle] = useState(initialData?.title || '');
   const [category, setCategory] = useState<Exclude<StoryCategory, '전체'>>(initialData?.category || '직장');
   const [body, setBody] = useState(initialData?.body || '');
   const [opponentPersonality, setOpponentPersonality] = useState(initialData?.personaInstruction || '');
-  const [isAdultCheck, setIsAdultCheck] = useState(initialData?.isAdult || false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitPendingRef = useRef(false);
+  const requestIdRef = useRef(`story-${crypto.randomUUID()}`);
 
-  // Adult content validation state
-  const [isCheckingAdult, setIsCheckingAdult] = useState(false);
-  const [showAdultWarning, setShowAdultWarning] = useState(false);
-  const [aiDetectedAdult, setAiDetectedAdult] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle(initialData?.title || '');
+    setCategory(initialData?.category || '직장');
+    setBody(initialData?.body || '');
+    setOpponentPersonality(initialData?.personaInstruction || '');
+    setErrorMessage(null);
+    requestIdRef.current = `story-${crypto.randomUUID()}`;
+  }, [isOpen, initialData?.id]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitPendingRef.current) return;
 
     if (!title.trim()) {
       setErrorMessage('제목을 입력해 주세요.');
@@ -59,100 +67,52 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     }
 
     setErrorMessage(null);
-    setIsCheckingAdult(true);
+    submitPendingRef.current = true;
+    setIsSubmitting(true);
 
     try {
-      // AI 19금 + 비속어 필터링 (제목 + 본문)
-      const res = await fetch('/api/check-adult-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), body: body.trim() })
-      });
-      
-      const data = await res.json();
-      const isContentAdult = data.isAdult;
-
-      if (isContentAdult) {
-        setAiDetectedAdult(true);
-      }
-
-      if (isContentAdult && !isAdultCheck) {
-        // 19금 콘텐츠인데 체크하지 않은 경우 경고창 띄우기
-        setShowAdultWarning(true);
-        setIsCheckingAdult(false);
-        return;
-      }
-
-      // 비속어가 감지된 경우 안내 메시지 표시
-      if (data.hasProfanity) {
-        console.log('비속어가 감지되어 자동 마스킹 처리되었습니다.');
-      }
-
-      onSubmit({
-        title: data.sanitizedTitle || title.trim(),
+      await onSubmit({
+        title: title.trim(),
         category,
-        body: data.sanitizedText || body.trim(),
+        body: body.trim(),
         opponentPersonality: opponentPersonality.trim(),
         createAIPersona: true,
-        isAdult: isAdultCheck,
+        requestId: requestIdRef.current,
       });
 
       // Reset Form
       setTitle('');
       setBody('');
       setOpponentPersonality('');
-      setIsAdultCheck(false);
-      setAiDetectedAdult(false);
       onClose();
 
     } catch (error) {
-      console.error('Adult content check error:', error);
-      setErrorMessage('콘텐츠 확인 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      const code = error instanceof Error ? error.message : '';
+      setErrorMessage(code === 'ADULT_CONTENT_BLOCKED'
+        ? '성인 콘텐츠는 첫 공개에서 등록할 수 없습니다. 내용을 수정한 뒤 다시 검사해 주세요.'
+        : code === 'CONTENT_CHECK_FAILED' || code === 'CONTENT_CHECK_UNAVAILABLE'
+          ? '콘텐츠 검사에 실패했습니다. 입력은 그대로 두었습니다. 다시 시도해 주세요.'
+          : code === 'AUTH_REQUIRED'
+            ? '로그인 세션이 만료되었습니다. 입력은 그대로 두었습니다. 다시 로그인해 주세요.'
+            : '사연을 저장하지 못했습니다. 입력은 그대로 두었습니다. 다시 시도해 주세요.');
     } finally {
-      setIsCheckingAdult(false);
+      submitPendingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
-  // 요구사항 3: AI가 19금으로 판별했는데 19금 체크가 안되어있으면 버튼 비활성화
-  // 또는 로딩 중일 때 버튼 비활성화
-  const isSubmitDisabled = isCheckingAdult || (aiDetectedAdult && !isAdultCheck);
+  const isSubmitDisabled = isSubmitting;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
         
-        {/* Warning Modal Overlay (19금 미체크 시 팝업) */}
-        {showAdultWarning && (
-          <div className="absolute inset-0 z-10 bg-[white]/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-white border border-red-200 shadow-2xl rounded-3xl p-8 max-w-sm w-full text-center space-y-5">
-              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                <AlertOctagon className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-[#1C1C1C] mb-2">19금 콘텐츠 감지됨</h3>
-                <p className="text-sm text-[#5f5e5e] leading-relaxed font-medium">
-                  사연 내용이 성적 내용 또는 부적절한 내용을 포함하고 있는 것으로 판단됩니다.<br/>
-                  등록하시려면 창을 닫고 <span className="font-bold text-red-500">'19금'</span> 체크를 해주세요.
-                </p>
-              </div>
-              <div className="pt-2 flex justify-center">
-                <button
-                  onClick={() => setShowAdultWarning(false)}
-                  className="px-8 py-3 bg-[#1C1C1C] hover:bg-[#333333] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md"
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Modal Header */}
         <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
             <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
-          <button onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
+          <button onClick={onClose} disabled={isSubmitting} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -166,7 +126,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             </div>
           )}
 
-          {/* Category Select & 19+ Checkbox */}
+          {/* Category Select */}
           <div>
             <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
               카테고리 선택 <span className="text-[#FF6B5A]">*</span>
@@ -189,19 +149,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                 ))}
               </div>
               
-              {/* 19+ Checkbox at the far right */}
-              <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
-                isAdultCheck ? 'bg-red-50 border-red-300 text-red-600' : 'bg-[#f8f9fa] border-[#E5E7EB] text-[#5f5e5e] hover:bg-[#E5E7EB]'
-              }`}>
-                <input
-                  type="checkbox"
-                  checked={isAdultCheck}
-                  onChange={(e) => setIsAdultCheck(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-red-500 rounded border-gray-300 cursor-pointer"
-                />
-                <span className="text-xs font-black">19금</span>
-              </label>
             </div>
+            <p className="mt-2 text-[11px] text-[#5f5e5e]">성인 콘텐츠 등록은 첫 공개에서 지원하지 않습니다.</p>
           </div>
 
           {/* Title */}
@@ -234,7 +183,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               value={body}
               onChange={(e) => {
                 setBody(e.target.value);
-                setAiDetectedAdult(false); // 내용이 바뀌면 경고 상태 리셋
+                setErrorMessage(null);
               }}
               placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 작성한 사연은 100% 완전한 익명으로 노출됩니다."
               rows={5}
@@ -296,13 +245,13 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                   : 'bg-[#1C1C1C] hover:bg-[#333333] active:scale-95 cursor-pointer'
               }`}
             >
-              {isCheckingAdult ? (
+              {isSubmitting ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  <span>분석 중...</span>
+                  <span>확인·저장 중...</span>
                 </>
               ) : (
-                '사연 등록하기'
+                initialData ? '수정 저장하기' : '사연 등록하기'
               )}
             </button>
           </div>

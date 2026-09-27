@@ -4,6 +4,7 @@ interface DeleteConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  isDeleting?: boolean;
   title?: string;
 }
 
@@ -11,6 +12,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  isDeleting = false,
   title = '삭제 하시겠습니까?'
 }) => {
   if (!isOpen) return null;
@@ -23,15 +25,17 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         <div className="flex gap-3">
           <button
             onClick={onClose}
+            disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-white text-[#5f5e5e] font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-[#E5E7EB] hover:bg-[#f3f4f5]"
           >
             취소
           </button>
           <button
             onClick={onConfirm}
+            disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-[#ba1a1a] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md hover:bg-[#901414]"
           >
-            삭제
+            {isDeleting ? '삭제 중…' : '삭제'}
           </button>
         </div>
       </div>

@@ -3,14 +3,20 @@ import { UserProfile, Story, Comment } from '../types';
 import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { checkIsAdmin, fetchMyInquiries, submitInquiry, fetchAllInquiries, replyToInquiry, type Inquiry } from '../lib/inquiries';
+import { AnalyticsConsentSettings } from './AnalyticsConsent';
 
 interface MyPageViewProps {
   user: UserProfile;
   myStories: Story[];
+  hiddenStories: Story[];
+  hiddenStoriesReady: boolean;
+  hiddenStoriesLoadError: boolean;
+  onRetryHiddenStories: () => void;
+  onRestoreStory: (storyId: string) => Promise<void>;
   myVotes: { storyId: string; title: string; option: 'A' | 'B' }[];
   myComments: Comment[];
-  onUpdateNickname: (nickname: string) => void;
-  onGenerateRandomNickname: () => void;
+  onUpdateNickname: (nickname: string) => Promise<boolean>;
+  onGenerateRandomNickname: () => Promise<string | null>;
   onSelectStory: (story: Story) => void;
   /** 지금 남아 있는 AI 대화방 수 */
   aiChatCount?: number;
@@ -35,6 +41,11 @@ interface MyPageViewProps {
 export const MyPageView: React.FC<MyPageViewProps> = ({
   user,
   myStories,
+  hiddenStories,
+  hiddenStoriesReady,
+  hiddenStoriesLoadError,
+  onRetryHiddenStories,
+  onRestoreStory,
   myVotes,
   myComments,
   onUpdateNickname,
@@ -55,6 +66,8 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user.nickname);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
 
   // Settings States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -173,10 +186,22 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   ];
 
 
-  const handleSaveNickname = (e: React.FormEvent) => {
+  const handleSaveNickname = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nicknameInput.trim()) return;
-    onUpdateNickname(nicknameInput.trim());
+    if (!nicknameInput.trim() || nicknameSaving) return;
+    setNicknameSaving(true);
+    setNicknameError(null);
+    let saved = false;
+    try {
+      saved = await onUpdateNickname(nicknameInput.trim());
+    } catch {
+      saved = false;
+    }
+    setNicknameSaving(false);
+    if (!saved) {
+      setNicknameError('닉네임을 저장하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
+      return;
+    }
     setIsEditingNickname(false);
     setSuccessMessage('닉네임이 성공적으로 변경되었습니다!');
     setTimeout(() => setSuccessMessage(null), 2500);
@@ -258,6 +283,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   if (isGuest) {
     return (
       <div className="max-w-3xl mx-auto space-y-8 pb-28">
+        <AnalyticsConsentSettings />
         <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C]">
           <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/20 border border-[#FF6B5A]/30 flex items-center justify-center mb-4">
             <Lock className="w-5 h-5 text-[#FF6B5A]" aria-hidden="true" />
@@ -440,6 +466,8 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </button>
           </div>
         </section>
+
+        <AnalyticsConsentSettings />
 
         {showDeleteModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
@@ -750,18 +778,29 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                     type="text"
                     value={nicknameInput}
                     onChange={(e) => setNicknameInput(e.target.value)}
+                    disabled={nicknameSaving}
                     maxLength={12}
                     className="p-1.5 bg-[#f8f9fa] border border-[#E5E7EB] text-[#1C1C1C] rounded text-xs font-bold focus:outline-none"
                   />
                   <button
                     type="submit"
+                    disabled={nicknameSaving || !nicknameInput.trim()}
                     className="p-1.5 bg-[#FF6B5A] text-[#1C1C1C] rounded text-xs font-bold cursor-pointer"
                   >
-                    저장
+                    {nicknameSaving ? '저장 중…' : '저장'}
                   </button>
                   <button
                     type="button"
-                    onClick={onGenerateRandomNickname}
+                    onClick={async () => {
+                      const nickname = await onGenerateRandomNickname();
+                      if (nickname) {
+                        setNicknameInput(nickname);
+                        setNicknameError(null);
+                      } else {
+                        setNicknameError('새 닉네임을 가져오지 못했습니다. 다시 시도해 주세요.');
+                      }
+                    }}
+                    disabled={nicknameSaving}
                     className="p-1.5 bg-white/10 text-white rounded cursor-pointer"
                     title="랜덤 닉네임"
                   >
@@ -790,6 +829,9 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div className="mt-4 p-2 bg-[#FF6B5A]/20 text-[#FF6B5A] font-mono text-xs font-bold rounded border border-[#FF6B5A]/30 flex items-center gap-2">
             <Check className="w-4 h-4" /> {successMessage}
           </div>
+        )}
+        {nicknameError && (
+          <p role="alert" className="mt-3 text-xs text-[#FF6B5A]">{nicknameError}</p>
         )}
       </section>
 
@@ -853,6 +895,29 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </button>
           </div>
         )}
+      </section>
+
+      <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4">
+        <div>
+          <h3 className="font-bold text-sm text-[#1C1C1C]">내가 숨긴 사연 ({hiddenStories.length})</h3>
+          <p className="text-xs text-[#5f5e5e] mt-1">나에게만 보이지 않습니다. 다른 이용자는 계속 볼 수 있어요.</p>
+        </div>
+        {!hiddenStoriesReady ? (
+          <div className="text-xs text-[#5f5e5e]">
+            {hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '숨긴 사연 목록을 불러오는 중입니다.'}
+            {hiddenStoriesLoadError && (
+              <button type="button" onClick={onRetryHiddenStories} className="block mt-2 text-[#A32E1D] font-bold underline">다시 시도</button>
+            )}
+          </div>
+        ) : hiddenStories.length === 0 ? (
+          <p className="text-xs text-[#5f5e5e]">숨긴 사연이 없습니다.</p>
+        ) : hiddenStories.map(story => (
+          <div key={story.id} className="flex items-center justify-between gap-3 border-t border-[#E5E7EB] pt-3">
+            <span className="text-xs font-bold text-[#1C1C1C] truncate">{story.title}</span>
+            <button type="button" onClick={() => void onRestoreStory(story.id)}
+              className="shrink-0 text-xs font-bold text-[#A32E1D] underline">다시 보기</button>
+          </div>
+        ))}
       </section>
 
       {/* Settings List */}
@@ -962,5 +1027,3 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     </div>
   );
 };
-
-

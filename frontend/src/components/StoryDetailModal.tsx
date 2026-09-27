@@ -11,9 +11,10 @@ interface StoryDetailModalProps {
   comments: Comment[];
   currentUser: UserProfile;
   onClose: () => void;
-  onVote: (storyId: string, option: 'A' | 'B') => void;
-  onAddComment: (storyId: string, content: string) => void;
+  onVote: (storyId: string, option: 'A' | 'B') => Promise<boolean>;
+  onAddComment: (storyId: string, content: string, commentId: string) => Promise<boolean>;
   onLikeComment: (commentId: string) => void;
+  likePendingIds?: string[];
   onStartAIChat: (story: Story) => void;
   /** 오늘 남은 무료 AI 대화 횟수 (내 사연이면 무제한이라 표시하지 않는다) */
   freeChatsLeft?: number;
@@ -31,10 +32,10 @@ interface StoryDetailModalProps {
   onReportStory: (storyId: string) => void;
   onReportComment: (commentId: string) => void;
   onEditStory?: (storyId: string) => void;
-  onHideStory?: (storyId: string) => void;
+  onHideStory?: (storyId: string) => Promise<boolean>;
   onDeleteStory?: (storyId: string) => void;
-  onEditComment?: (storyId: string, commentId: string, newContent: string) => void;
-  onDeleteComment?: (storyId: string, commentId: string) => void;
+  onEditComment?: (storyId: string, commentId: string, newContent: string) => Promise<boolean>;
+  onDeleteComment?: (storyId: string, commentId: string) => Promise<boolean>;
 }
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
@@ -45,6 +46,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onVote,
   onAddComment,
   onLikeComment,
+  likePendingIds = [],
   onStartAIChat,
   freeChatsLeft,
   isGuest = false,
@@ -58,7 +60,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onDeleteComment,
 }) => {
   const [commentText, setCommentText] = useState('');
+  const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
+  const commentRequestRef = useRef<{ sourceText: string; id: string } | null>(null);
+  const currentStoryIdRef = useRef(story?.id);
+  currentStoryIdRef.current = story?.id;
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story?.userVoted || null);
+  const [isVoteSubmitting, setIsVoteSubmitting] = useState(false);
+  const voteSubmittingRef = useRef(false);
   const [commentFilter, setCommentFilter] = useState<'all' | 'A' | 'B'>('all');
   const [commentSort, setCommentSort] = useState<'latest' | 'likes'>('latest');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -68,6 +76,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
+  const [commentMutationId, setCommentMutationId] = useState<string | null>(null);
   const [showSensitiveBody, setShowSensitiveBody] = useState(false);
 
   /** 공유 카드 미리보기 이미지. 열려 있는 동안만 들고 있는다 */
@@ -98,6 +107,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   useEffect(() => {
     setShowSensitiveBody(false);
     setCommentText('');
+    commentRequestRef.current = null;
     setEditingCommentId(null);
     setCommentMenuOpenId(null);
     setIsMenuOpen(false);
@@ -200,7 +210,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     }
   };
 
-  const handleVote = (option: 'A' | 'B') => {
+  const handleVote = async (option: 'A' | 'B') => {
+    if (voteSubmittingRef.current || votedOption === option) return;
     if (isMyStory) {
       showToast('사연 작성자는 투표할 수 없으며, 여론 확인만 가능합니다.');
       return;
@@ -209,33 +220,43 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       showToast('투표는 최대 1번만 변경할 수 있습니다.');
       return;
     }
-    setVotedOption(option);
-    onVote(story.id, option);
+    voteSubmittingRef.current = true;
+    setIsVoteSubmitting(true);
+    try {
+      await onVote(story.id, option);
+    } finally {
+      voteSubmittingRef.current = false;
+      setIsVoteSubmitting(false);
+    }
   };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || isCommentSubmitting || !story) return;
 
-    let sanitizedComment = commentText.trim();
+    setIsCommentSubmitting(true);
     try {
-      const res = await fetch('/api/sanitize-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: commentText.trim() })
-      });
-      const data = await res.json();
-      if (data.sanitizedText) {
-        // AI가 따옴표로 감싸서 반환하는 경우 방어
-        sanitizedComment = data.sanitizedText.replace(/^["']|["']$/g, '');
+      const sourceText = commentText.trim();
+      if (commentRequestRef.current?.sourceText !== sourceText) {
+        commentRequestRef.current = { sourceText, id: `comment-${crypto.randomUUID()}` };
       }
-    } catch (err) {
-      console.warn('댓글 비속어 필터 실패, 원문으로 등록:', err);
+      const targetStoryId = story.id;
+      const saved = await onAddComment(targetStoryId, sourceText, commentRequestRef.current.id);
+      if (currentStoryIdRef.current !== targetStoryId) return;
+      if (!saved) {
+        showToast('댓글을 검사·저장하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
+        return;
+      }
+      setCommentText('');
+      commentRequestRef.current = null;
+      showToast('댓글이 등록되었습니다.');
+    } catch {
+      if (currentStoryIdRef.current === story.id) {
+        showToast('댓글을 등록하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
+      }
+    } finally {
+      setIsCommentSubmitting(false);
     }
-
-    onAddComment(story.id, sanitizedComment);
-    setCommentText('');
-    showToast('논리 분석 댓글이 등록되었습니다.');
   };
 
   const totalVotes = story.votesA + story.votesB;
@@ -277,7 +298,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   )}
                   {onHideStory && (
-                    <button onClick={() => { setIsMenuOpen(false); onHideStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                    <button onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                       <EyeOff className="w-3.5 h-3.5" /> 숨기기
                     </button>
                   )}
@@ -383,7 +404,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleVote('B')}
-                    disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+                    disabled={isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+                    aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'B'
                         ? 'bg-[#6C7BE8] text-white cursor-default'
@@ -396,7 +418,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   </button>
                   <button
                     onClick={() => handleVote('A')}
-                    disabled={isMyStory || (!!votedOption && !!story.voteChanged)}
+                    disabled={isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+                    aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'A'
                         ? 'bg-[#FF6B5A] text-white cursor-default'
@@ -512,7 +535,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-2 ml-2">
-                          <button onClick={() => onLikeComment(c.id)} className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#FF6B5A]">
+                          <button
+                            onClick={() => onLikeComment(c.id)}
+                            disabled={likePendingIds.includes(c.id)}
+                            aria-pressed={Boolean(c.userLiked)}
+                            aria-label={`댓글 공감 ${c.userLiked ? '취소' : '하기'} · ${c.likeCount}개`}
+                            className="flex items-center gap-1 text-[#5f5e5e] hover:text-[#FF6B5A] disabled:opacity-50 disabled:cursor-wait"
+                          >
                             <Heart className={`w-3.5 h-3.5 ${c.userLiked ? 'fill-[#FF6B5A] text-[#FF6B5A]' : ''}`} />
                             <span>{c.likeCount}</span>
                           </button>
@@ -524,7 +553,19 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                               {commentMenuOpenId === c.id && (
                                 <div className="absolute right-0 mt-1 w-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10 text-xs overflow-hidden">
                                   <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>
-                                  <button onClick={() => { onDeleteComment?.(story.id, c.id); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-red-500 cursor-pointer">삭제</button>
+                                  <button
+                                    disabled={commentMutationId === c.id}
+                                    onClick={async () => {
+                                      if (!onDeleteComment || commentMutationId) return;
+                                      setCommentMutationId(c.id);
+                                      let deleted = false;
+                                      try { deleted = await onDeleteComment(story.id, c.id); } catch { deleted = false; }
+                                      setCommentMutationId(null);
+                                      if (deleted) setCommentMenuOpenId(null);
+                                      else showToast('댓글을 삭제하지 못했습니다. 다시 시도해 주세요.');
+                                    }}
+                                    className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-red-500 cursor-pointer"
+                                  >삭제</button>
                                 </div>
                               )}
                             </div>
@@ -544,8 +585,20 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                             rows={2}
                           />
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingCommentId(null)} className="px-3 py-1.5 text-xs text-[#5f5e5e] hover:bg-[#f3f4f5] rounded-md cursor-pointer font-bold">취소</button>
-                            <button onClick={() => { if(editingCommentText.trim()) { onEditComment?.(story.id, c.id, editingCommentText.trim()); setEditingCommentId(null); } }} className="px-3 py-1.5 text-xs bg-[#1C1C1C] text-white rounded-md cursor-pointer font-bold">완료</button>
+                            <button disabled={commentMutationId === c.id} onClick={() => setEditingCommentId(null)} className="px-3 py-1.5 text-xs text-[#5f5e5e] hover:bg-[#f3f4f5] rounded-md cursor-pointer font-bold">취소</button>
+                            <button
+                              disabled={commentMutationId === c.id || !editingCommentText.trim()}
+                              onClick={async () => {
+                                if (!onEditComment || commentMutationId || !editingCommentText.trim()) return;
+                                setCommentMutationId(c.id);
+                                let saved = false;
+                                try { saved = await onEditComment(story.id, c.id, editingCommentText.trim()); } catch { saved = false; }
+                                setCommentMutationId(null);
+                                if (saved) setEditingCommentId(null);
+                                else showToast('댓글을 수정하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
+                              }}
+                              className="px-3 py-1.5 text-xs bg-[#1C1C1C] text-white rounded-md cursor-pointer font-bold"
+                            >{commentMutationId === c.id ? '저장 중…' : '완료'}</button>
                           </div>
                         </div>
                       ) : (
@@ -587,6 +640,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
+                    disabled={isCommentSubmitting}
                     placeholder="댓글을 달아주세요"
                     rows={3}
                     maxLength={200}
@@ -600,9 +654,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </span>
                     <button
                       type="submit"
+                      disabled={isCommentSubmitting || !commentText.trim()}
                       className="bg-[#1C1C1C] text-[#FF6B5A] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"
                     >
-                      등록
+                      {isCommentSubmitting ? '확인 중…' : '등록'}
                     </button>
                   </div>
                 </form>
@@ -651,5 +706,3 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     </div>
   );
 };
-
-

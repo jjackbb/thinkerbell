@@ -1,39 +1,68 @@
-/**
- * GA4 자리.
- *
- * 측정 ID(`G-XXXXXXXXXX`)는 사람이 GA4 콘솔에서 만들어야 한다. 그래서 **코드를
- * 고치지 않고 환경변수만 넣으면 붙도록** 만들어 뒀다.
- *
- * 붙이는 방법:
- *   1. GA4에서 웹 데이터 스트림을 만들고 측정 ID를 받는다.
- *   2. Vercel → Settings → Environment Variables 에 `VITE_GA4_ID` 로 넣는다.
- *      (로컬에서 보려면 `.env`에도 같은 줄을 넣는다)
- *   3. Deployments 에서 Redeploy.
- *
- * ID가 없으면 아무 일도 하지 않는다. 즉 **안 넣어도 서비스는 그대로 돌아간다.**
- * 계측의 주력은 Supabase `events` 테이블이고(`src/lib/events.ts`), GA4는 병행이다.
- * 9/4 당일 저녁에 SQL로 퍼널을 바로 봐야 하는데 GA4 상세 리포트는 하루 이상 걸린다.
- */
+import { hasAnalyticsConsent } from './analyticsConsent';
 
+type GtagWindow = Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
+
+const measurementId = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim();
+const validMeasurementId = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
+let lastPageView: string | null = null;
+
+const safePageLocation = () => `${location.origin}${location.pathname}`;
+const safeReferrer = () => {
+  try { return document.referrer ? new URL(document.referrer).origin : ''; }
+  catch { return ''; }
+};
+
+/** 명시적 동의 전에는 Google 스크립트도, 기본 페이지뷰도 시작하지 않는다. */
 export function setupGA4(): void {
-  const id = import.meta.env.VITE_GA4_ID as string | undefined;
-  if (!id) return;
+  if (!hasAnalyticsConsent() || !validMeasurementId || !measurementId) return;
+  (window as unknown as Record<string, boolean>)[`ga-disable-${measurementId}`] = false;
+  if (document.querySelector(`script[data-ga4="${measurementId}"]`)) return;
 
-  /* 이미 붙어 있으면 두 번 붙이지 않는다 (개발 중 새로고침 대비) */
-  if (document.querySelector(`script[data-ga4="${id}"]`)) return;
-
-  const loader = document.createElement('script');
-  loader.async = true;
-  loader.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;
-  loader.dataset.ga4 = id;
-  document.head.appendChild(loader);
-
-  const w = window as unknown as { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
+  const w = window as GtagWindow;
   w.dataLayer = w.dataLayer || [];
   w.gtag = function gtag() {
     // eslint-disable-next-line prefer-rest-params
     w.dataLayer!.push(arguments);
   };
   w.gtag('js', new Date());
-  w.gtag('config', id);
+  w.gtag('config', measurementId, {
+    send_page_view: false,
+    page_location: safePageLocation(),
+    page_title: '니편내편',
+    page_referrer: safeReferrer(),
+  });
+
+  const loader = document.createElement('script');
+  loader.async = true;
+  loader.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+  loader.dataset.ga4 = measurementId;
+  document.head.appendChild(loader);
+}
+
+export function sendGA4Event(name: string, props: Record<string, string | number | boolean> = {}): void {
+  if (!hasAnalyticsConsent() || !validMeasurementId || !measurementId) return;
+  setupGA4();
+  (window as GtagWindow).gtag?.('event', name, {
+    send_to: measurementId,
+    page_location: safePageLocation(),
+    page_title: '니편내편',
+    page_referrer: safeReferrer(),
+    ...props,
+  });
+}
+
+/** 쿼리 문자열·해시·사연 제목을 페이지 정보로 보내지 않는다. */
+export function trackPageView(screenName: 'welcome' | 'feed' | 'ai_chat' | 'mypage'): void {
+  if (!hasAnalyticsConsent() || !validMeasurementId || lastPageView === screenName) return;
+  lastPageView = screenName;
+  sendGA4Event('page_view', {
+    page_location: safePageLocation(),
+    page_title: '니편내편',
+    screen_name: screenName,
+    event_schema_version: 2,
+  });
+}
+
+export function resetPageViewDeduplication(): void {
+  lastPageView = null;
 }

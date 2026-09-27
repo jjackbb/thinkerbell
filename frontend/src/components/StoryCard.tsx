@@ -7,7 +7,7 @@ interface StoryCardProps {
   story: Story;
   currentUser?: UserProfile;
   onSelect: (story: Story) => void;
-  onVote: (storyId: string, option: 'A' | 'B') => void;
+  onVote: (storyId: string, option: 'A' | 'B') => Promise<boolean>;
   onReport: (storyId: string) => void;
   onEdit?: (storyId: string) => void;
   onDelete?: (storyId: string) => void;
@@ -36,6 +36,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   onAppeal,
 }) => {
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story.userVoted || null);
+  const [isVoteSubmitting, setIsVoteSubmitting] = useState(false);
+  const voteSubmittingRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeCommentTab, setActiveCommentTab] = useState<'all' | 'A' | 'B' | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -64,18 +66,23 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const isBlurRequired = story.isAdult && !isUserAdultVerified;
   const isMyStory = currentUser?.id === story.authorId;
 
-  const handleVoteClick = (e: React.MouseEvent, option: 'A' | 'B') => {
+  const handleVoteClick = async (e: React.MouseEvent, option: 'A' | 'B') => {
     e.stopPropagation();
-    if (isMyStory) return;
+    if (isMyStory || voteSubmittingRef.current || votedOption === option) return;
     if (votedOption && story.voteChanged) return; // Prevent if already changed
     // 게스트는 로그인 안내만 띄우고 카드 상태는 그대로 둔다
     if (isGuest) {
-      onVote(story.id, option);
+      await onVote(story.id, option);
       return;
     }
-    setVotedOption(option);
-    setActiveCommentTab(option);
-    onVote(story.id, option);
+    voteSubmittingRef.current = true;
+    setIsVoteSubmitting(true);
+    try {
+      if (await onVote(story.id, option)) setActiveCommentTab(option);
+    } finally {
+      voteSubmittingRef.current = false;
+      setIsVoteSubmitting(false);
+    }
   };
 
   const totalVotes = story.votesA + story.votesB;
@@ -259,7 +266,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 }
                 handleVoteClick(e, 'B');
               }}
-              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
+              disabled={isBlurRequired || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+              aria-busy={isVoteSubmitting}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                 isBlurRequired
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
@@ -281,7 +289,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 }
                 handleVoteClick(e, 'A');
               }}
-              disabled={isBlurRequired || isMyStory || (!!votedOption && !!story.voteChanged)}
+              disabled={isBlurRequired || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
+              aria-busy={isVoteSubmitting}
               className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                 isBlurRequired
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
@@ -425,5 +434,4 @@ export const StoryCard: React.FC<StoryCardProps> = ({
     </article>
   );
 };
-
 

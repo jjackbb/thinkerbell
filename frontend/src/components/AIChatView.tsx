@@ -3,7 +3,8 @@ import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } f
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 import { SessionSummaryCard } from './SessionSummaryCard';
 import { detectSimEnd, stripSimEnd } from '../lib/prompts';
-import { trackOnce } from '../lib/events';
+import { track, trackOnce } from '../lib/events';
+import { supabase } from '../lib/supabase';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -15,6 +16,7 @@ interface AIChatViewProps {
   onStartSession: (persona: AIPersona) => void;
   onEndSession: (sessionId: string) => void;
   onUpdateSession?: (sessionId: string, personaId: string, updates: Partial<ChatSession>) => void;
+  onSaveTurn?: (personaId: string, messages: ChatMessage[]) => Promise<boolean>;
   onOpenSettings?: () => void;
   onTogglePinPersona?: (personaId: string) => void;
   onDeletePersona?: (personaId: string) => void;
@@ -48,6 +50,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onStartSession,
   onEndSession,
   onUpdateSession,
+  onSaveTurn,
   onOpenSettings,
   onTogglePinPersona,
   onDeletePersona,
@@ -69,9 +72,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   /** 답장을 못 받아서 되돌려줄 내 말. 있으면 '다시 보내기'가 뜬다 */
   const [failedText, setFailedText] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const successfulTurns = useRef(0);
+  const episodeKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -85,7 +92,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   useEffect(() => {
     if (activeSession) {
-      const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
+      const persona = personas.find(p => p.id === activeSession.personaId) ?? null;
       setSelectedPersona(persona);
     }
   }, [activeSession?.personaId, activeSession?.explanationRatio, personas]);
@@ -95,6 +102,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       setShowChat(true);
       setMessages(activeSession.messages || []);
       setSimEndResult(null);
+      setSaveFailed(false);
+      successfulTurns.current = 0;
+      episodeKey.current = crypto.randomUUID();
     }
   }, [activeSession?.id]);
 
@@ -133,7 +143,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     // 게스트에게는 입력창 자체를 내주지 않지만, 다른 길로 이 함수가 불려도
     // 대화가 나가지 않게 여기서 한 번 더 막는다
     if (isGuest) return;
-    if (!inputText.trim() || isLoading || !selectedPersona) return;
+    if (!inputText.trim() || isLoading || isSaving || !selectedPersona) return;
 
     const userMsgText = inputText.trim();
     setInputText('');
@@ -145,9 +155,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 같은 길을 쓰도록 분리해 두었다.
    */
   const sendMessage = async (userMsgText: string) => {
-    if (!selectedPersona) return;
+    if (!selectedPersona || isLoading || isSaving || saveFailed) return;
 
     setFailedText(null);
+    setSaveFailed(false);
     onCrisisDetected?.(userMsgText);
 
     const newUserMsg: ChatMessage = {
@@ -161,16 +172,22 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setMessages(updatedMessages);
     setIsLoading(true);
 
+    let aiMsgId: string | null = null;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        onRequireLogin?.('AI 대화를 하려면 로그인해 주세요.');
+        throw new Error('auth_required');
+      }
       const response = await fetch('/api/chat-stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           prompt: userMsgText,
-          model: 'claude-4-6-sonnet',
-          persona: selectedPersona.name,
-          systemInstruction: selectedPersona.systemInstruction,
-          history: messages.filter(m => m.sender !== 'system').slice(-8)
+          personaId: selectedPersona.id,
         })
       });
 
@@ -181,19 +198,39 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let aiResponseText = '';
+      let completed = false;
 
-      const aiMsgId = `ai-${Date.now()}`;
+      aiMsgId = `ai-${Date.now()}`;
+      const aiTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setMessages(prev => [
         ...prev,
         {
           id: aiMsgId,
           sender: 'ai',
           text: '',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: aiTimestamp
         }
       ]);
 
       let buffer = '';
+      const handleStreamLine = (line: string) => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine.startsWith('data: ')) return;
+        if (trimmedLine === 'data: [DONE]') {
+          completed = true;
+          return;
+        }
+        let data: { type?: string; text?: string };
+        try { data = JSON.parse(trimmedLine.slice(6)); }
+        catch { throw new Error('invalid_stream_event'); }
+        if (data.type === 'error') throw new Error('ai_unavailable');
+        if (data.type === 'done') completed = true;
+        if (data.type === 'text' && data.text) {
+          aiResponseText += data.text;
+          const displayText = stripSimEnd(aiResponseText);
+          setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -205,55 +242,40 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         // Keep the last partial line in the buffer
         buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6));
-              if (data.type === 'error') {
-                // 서버가 "AI를 못 붙였다"고 알려온 경우다. 조용히 넘기지 않는다.
-                throw new Error(data.error || 'ai_unavailable');
-              }
-              if (data.type === 'text' && data.text) {
-                aiResponseText += data.text;
-                const ended = detectSimEnd(aiResponseText);
-                if (ended) setSimEndResult(ended);
-                const displayText = stripSimEnd(aiResponseText);
-                setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
-              }
-            } catch (err) {
-              // ignore parse error for incomplete JSON if any
-            }
-          }
-        }
+        for (const line of lines) handleStreamLine(line);
       }
+      buffer += decoder.decode();
+      if (buffer.trim()) handleStreamLine(buffer);
 
-      if (aiResponseText) {
+      if (completed && stripSimEnd(aiResponseText).trim()) {
         const ended = detectSimEnd(aiResponseText);
         if (ended) setSimEndResult(ended);
         const finalText = stripSimEnd(aiResponseText);
-        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
+        const finalMessages: ChatMessage[] = [...updatedMessages, { id: aiMsgId, sender: 'ai', text: finalText, timestamp: aiTimestamp }];
+        setMessages(finalMessages);
+        setIsLoading(false);
 
-        /*
-          한 턴 = 내가 한 마디 하고 답장을 받은 것. 답장을 못 받았으면 턴이
-          아니므로 이 안(성공 분기)에서만 센다. 실패했는데 3턴으로 찍히면
-          H3(3턴 도달률)이 그만큼 부풀어 답이 뒤집힌다.
-        */
-        const userTurns = updatedMessages.filter(m => m.sender === 'user').length;
-        if (userTurns === 1) {
-          trackOnce(`ai_chat_turn1:${selectedPersona.id}`, 'ai_chat_turn1', { personaId: selectedPersona.id });
+        // 이번에 대화방을 연 이후 정상 완료한 답변만 센다. 저장은 별도 결과다.
+        successfulTurns.current += 1;
+        if (successfulTurns.current === 1) {
+          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', { mode: activeSession?.chatMode });
         }
-        if (userTurns >= 3) {
-          trackOnce(`ai_chat_turn3:${selectedPersona.id}`, 'ai_chat_turn3', { personaId: selectedPersona.id, turns: userTurns });
+        if (successfulTurns.current === 3) {
+          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', { mode: activeSession?.chatMode });
         }
+
+        setIsSaving(true);
+        let saved = false;
+        try { saved = await onSaveTurn?.(selectedPersona.id, finalMessages) ?? false; }
+        catch { saved = false; }
+        setIsSaving(false);
+        setSaveFailed(!saved);
+        track(saved ? 'operation_success' : 'operation_error', {
+          operation: 'ai_reply_save',
+          ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
+        });
       } else {
-        /*
-          한 글자도 못 받았는데 페르소나가 말한 것처럼 채워 넣으면, AI가 죽은
-          날에도 화면은 멀쩡해 보이고 로그에는 정상 대화로 쌓인다.
-          빈 말풍선은 지우고 실패했다고 알린다.
-        */
-        setMessages(prev => prev.filter(m => m.id !== aiMsgId));
-        throw new Error('empty_response');
+        throw new Error(completed ? 'empty_response' : 'incomplete_response');
       }
 
     } catch (err) {
@@ -262,7 +284,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
       */
       setMessages(prev => [
-        ...prev,
+        ...prev.filter(m => m.id !== aiMsgId),
         {
           id: `sys-${Date.now()}`,
           sender: 'system',
@@ -278,6 +300,20 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   const handleEndChat = () => {
     setShowDeleteModal(true);
+  };
+
+  const retrySave = async () => {
+    if (!selectedPersona || !onSaveTurn || isSaving) return;
+    setIsSaving(true);
+    let saved = false;
+    try { saved = await onSaveTurn(selectedPersona.id, messages); }
+    catch { saved = false; }
+    setIsSaving(false);
+    setSaveFailed(!saved);
+    track(saved ? 'operation_success' : 'operation_error', {
+      operation: 'ai_reply_save',
+      ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
+    });
   };
 
   /**
@@ -707,6 +743,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </footer>
       ) : (
         <footer className="bg-white border-t border-[#E5E7EB] p-4">
+          {isSaving && <p className="mb-2 text-xs text-[#5f5e5e]" role="status">대화를 저장하는 중입니다…</p>}
+          {saveFailed && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3" role="alert">
+              <p className="text-xs font-bold text-[#A32E1D]">답변은 받았지만 대화를 저장하지 못했습니다. 이 화면을 닫거나 새로고침하면 내용이 사라질 수 있어요.</p>
+              <button type="button" onClick={retrySave} disabled={isSaving} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">다시 저장</button>
+            </div>
+          )}
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             <input
               type="text"
@@ -717,7 +760,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             />
             <button
               type="submit"
-              disabled={!inputText.trim() || isLoading}
+              disabled={!inputText.trim() || isLoading || isSaving || saveFailed}
               className="bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               보내기
@@ -807,5 +850,3 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     </div>
   );
 };
-
-
