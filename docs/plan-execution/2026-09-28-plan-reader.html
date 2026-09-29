@@ -88,7 +88,7 @@
     <h1>사용자 테스트 전 작업과 PLAN 진행 상태</h1>
     <p>앞으로 할 일을 실행 순서대로 보고, 작업 전·작업 중·완료·유저 테스트 필요 항목을 구분할 수 있습니다.</p>
   </header>
-  <p class="source-note">생성: 2026년 9월 30일 오전 7:15 KST · 최신 계획의 기준은 <a href="../../PLAN.md">PLAN.md 원본</a>입니다. 내용이 달라지면 <code>node tools/render-plan-reader.mjs</code>로 다시 생성하세요.</p>
+  <p class="source-note">생성: 2026년 9월 30일 오전 7:27 KST · 최신 계획의 기준은 <a href="../../PLAN.md">PLAN.md 원본</a>입니다. 내용이 달라지면 <code>node tools/render-plan-reader.mjs</code>로 다시 생성하세요.</p>
   <div class="layout">
     <nav class="sidebar" aria-label="문서 목차">
       <b>문서</b>
@@ -111,8 +111,8 @@
 <article class="work-card" id="work-3"><div class="work-meta"><span class="work-number">03</span><span class="status">핵심 기술 PASS</span></div><h3>사연·참여·권한</h3><p>실제 시험 계정의 투표·댓글·공감·숨김/비공개·API 권한 확인</p></article>
 <article class="work-card" id="work-4"><div class="work-meta"><span class="work-number">04</span><span class="status">핵심 기술 PASS</span></div><h3>AI 생성·저장·복원·평가</h3><p>실제 포텐스 저장/복원·평가, 두 탭 마지막 1회, 삭제 후 횟수 유지</p></article>
 <article class="work-card" id="work-5"><div class="work-meta"><span class="work-number">05</span><span class="status">범위 한정 PASS</span></div><h3>오류·조건부 동작</h3><p>주입 오류 뒤 실제 재시도, 문의 답변·닉네임·댓글·분석 철회·재연결·성인 보류·시험 계정 탈퇴</p></article>
-<article class="work-card" id="work-6"><div class="work-meta"><span class="work-number">06</span><span class="status">로컬 완료·운영 확인 대기</span></div><h3>답변 완료·저장 결과 분리 계측</h3><p>원래 합의 복원·타입 검사 PASS. 기존 운영 GA4 수신은 변경 전 기준이며 이번 코드 배포 후 확인 필요</p></article>
-<article class="work-card" id="work-7"><div class="work-meta"><span class="work-number">07</span><span class="status">작업 중</span></div><h3>문서 정리·운영 반영</h3><p>이전 안내를 이력으로 보존하고 현재 문서 정리. 커밋·푸시·운영 배포 승인됨</p></article>
+<article class="work-card" id="work-6"><div class="work-meta"><span class="work-number">06</span><span class="status">운영·범위 한정 PASS</span></div><h3>답변 완료·저장 결과 분리 계측</h3><p>원래 합의 복원 배포. 가상 스트림 4종 집계·운영 GA4 수신 확인. 실제 공급자 재시험은 하지 않음</p></article>
+<article class="work-card" id="work-7"><div class="work-meta"><span class="work-number">07</span><span class="status">완료</span></div><h3>문서 정리·운영 반영</h3><p>원본 15개 보존·현재 안내 정리, fee5ea5 커밋·푸시, 운영 배포 READY·공개 번들 일치</p></article>
 <article class="work-card" id="work-8"><div class="work-meta"><span class="work-number">08</span><span class="status">적용·기술 PASS</span></div><h3>운영 DB 직접 쓰기 차단</h3><p>정책 7개 차단·서버 저장 후속 확인. SQL 다시 적용하지 않음</p></article>
 <article class="work-card" id="work-9"><div class="work-meta"><span class="work-number">09</span><span class="status">실제 이용 필요</span></div><h3>공개 후 데이터·피드백</h3><p>커뮤니티·SNS 게시 → 처리 보고서 대조 → 근거 있는 첫 개선. 직접 모집·동석 관찰은 선행 조건 아님</p></article></div><div class="scope-note"><p>자정 횟수 전환 확인은 사용자 요청으로 이번 범위에서 제외합니다. Chrome 기기 모드는 확인했지만 실물 Safari로 표기하지 않습니다. <a href="2026-09-28-in-progress-release-preflight.md">검증 상세</a>를 따라 같은 시험을 불필요하게 반복하지 않습니다.</p></div></div>
       </section>
@@ -121,21 +121,11 @@
         <p class="meta">첫 답변 기준은 확정됐습니다. 기존 운영 배포·직접 쓰기 차단은 완료됐으며, 이번 복원 수정의 배포·수신 확인을 진행합니다.</p>
         <ol class="next-list"><li>
     <span class="next-number">1</span>
-    <div><span class="next-stage">진행 중</span><strong>문서 정리·계측 복원 커밋과 운영 배포</strong>
-    <p>현재 안내와 과거 근거를 분리하고 승인된 변경을 반영한다. 기존 DB 정책·자정 시각은 유지한다. <a href="README.md">근거 ↗</a></p></div>
-  </li>
-<li>
-    <span class="next-number">2</span>
-    <div><span class="next-stage">배포 후</span><strong>답변 완료·저장 결과 계측 확인</strong>
-    <p>정상 완료와 저장 실패를 각각 집계하고, 부분 실패·중복·운영 수신을 변경 범위에서 확인한다. <a href="2026-09-28-in-progress-release-preflight.md">근거 ↗</a></p></div>
-  </li>
-<li>
-    <span class="next-number">3</span>
     <div><span class="next-stage">실제 게시</span><strong>커뮤니티·SNS 소개 글과 링크</strong>
     <p>자발적 이용을 위한 게시다. Vercel 배포와 구분하며 게시 경로·시각·주소를 기록한다. <a href="2026-09-28-release-blockers-questions.html">근거 ↗</a></p></div>
   </li>
 <li>
-    <span class="next-number">4</span>
+    <span class="next-number">2</span>
     <div><span class="next-stage">이용·보고서 처리 후</span><strong>기준선·불편 근거·첫 개선</strong>
     <p>기술 시험 제외, 신규/이어하기 분리, 실제 건수·피드백으로 문제를 선택하고 개선을 확인한다. <a href="../../PLAN.md">근거 ↗</a></p></div>
   </li></ol>
@@ -148,12 +138,12 @@
     <ul><li><strong>커뮤니티·SNS 실제 게시</strong><small>소개 글·링크 초안 준비, 게시 경로/시각 기록 필요 · <a href="2026-09-28-release-blockers-questions.html">근거</a></small></li><li><strong>처리 보고서·기준선 대조</strong><small>실제 유입 후 기술 시험 제외·기간/버전/분모 기록 · <a href="../../PLAN.md">근거</a></small></li><li><strong>별도 보류: 자정 횟수 전환 확인</strong><small>사용자 요청으로 이번 범위 제외, 설정 유지 · <a href="README.md">근거</a></small></li></ul>
   </section>
 <section class="state-group" id="in-progress">
-    <div class="state-heading"><h3>작업 중 <span>2</span></h3><p>현재 승인된 변경</p></div>
-    <ul><li><strong>문서 정리·계측 복원 운영 반영</strong><small>현재 안내와 과거 원본 분리 후 커밋·푸시·배포 · <a href="README.md">근거</a></small></li><li><strong>복원된 답변 완료·저장 결과 수신 확인</strong><small>배포 후 정상/부분/저장 실패의 건수와 GA4 확인 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li></ul>
+    <div class="state-heading"><h3>작업 중 <span>0</span></h3><p>승인된 문서 정리·커밋·운영 배포·변경 확인 완료</p></div>
+    <ul></ul>
   </section>
 <section class="state-group" id="done">
-    <div class="state-heading"><h3>완료 <span>9</span></h3><p>기록된 정책·기술 범위만 완료</p></div>
-    <ul><li><strong>첫 공개 정책·공개 방식 확정</strong><small>커뮤니티·SNS 자발적 이용, 직접 모집 선행 조건 없음 · <a href="../../PLAN.md">근거</a></small></li><li><strong>기존 운영 배포·직접 쓰기 정책 7개 차단</strong><small>서버 저장·실제 AI·권한 경계 확인 기록 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>지정 A·B 메일·로그인·핵심 과업</strong><small>가상 데이터 기술 검증, 일반 이용자 성과 아님 · <a href="2026-09-28-two-account-browser-checklist.md">근거</a></small></li><li><strong>운영자 문의·조건부 동작·실패 복구</strong><small>선택한 핵심 경로 PASS, 174개 전체 상태 전수 PASS 아님 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>버튼 174개 위치·계약 지도</strong><small>정적 연결·중복 없는 목록 · <a href="2026-09-28-button-behavior-matrix.md">근거</a></small></li><li><strong>AI 횟수 보관·일일 정리</strong><small>삭제 후 보관·동시 요청·cron 실행 기록, 자정 전환은 별도 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>운영 GA4 속성·동의·수신</strong><small>변경 전 정의의 기록. 이번 복원 수신은 별도 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>답변 완료·저장 결과 분리 확정 및 로컬 복원</strong><small>정상 완료 1/저장 실패 1로 분리, 타입 검사 PASS · <a href="../../PLAN.md">근거</a></small></li><li><strong>Chrome 기기 모드 확인</strong><small>390×844·터치 기술 확인, 실물 Safari 아님 · <a href="2026-09-28-two-account-browser-checklist.md">근거</a></small></li></ul>
+    <div class="state-heading"><h3>완료 <span>10</span></h3><p>기록된 정책·기술 범위만 완료</p></div>
+    <ul><li><strong>첫 공개 정책·공개 방식 확정</strong><small>커뮤니티·SNS 자발적 이용, 직접 모집 선행 조건 없음 · <a href="../../PLAN.md">근거</a></small></li><li><strong>기존 운영 배포·직접 쓰기 정책 7개 차단</strong><small>서버 저장·실제 AI·권한 경계 확인 기록 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>지정 A·B 메일·로그인·핵심 과업</strong><small>가상 데이터 기술 검증, 일반 이용자 성과 아님 · <a href="2026-09-28-two-account-browser-checklist.md">근거</a></small></li><li><strong>운영자 문의·조건부 동작·실패 복구</strong><small>선택한 핵심 경로 PASS, 174개 전체 상태 전수 PASS 아님 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>버튼 174개 위치·계약 지도</strong><small>정적 연결·중복 없는 목록 · <a href="2026-09-28-button-behavior-matrix.md">근거</a></small></li><li><strong>AI 횟수 보관·일일 정리</strong><small>삭제 후 보관·동시 요청·cron 실행 기록, 자정 전환은 별도 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>운영 GA4 속성·동의·수신</strong><small>복원된 첫 답변·저장 결과와 새 release_id의 실시간 수신 확인 · <a href="2026-09-28-in-progress-release-preflight.md">근거</a></small></li><li><strong>답변 완료·저장 결과 분리 운영 복원</strong><small>가상 응답 4종으로 완료/저장 실패 1/1·부분/빈 답변 0·중복 0 확인 · <a href="../../PLAN.md">근거</a></small></li><li><strong>현재 문서·이력 분리와 커밋·운영 배포</strong><small>원본 15개 보존, fee5ea5 푸시·운영 READY·공개 주소 확인 · <a href="README.md">근거</a></small></li><li><strong>Chrome 기기 모드 확인</strong><small>390×844·터치 기술 확인, 실물 Safari 아님 · <a href="2026-09-28-two-account-browser-checklist.md">근거</a></small></li></ul>
   </section>
 <section class="state-group" id="user-test">
     <div class="state-heading"><h3>유저 테스트 필요 <span>2</span></h3><p>공개 후 자발적 이용·피드백. 직접 관찰은 필요 시</p></div>
@@ -165,7 +155,7 @@
 <p>제품 정책의 유일한 최신 기준입니다. 실행 결과는 <a href="README.md">최신 인수인계</a>, 배포·검증 근거는 <a href="2026-09-28-in-progress-release-preflight.md">실행 기록</a>을 따릅니다. <a href="../../archive/2026-09-30/current-docs-before-cleanup/PLAN.md">정리 전 원본</a>은 과거 근거이며 현재 지시가 아닙니다.</p>
 <h2 id="plan-2">1. 목표와 첫 공개 범위</h2>
 <p>핵심 기능과 계측을 정상화한 뒤 커뮤니티·SNS에 소개 글과 링크를 게시하고, 자발적 이용·피드백부터 확인합니다. 직접 모집·동석 관찰·특정 참여 인원·고정 관찰 기간을 공개 조건으로 두지 않습니다.</p>
-<p><strong>현재 상태:</strong> 운영 앱·직접 쓰기 차단·핵심 연동 검증은 완료 기록이 있습니다. 사용자가 확정한 ‘정상 답변 완료와 저장 결과 분리’를 로컬에 복원했으며 이 수정의 운영 배포·수신 확인을 진행합니다. 기존 배포 완료와 이 수정의 미배포를 구분합니다. 실제 커뮤니티·SNS 게시는 아직 하지 않았습니다.</p>
+<p><strong>현재 상태:</strong> 운영 앱·직접 쓰기 차단·핵심 연동 검증은 완료 기록이 있습니다. 사용자가 확정한 ‘정상 답변 완료와 저장 결과 분리’를 운영에 복원했고, 가상 스트림 4종의 브라우저 집계와 운영 GA4 수신을 확인했습니다. 이번 시험에서는 실제 AI 호출·대화 저장을 수행하지 않았습니다. 실제 커뮤니티·SNS 게시는 아직 하지 않았습니다.</p>
 <p><strong>최신 사용자 결정:</strong> 답변 생성 완료 시 <code>ai_chat_turn1/turn3</code>, 저장 결과는 별도 <code>operation_success/error</code>로 기록합니다. 저장 실패 미차감·입력 보존·새 답변 재요청은 유지합니다. 자정 횟수 전환 확인은 이번 범위에서 제외하며 설정을 변경하지 않습니다. 문서 정리 후 커밋·푸시·운영 배포는 승인됐습니다.</p>
 <div class="table-scroll"><table><thead><tr><th>항목</th><th>확정 범위</th></tr></thead><tbody><tr><td>핵심 경험</td><td>사연 탐색·작성·투표·댓글 → AI 이용 → 도움 평가</td></tr><tr><td>AI 진입</td><td>기존 사연 기반 경로 개선. 투표를 AI 이용의 필수 조건으로 만들지 않음</td></tr><tr><td>AI 모드</td><td><strong>상대와 대화하기 / 공감 대화</strong></td></tr><tr><td>성인 콘텐츠</td><td>첫 공개에서 기능 보류. 실제 인증 도입은 후속 과제</td></tr><tr><td>알림·구독</td><td>‘준비 중’ 표시. 전달·구매가 완료된 것처럼 동작하지 않음</td></tr><tr><td>AI 공급자</td><td>포텐스만 사용. 장애 시 입력 보존·실제 재시도, Gemini 자동 전환 없음</td></tr><tr><td>공개 후 운영</td><td>사용자가 매일 신고·문의·AI 오류 확인</td></tr><tr><td>검증 방식</td><td>커뮤니티·SNS 공개 후 자발적 이용·피드백 확인. 직접 모집·동석 관찰을 공개 조건으로 두지 않음</td></tr></tbody></table></div>
 <p>월 예산 상한은 <strong>10만 원</strong>이다. 포텐스는 사용자가 2026-09-25 기준 “내년 6월까지 무료지만 일일 한도가 있는 것으로 안다”고 설명한 조건을 전제로 한다. 정확한 종료일·일일 한도·현재 사용량은 아직 확인하지 못했다. 인증 메일은 <strong>Resend 무료 요금제와 발송용 도메인 1개</strong>를 사용한다. 사용자는 <code>jjackbb.com</code>을 구매했다고 알렸고 발송용 하위 도메인 <code>auth.jjackbb.com</code>을 선택했다. 결제액·갱신액은 영수증으로 확인해야 한다. Resend <code>Verified</code>는 사용자 확인, DKIM·SPF 공개 DNS 값 일치는 직접 확인했다. 루트 DMARC 게시도 공개 DNS에서 확인했다. Supabase Auth SMTP 설정은 사용자 확인이고, 신규 가입 1건의 앱 복귀는 사용자 시험 보고와 Auth 확인 시각으로 대조했다. <a href="2026-09-25-auth-mail-setup.md">설정 기록</a>과 <a href="2026-09-26-auth-email-verified.md">시험 기록</a>은 증거 범위를 구분한다. 메일 설정 기록 당시 Resend 무료 한도는 월 3,000통·하루 100통이며, 유료 전환은 자동으로 진행하지 않는다. 서버·DB 비용은 실제 계정의 요금제와 사용량을 확인한다. <a href="https://resend.com/pricing">Resend 요금</a></p>
@@ -182,7 +172,7 @@
 <p><strong>가입·투표·AI 이용 규칙</strong></p>
 <ul><li>가입은 이메일 확인 후 완료한다. 실제 외부 주소로 인증 메일 발송, 재발송, 만료, 확인 후 앱 복귀까지 연결한다. 게스트의 공개 사연 둘러보기는 유지한다.</li><li>기존 가입 여부는 이메일 주소 입력만으로 보여주지 않는다. 해당 메일함의 소유 확인 링크를 사용한 뒤 가입 가능·가입 확인 미완료·가입 확인 완료를 구분해 안내한다. 새 가입의 확인 메일은 한 통이며, 비밀번호를 잊은 기존 이용자는 재설정 메일을 요청할 수 있다. <a href="2026-09-28-duplicate-signup-decision.md">결정과 검증 범위</a></li><li>투표는 같은 선택 재클릭 무시, 반대쪽으로 한 번 변경, 취소 없음으로 유지한다. 본인 사연 투표 제한도 서버에서 확인한다.</li><li>댓글 공감은 로그인 계정당 댓글별 1회만 누를 수 있고, 다시 누르면 취소한다. 연타·재시도·기기 변경으로 숫자가 중복 증감하지 않게 서버에서 확인한다. 과거 계정별 기록 없이 남은 표시 숫자 31개는 사용자 결정에 따라 0으로 재설정했다.</li><li>남의 사연으로 새 AI 대화는 하루 3회, 한국 시간 기준으로 적용한다. 내 사연과 이미 정상 이용한 대화 이어하기는 추가 차감하지 않는다.</li><li>전환 시각 <strong>이전에 만든 AI 대화방 7개는 모두 무료 이어하기</strong>로 인정한다. 과거 자동 저장 이력만으로 정상 답변 여부를 추정해 다시 차감하지 않는다.</li><li>새 대화의 첫 요청 중에는 횟수를 예약하고, <strong>첫 정상 답변이 완료되면 차감</strong>한다. 실패·완료 전 취소는 예약을 반환한다. 실패한 방을 다시 열었다는 이유로 제한을 우회하지 못하게 한다.</li><li>화면에 AI 답변이 나왔어도 <strong>DB 저장이 실패하면 차감하지 않는다</strong>. 입력과 미저장 답변을 경고와 함께 화면에 남기고, 재시도는 새 AI 답변을 요청한다. 저장 완료 여부와 답변 완료 계측은 구분한다.</li><li><strong>개인 숨김은 사연 노출에만 적용</strong>한다. 그 사연에서 이미 소유한 AI 대화방은 AI 목록에서 계속 열 수 있으며, 별도 삭제는 이용자가 선택한다.</li><li>첫 공개에서는 AI 대화 내용을 자동 삭제하지 않는다. 이용자의 대화 삭제·계정 탈퇴 때만 삭제한다. 도움 평가의 최대 30일 보관은 별개다.</li><li>하루 3회의 귀속 날짜는 대화방을 연 날이 아니라 <strong>첫 실제 AI 요청을 서버가 받은 한국 날짜</strong>로 고정한다. 자정 후 답변이 완료돼도 성공한 요청은 그 날짜의 몫으로 확정한다. 횟수 예약·완료·반환 기록은 종료 후 30일 보관하며, 대화 본문·도움 평가의 보관 규칙과 구분한다.</li><li>콘텐츠 검사 실패는 안전 판정으로 처리하지 않는다. 입력을 보존하고 ‘다시 검사’로 실제 포텐스 API를 호출한다. 수정된 내용에는 다시 검사한다.</li></ul>
 <p><strong>구현에 필요한 인터페이스 변경</strong></p>
-<div class="table-scroll"><table><thead><tr><th>영역</th><th>구현 계약</th></tr></thead><tbody><tr><td>사연 생성·수정</td><td>서버에서 인증·작성 권한·콘텐츠 검사를 확인한 뒤 저장. 브라우저가 보낸 검사 결과만 신뢰하지 않음</td></tr><tr><td>공개 상태·개인 숨김</td><td>사연의 <code>public/private</code> 상태와 사용자별 숨김 관계를 분리. 개인 숨김은 사용자·사연 조합으로 중복 방지</td></tr><tr><td>AI 대화 생성</td><td>사연 ID·모드·설정을 받아 서버가 접근 권한을 검사하고 소유 대화방과 당시 맥락을 저장</td></tr><tr><td>AI 요청</td><td><code>/api/chat-stream</code>에 인증 토큰, 대화방 ID, 메시지, 중복 방지 식별자를 전달. 서버가 소유권·사용량·저장된 맥락을 확인</td></tr><tr><td>AI 완료</td><td>스트림의 <code>delta / done / error</code>를 구분. 정상 답변 저장 후 완료 처리. 고정 인사·부분 응답·모의 응답을 정상 AI 완료로 세지 않음</td></tr><tr><td>도움 평가</td><td>대화 이용 구간별 평가 1건과 점수 1~5, 버전·모드·저장 시각·만료 시각 저장. 본인과 운영자만 접근</td></tr><tr><td>공통 실패</td><td>인증·권한·횟수·검사·공급자·저장 오류를 구분한 코드 반환. 원문 오류나 비밀키를 화면·GA4에 보내지 않음</td></tr></tbody></table></div>
+<div class="table-scroll"><table><thead><tr><th>영역</th><th>구현 계약</th></tr></thead><tbody><tr><td>사연 생성·수정</td><td>서버에서 인증·작성 권한·콘텐츠 검사를 확인한 뒤 저장. 브라우저가 보낸 검사 결과만 신뢰하지 않음</td></tr><tr><td>공개 상태·개인 숨김</td><td>사연의 <code>public/private</code> 상태와 사용자별 숨김 관계를 분리. 개인 숨김은 사용자·사연 조합으로 중복 방지</td></tr><tr><td>AI 대화 생성</td><td>사연 ID·모드·설정을 받아 서버가 접근 권한을 검사하고 소유 대화방과 당시 맥락을 저장</td></tr><tr><td>AI 요청</td><td><code>/api/chat-stream</code>에 인증 토큰, 대화방 ID, 메시지, 중복 방지 식별자를 전달. 서버가 소유권·사용량·저장된 맥락을 확인</td></tr><tr><td>AI 완료</td><td><code>text</code>로 표시, <code>provider_done</code>으로 정상 답변 완료 계측, <code>done</code>의 <code>persisted</code>로 저장 성공을 구분. <code>error</code>는 실패 처리. 고정 인사·부분 응답은 완료로 세지 않으며 기술 시험의 가상 응답은 실제 이용 성과에서 제외</td></tr><tr><td>도움 평가</td><td>대화 이용 구간별 평가 1건과 점수 1~5, 버전·모드·저장 시각·만료 시각 저장. 본인과 운영자만 접근</td></tr><tr><td>공통 실패</td><td>인증·권한·횟수·검사·공급자·저장 오류를 구분한 코드 반환. 원문 오류나 비밀키를 화면·GA4에 보내지 않음</td></tr></tbody></table></div>
 <p>서버에는 중복 요청 방지와 동시 요청 제한을 둔다. AI 하루 3회 규칙만으로 전체 API 호출이 제한됐다고 간주하지 않는다. 기존 대화·DB 구조는 실제 원격 상태와 비교한 뒤 호환 가능한 변경부터 적용한다.</p>
 <h2 id="plan-4">3. 버튼 이벤트·GA4·도움 평가</h2>
 <p><strong>모든 노출 버튼에 기능 계약을 붙인다.</strong> 기존 소스의 버튼 위치 153곳을 출발점으로, 실제 화면의 조건부·반복 요소를 대조해 최종 목록을 만든다.</p>

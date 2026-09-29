@@ -114,14 +114,12 @@ const statusGroups = [
     ['운영자 문의·조건부 동작·실패 복구', '선택한 핵심 경로 PASS, 174개 전체 상태 전수 PASS 아님', '2026-09-28-in-progress-release-preflight.md'],
     ['버튼 174개 위치·계약 지도', '정적 연결·중복 없는 목록', '2026-09-28-button-behavior-matrix.md'],
     ['AI 횟수 보관·일일 정리', '삭제 후 보관·동시 요청·cron 실행 기록, 자정 전환은 별도', '2026-09-28-in-progress-release-preflight.md'],
-    ['운영 GA4 속성·동의·수신', '변경 전 정의의 기록. 이번 복원 수신은 별도', '2026-09-28-in-progress-release-preflight.md'],
-    ['답변 완료·저장 결과 분리 확정 및 로컬 복원', '정상 완료 1/저장 실패 1로 분리, 타입 검사 PASS', '../../PLAN.md'],
+    ['운영 GA4 속성·동의·수신', '복원된 첫 답변·저장 결과와 새 release_id의 실시간 수신 확인', '2026-09-28-in-progress-release-preflight.md'],
+    ['답변 완료·저장 결과 분리 운영 복원', '가상 응답 4종으로 완료/저장 실패 1/1·부분/빈 답변 0·중복 0 확인', '../../PLAN.md'],
+    ['현재 문서·이력 분리와 커밋·운영 배포', '원본 15개 보존, fee5ea5 푸시·운영 READY·공개 주소 확인', 'README.md'],
     ['Chrome 기기 모드 확인', '390×844·터치 기술 확인, 실물 Safari 아님', '2026-09-28-two-account-browser-checklist.md'],
   ]},
-  { id: 'in-progress', title: '작업 중', note: '현재 승인된 변경', items: [
-    ['문서 정리·계측 복원 운영 반영', '현재 안내와 과거 원본 분리 후 커밋·푸시·배포', 'README.md'],
-    ['복원된 답변 완료·저장 결과 수신 확인', '배포 후 정상/부분/저장 실패의 건수와 GA4 확인', '2026-09-28-in-progress-release-preflight.md'],
-  ]},
+  { id: 'in-progress', title: '작업 중', note: '승인된 문서 정리·커밋·운영 배포·변경 확인 완료', items: [] },
   { id: 'not-started', title: '작업 전', note: '게시 이후 또는 별도 보류', items: [
     ['커뮤니티·SNS 실제 게시', '소개 글·링크 초안 준비, 게시 경로/시각 기록 필요', '2026-09-28-release-blockers-questions.html'],
     ['처리 보고서·기준선 대조', '실제 유입 후 기술 시험 제외·기간/버전/분모 기록', '../../PLAN.md'],
@@ -138,8 +136,6 @@ const orderedStatusGroups = ['not-started', 'in-progress', 'done', 'user-test']
 // Execution order follows PLAN section 4 and the release-gates handoff. Items
 // waiting for a real account or an owner decision stay explicitly pending.
 const nextActions = [
-  ['진행 중', '문서 정리·계측 복원 커밋과 운영 배포', '현재 안내와 과거 근거를 분리하고 승인된 변경을 반영한다. 기존 DB 정책·자정 시각은 유지한다.', 'README.md'],
-  ['배포 후', '답변 완료·저장 결과 계측 확인', '정상 완료와 저장 실패를 각각 집계하고, 부분 실패·중복·운영 수신을 변경 범위에서 확인한다.', '2026-09-28-in-progress-release-preflight.md'],
   ['실제 게시', '커뮤니티·SNS 소개 글과 링크', '자발적 이용을 위한 게시다. Vercel 배포와 구분하며 게시 경로·시각·주소를 기록한다.', '2026-09-28-release-blockers-questions.html'],
   ['이용·보고서 처리 후', '기준선·불편 근거·첫 개선', '기술 시험 제외, 신규/이어하기 분리, 실제 건수·피드백으로 문제를 선택하고 개선을 확인한다.', '../../PLAN.md'],
 ];
