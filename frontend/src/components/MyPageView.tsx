@@ -23,7 +23,7 @@ interface MyPageViewProps {
   /** 지금 남아 있는 AI 대화방 수 */
   aiChatCount?: number;
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
-  onDeleteAllAiChats?: () => Promise<void> | void;
+  onDeleteAllAiChats?: () => Promise<boolean>;
   /**
    * 로그인 없이 둘러보는 중인가.
    *
@@ -62,6 +62,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   /** 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
+  const [wipeError, setWipeError] = useState(false);
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
   const [storyVisibilityFilter, setStoryVisibilityFilter] = useState<'all' | 'public' | 'private'>('all');
   const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support' | 'inquiryAdmin'>('summary');
@@ -89,10 +90,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   
-  const [notifyBalanceGame, setNotifyBalanceGame] = useState(true);
-  const [notifyVotes, setNotifyVotes] = useState(true);
-  const [notifyComments, setNotifyComments] = useState(true);
-
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [inquiryText, setInquiryText] = useState('');
   const [inquirySending, setInquirySending] = useState(false);
@@ -132,7 +129,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return `${head}${'*'.repeat(Math.max(local.length - 1, 3))}@${domain}`;
   };
 
-  // 알림 설정은 계정에 붙여 둔다. 그래야 기기를 바꿔도 따라온다.
   useEffect(() => {
     // 계정이 없는 사람의 정보를 물어볼 곳은 없다. 물어봐야 빈손이고 콘솔만 더러워진다
     if (isGuest) return;
@@ -140,10 +136,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       const u = data?.user;
       if (!u) return;
       setAccountEmail(u.email ?? null);
-      const n = (u.user_metadata ?? {}) as Record<string, unknown>;
-      if (typeof n.notifyBalanceGame === 'boolean') setNotifyBalanceGame(n.notifyBalanceGame);
-      if (typeof n.notifyVotes === 'boolean') setNotifyVotes(n.notifyVotes);
-      if (typeof n.notifyComments === 'boolean') setNotifyComments(n.notifyComments);
     });
   }, [isGuest]);
 
@@ -158,11 +150,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     if (viewMode === 'support') fetchMyInquiries().then(setMyInquiries);
     if (viewMode === 'inquiryAdmin') fetchAllInquiries().then(setAllInquiries);
   }, [viewMode, isGuest]);
-
-  /** 토글을 누르면 화면을 먼저 바꾸고 계정에도 저장한다 */
-  const saveNotify = (patch: Record<string, boolean>) => {
-    supabase.auth.updateUser({ data: patch });
-  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,7 +315,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             ))}
           </ul>
 
-          <button
+          <button data-button-id="my-page-view-button-01"
             onClick={() => onRequireLogin?.('로그인하면 사연 등록과 투표, 댓글, AI 대화를 모두 이용하실 수 있어요.')}
             className="w-full mt-6 py-3.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] font-bold text-sm rounded-lg transition-colors cursor-pointer"
           >
@@ -344,7 +331,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div className="divide-y divide-[#E5E7EB]">
             {faqs.map((faq, i) => (
               <div key={i}>
-                <button
+                <button data-button-id="my-page-view-button-02"
                   onClick={() => setFaqOpen(faqOpen === i ? null : i)}
                   className="w-full flex items-center justify-between p-5 hover:bg-[#f8f9fa] transition-colors cursor-pointer text-left"
                 >
@@ -384,7 +371,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button data-button-id="my-page-view-button-03" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">작성 활동 내역</h2>
@@ -392,7 +379,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
         <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4">
           <div className="flex border-b border-[#E5E7EB] pb-3 gap-3 font-mono text-xs">
-            <button
+            <button data-button-id="my-page-view-button-04"
               onClick={() => handleTabChange('stories')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                 activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -400,7 +387,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             >
               작성한 사연 ({myStories.length})
             </button>
-            <button
+            <button data-button-id="my-page-view-button-05"
               onClick={() => handleTabChange('votes')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                 activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -408,7 +395,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             >
               참여한 투표 ({myVotes.length})
             </button>
-            <button
+            <button data-button-id="my-page-view-button-06"
               onClick={() => handleTabChange('comments')}
               className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                 activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -425,7 +412,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           {totalPages > 1 && (
             <div className="flex justify-center items-center gap-2 pt-6">
               {Array.from({ length: totalPages }).map((_, i) => (
-                <button
+                <button data-button-id="my-page-view-button-07"
                   key={i}
                   onClick={() => setCurrentPage(i + 1)}
                   className={`w-8 h-8 flex items-center justify-center rounded font-mono text-xs font-bold transition-colors cursor-pointer ${
@@ -447,7 +434,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button data-button-id="my-page-view-button-08" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">계정 설정 및 정보</h2>
@@ -471,7 +458,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   <Check className="w-3.5 h-3.5 text-[#FF6B5A]" aria-hidden="true" /> 비밀번호를 변경했습니다.
                 </p>
               )}
-              <button
+              <button data-button-id="my-page-view-button-09"
                 type="submit"
                 disabled={pwBusy || !pwCurrent || !pwNext || !pwConfirm}
                 className="w-full py-3 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] font-bold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -481,7 +468,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </form>
           </div>
           <div className="pt-6 border-t border-[#E5E7EB]">
-            <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-sm rounded-lg transition-colors cursor-pointer">
+            <button data-button-id="my-page-view-button-10" onClick={() => setShowDeleteModal(true)} className="w-full py-3 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-sm rounded-lg transition-colors cursor-pointer">
               계정 탈퇴
             </button>
           </div>
@@ -516,10 +503,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB] font-bold text-sm rounded-xl transition-colors cursor-pointer">
+                <button data-button-id="my-page-view-button-11" onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB] font-bold text-sm rounded-xl transition-colors cursor-pointer">
                   취소
                 </button>
-                <button
+                <button data-button-id="my-page-view-button-12"
                   onClick={async () => {
                     setDeleting(true);
                     const { error } = await supabase.rpc('delete_my_account');
@@ -549,7 +536,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button data-button-id="my-page-view-button-13" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">문의 관리</h2>
@@ -596,7 +583,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                       placeholder="답변을 적어주세요."
                       className="w-full p-3 text-xs bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none"
                     />
-                    <button
+                    <button data-button-id="my-page-view-button-14"
                       onClick={async () => {
                         const text = (replyDraft[q.id] ?? '').trim();
                         if (!text) return;
@@ -626,48 +613,14 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button data-button-id="my-page-view-button-15" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
-          <h2 className="text-lg font-bold font-headline-md">알림 설정</h2>
+          <h2 className="text-lg font-bold font-headline-md">알림</h2>
         </header>
-        <section className="bg-white border border-[#E5E7EB] rounded-lg divide-y divide-[#E5E7EB]">
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <h3 className="font-bold text-sm text-[#1C1C1C]">오늘의 밸런스 게임</h3>
-              <p className="text-xs text-[#5f5e5e] mt-1">새로운 밸런스 게임이 등록될 때 알림을 받습니다.</p>
-            </div>
-            <button 
-              onClick={() => { const v = !notifyBalanceGame; setNotifyBalanceGame(v); saveNotify({ notifyBalanceGame: v }); }}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyBalanceGame ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyBalanceGame ? 'translate-x-6' : 'translate-x-0'}`} />
-            </button>
-          </div>
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <h3 className="font-bold text-sm text-[#1C1C1C]">사연 투표 (10표 이상)</h3>
-              <p className="text-xs text-[#5f5e5e] mt-1">내 사연에 10개 이상의 투표가 쌓이면 알림을 받습니다.</p>
-            </div>
-            <button 
-              onClick={() => { const v = !notifyVotes; setNotifyVotes(v); saveNotify({ notifyVotes: v }); }}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyVotes ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyVotes ? 'translate-x-6' : 'translate-x-0'}`} />
-            </button>
-          </div>
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <h3 className="font-bold text-sm text-[#1C1C1C]">새 댓글</h3>
-              <p className="text-xs text-[#5f5e5e] mt-1">내 사연에 새로운 댓글이 달리면 알림을 받습니다.</p>
-            </div>
-            <button 
-              onClick={() => { const v = !notifyComments; setNotifyComments(v); saveNotify({ notifyComments: v }); }}
-              className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${notifyComments ? 'bg-[#FF6B5A]' : 'bg-[#E5E7EB]'}`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notifyComments ? 'translate-x-6' : 'translate-x-0'}`} />
-            </button>
-          </div>
+        <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-2">
+          <p className="text-sm font-bold text-[#1C1C1C]">알림은 준비 중입니다.</p>
+          <p className="text-xs text-[#5f5e5e] leading-relaxed">현재 밸런스 게임·투표·댓글 알림은 발송되지 않습니다. 알림 기능이 준비되면 이곳에서 받을 항목을 선택할 수 있습니다.</p>
         </section>
       </div>
     );
@@ -677,7 +630,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
-          <button aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
+          <button data-button-id="my-page-view-button-19" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
           </button>
           <h2 className="text-lg font-bold font-headline-md">도움말 및 문의</h2>
@@ -690,7 +643,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div className="divide-y divide-[#E5E7EB]">
             {faqs.map((faq, i) => (
               <div key={i}>
-                <button 
+                <button data-button-id="my-page-view-button-20"
                   onClick={() => setFaqOpen(faqOpen === i ? null : i)}
                   className="w-full flex items-center justify-between p-5 hover:bg-[#f8f9fa] transition-colors cursor-pointer text-left"
                 >
@@ -716,7 +669,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             rows={5}
             className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg text-[#1C1C1C] focus:outline-none focus:border-[#FF6B5A] resize-none mb-4"
           />
-          <button
+          <button data-button-id="my-page-view-button-21"
             onClick={async () => {
               setInquirySending(true);
               const { data: sess } = await supabase.auth.getUser();
@@ -804,14 +757,14 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                     maxLength={12}
                     className="p-1.5 bg-[#f8f9fa] border border-[#E5E7EB] text-[#1C1C1C] rounded text-xs font-bold focus:outline-none"
                   />
-                  <button
+                  <button data-button-id="my-page-view-button-22"
                     type="submit"
                     disabled={nicknameSaving || !nicknameInput.trim()}
                     className="p-1.5 bg-[#FF6B5A] text-[#1C1C1C] rounded text-xs font-bold cursor-pointer"
                   >
                     {nicknameSaving ? '저장 중…' : '저장'}
                   </button>
-                  <button
+                  <button data-button-id="my-page-view-button-23"
                     type="button"
                     onClick={async () => {
                       const nickname = await onGenerateRandomNickname();
@@ -832,7 +785,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
               ) : (
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl sm:text-2xl font-bold font-headline-lg">{user.nickname}</h2>
-                  <button
+                  <button data-button-id="my-page-view-button-24"
                     onClick={() => {
                       setNicknameInput(user.nickname);
                       setIsEditingNickname(true);
@@ -877,7 +830,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       {/* Activity Tabs */}
       <section ref={storiesSectionRef} className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4 relative scroll-mt-20">
         <div className="flex border-b border-[#E5E7EB] pb-3 gap-3 font-mono text-xs">
-          <button
+          <button data-button-id="my-page-view-button-25"
             onClick={() => handleTabChange('stories')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'stories' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -885,7 +838,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           >
             작성한 사연 ({myStories.length})
           </button>
-          <button
+          <button data-button-id="my-page-view-button-26"
             onClick={() => handleTabChange('votes')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'votes' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -893,7 +846,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           >
             참여한 투표 ({myVotes.length})
           </button>
-          <button
+          <button data-button-id="my-page-view-button-27"
             onClick={() => handleTabChange('comments')}
             className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'comments' ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e]'
@@ -906,7 +859,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         {activeTab === 'stories' && (
           <div className="flex flex-wrap gap-2" aria-label="작성한 사연 공개 상태 필터">
             {(['all', 'public', 'private'] as const).map(filter => (
-              <button key={filter} type="button" onClick={() => { setStoryVisibilityFilter(filter); setCurrentPage(1); }}
+              <button data-button-id="my-page-view-button-28" key={filter} type="button" onClick={() => { setStoryVisibilityFilter(filter); setCurrentPage(1); }}
                 aria-pressed={storyVisibilityFilter === filter}
                 className={`rounded-full px-3 py-1.5 text-xs font-bold cursor-pointer ${storyVisibilityFilter === filter ? 'bg-[#1C1C1C] text-white' : 'bg-[#f3f4f5] text-[#5f5e5e]'}`}>
                 {filter === 'all' ? '전체' : filter === 'public' ? '공개' : '비공개'}
@@ -921,7 +874,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
         {currentList.length > 3 && (
           <div className="flex justify-end pt-2">
-            <button
+            <button data-button-id="my-page-view-button-29"
               onClick={() => setViewMode('more')}
               className="text-[#5f5e5e] hover:text-[#1C1C1C] font-mono text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
             >
@@ -940,7 +893,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <div className="text-xs text-[#5f5e5e]">
             {hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '숨긴 사연 목록을 불러오는 중입니다.'}
             {hiddenStoriesLoadError && (
-              <button type="button" onClick={onRetryHiddenStories} className="block mt-2 text-[#A32E1D] font-bold underline">다시 시도</button>
+              <button data-button-id="my-page-view-button-30" type="button" onClick={onRetryHiddenStories} className="block mt-2 text-[#A32E1D] font-bold underline">다시 시도</button>
             )}
           </div>
         ) : hiddenStories.length === 0 ? (
@@ -948,7 +901,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         ) : hiddenStories.map(story => (
           <div key={story.id} className="flex items-center justify-between gap-3 border-t border-[#E5E7EB] pt-3">
             <span className="text-xs font-bold text-[#1C1C1C] truncate">{story.title}</span>
-            <button type="button" onClick={() => void onRestoreStory(story.id)}
+            <button data-button-id="my-page-view-button-31" type="button" onClick={() => void onRestoreStory(story.id)}
               className="shrink-0 text-xs font-bold text-[#A32E1D] underline">다시 보기</button>
           </div>
         ))}
@@ -956,22 +909,22 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
       {/* Settings List */}
       <section className="space-y-3">
-        <button onClick={() => setViewMode('account')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <button data-button-id="my-page-view-button-32" onClick={() => setViewMode('account')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>계정 설정 및 정보</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button onClick={() => setViewMode('notifications')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
-          <span>알림 설정</span>
+        <button data-button-id="my-page-view-button-33" onClick={() => setViewMode('notifications')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+          <span>알림 · 준비 중</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <button onClick={() => setViewMode('support')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <button data-button-id="my-page-view-button-34" onClick={() => setViewMode('support')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>도움말 및 문의</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
 
         {/* 운영자에게만 보인다. 권한은 admins 테이블로 판정한다 */}
         {isAdmin && (
-          <button onClick={() => setViewMode('inquiryAdmin')} className="w-full flex items-center justify-between p-4 bg-[#1C1C1C] border border-[#1C1C1C] rounded-lg hover:opacity-90 transition-opacity font-bold text-sm text-white cursor-pointer">
+          <button data-button-id="my-page-view-button-35" onClick={() => setViewMode('inquiryAdmin')} className="w-full flex items-center justify-between p-4 bg-[#1C1C1C] border border-[#1C1C1C] rounded-lg hover:opacity-90 transition-opacity font-bold text-sm text-white cursor-pointer">
             <span>문의 관리 <span className="text-[#FF6B5A]">(운영자)</span></span>
             <ChevronRight className="w-5 h-5 text-[#FF6B5A]" />
           </button>
@@ -1011,19 +964,25 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             {aiChatCount > 0 && (
               confirmWipe ? (
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => setConfirmWipe(false)}
+                  <button data-button-id="my-page-view-button-36"
+                    onClick={() => { setConfirmWipe(false); setWipeError(false); }}
                     disabled={wiping}
                     className="flex-1 py-2.5 border border-[#E5E7EB] text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer disabled:opacity-50"
                   >
                     그만두기
                   </button>
-                  <button
+                  <button data-button-id="my-page-view-button-37"
                     onClick={async () => {
                       setWiping(true);
-                      await onDeleteAllAiChats();
-                      setWiping(false);
-                      setConfirmWipe(false);
+                      setWipeError(false);
+                      try {
+                        if (await onDeleteAllAiChats()) setConfirmWipe(false);
+                        else setWipeError(true);
+                      } catch {
+                        setWipeError(true);
+                      } finally {
+                        setWiping(false);
+                      }
                     }}
                     disabled={wiping}
                     className="flex-1 py-2.5 bg-[#A32E1D] text-white font-bold text-xs rounded-lg hover:bg-[#8d2718] transition-colors cursor-pointer disabled:opacity-60"
@@ -1032,19 +991,20 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setConfirmWipe(true)}
+                <button data-button-id="my-page-view-button-38"
+                  onClick={() => { setConfirmWipe(true); setWipeError(false); }}
                   className="w-full py-2.5 border border-[#A32E1D] text-[#A32E1D] font-bold text-xs rounded-lg hover:bg-[#A32E1D]/5 transition-colors cursor-pointer"
                 >
                   전부 지우기
                 </button>
               )
             )}
+            {wipeError && <p role="alert" className="text-xs font-bold text-[#A32E1D]">삭제하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.</p>}
           </div>
         )}
 
         <div className="pt-4">
-          <button 
+          <button data-button-id="my-page-view-button-39"
             onClick={() => supabase.auth.signOut()}
             className="w-full py-3.5 bg-[#1C1C1C] hover:bg-black text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >

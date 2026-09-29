@@ -37,7 +37,7 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
             <ShieldAlert className="w-5 h-5 text-[#ba1a1a]" />
             <h2 className="font-headline-md text-base font-bold">오류 신고</h2>
           </div>
-          <button onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
+          <button data-button-id="ai-error-report-modal-button-01" onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -65,14 +65,14 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
 
           {/* Action Buttons */}
           <div className="flex gap-3 mt-6">
-            <button
+            <button data-button-id="ai-error-report-modal-button-02"
               type="button"
               onClick={onClose}
               className="flex-1 py-3 px-4 border border-[#E5E7EB] text-[#5f5e5e] rounded font-mono font-bold text-xs hover:bg-[#f3f4f5] transition-colors cursor-pointer"
             >
               취소
             </button>
-            <button
+            <button data-button-id="ai-error-report-modal-button-03"
               type="submit"
               disabled={!errorContent.trim() || sending}
               className="flex-1 py-3 px-4 bg-[#ba1a1a] text-white rounded font-mono font-bold text-xs hover:bg-[#93000a] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"

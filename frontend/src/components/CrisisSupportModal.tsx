@@ -84,14 +84,14 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
 
         <div className="border-t border-[#E5E7EB] p-3 flex flex-col gap-1">
           {onContinue && (
-            <button
+            <button data-button-id="crisis-support-modal-button-01"
               onClick={onContinue}
               className="w-full py-2.5 text-sm font-bold text-[#1C1C1C] rounded-xl hover:bg-[#f3f4f5] transition-colors cursor-pointer"
             >
               {continueLabel}
             </button>
           )}
-          <button
+          <button data-button-id="crisis-support-modal-button-02"
             onClick={onClose}
             className="w-full py-2 text-xs text-[#5f5e5e] rounded-xl hover:bg-[#f3f4f5] transition-colors cursor-pointer"
           >

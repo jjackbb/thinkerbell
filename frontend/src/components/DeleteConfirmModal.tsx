@@ -23,14 +23,14 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         <h2 className="text-xl font-bold text-[#1C1C1C] mb-6 mt-4">{title}</h2>
         
         <div className="flex gap-3">
-          <button
+          <button data-button-id="delete-confirm-modal-button-01"
             onClick={onClose}
             disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-white text-[#5f5e5e] font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-[#E5E7EB] hover:bg-[#f3f4f5]"
           >
             취소
           </button>
-          <button
+          <button data-button-id="delete-confirm-modal-button-02"
             onClick={onConfirm}
             disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-[#ba1a1a] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md hover:bg-[#901414]"

@@ -25,6 +25,12 @@ create policy comments_select_visible on public.comments
   for select to anon, authenticated
   using (exists (
     select 1 from public.stories s where s.id = "storyId"
+      and (
+        s."authorId" = (select auth.uid())::text or
+        (s.visibility = 'public' and not coalesce(s."isBlind", false)
+          and not coalesce(s."isAdult", false)
+          and not coalesce(s."isHidden", false))
+      )
   ));
 
 -- An ID-only INSERT lets a browser that already held a public story remove it

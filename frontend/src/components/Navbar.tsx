@@ -12,7 +12,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#1C1C1C] flex justify-around items-center h-20 px-4 border-t border-[#1C1C1C]">
-      <button
+      <button data-button-id="navbar-button-01"
         onClick={() => onTabChange('feed')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'feed'
@@ -24,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <span className="font-label-sm text-[11px]">Home</span>
       </button>
 
-      <button
+      <button data-button-id="navbar-button-02"
         onClick={() => onTabChange('ai-chat')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'ai-chat'
@@ -36,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <span className="font-label-sm text-[11px]">Ai 대화</span>
       </button>
 
-      <button
+      <button data-button-id="navbar-button-03"
         onClick={() => onTabChange('mypage')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
           activeTab === 'mypage'

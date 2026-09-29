@@ -1,9 +1,16 @@
 import { hasAnalyticsConsent } from './analyticsConsent';
+import { readRecruitmentSource } from './analyticsContext';
 
 type GtagWindow = Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
 
 const measurementId = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim();
 const validMeasurementId = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
+
+const releaseId = import.meta.env.VITE_RELEASE_ID as string;
+const commonProps = () => {
+  const source = readRecruitmentSource();
+  return { release_id: releaseId, recruitment_source: source, ...(source === 'technical_test' ? { debug_mode: true } : {}) };
+};
 
 const safePageLocation = () => `${location.origin}${location.pathname}`;
 const safeReferrer = () => {
@@ -26,6 +33,7 @@ export function setupGA4(): void {
   w.gtag('js', new Date());
   w.gtag('config', measurementId, {
     send_page_view: false,
+    ...commonProps(),
     page_location: safePageLocation(),
     page_title: '니편내편',
     page_referrer: safeReferrer(),
@@ -47,5 +55,6 @@ export function sendGA4Event(name: string, props: Record<string, string | number
     page_title: '니편내편',
     page_referrer: safeReferrer(),
     ...props,
+    ...commonProps(),
   });
 }

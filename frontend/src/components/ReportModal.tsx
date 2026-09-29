@@ -93,7 +93,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <ShieldAlert className="w-4 h-4 text-[#A32E1D]" aria-hidden="true" />
                 신고하기
               </h3>
-              <button
+              <button data-button-id="report-modal-button-01"
                 type="button"
                 aria-label="닫기"
                 onClick={onClose}
@@ -153,7 +153,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 </p>
               )}
               <div className="flex gap-2">
-                <button
+                <button data-button-id="report-modal-button-02"
                   type="button"
                   onClick={onClose}
                   disabled={isSubmitting}
@@ -161,7 +161,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 >
                   취소
                 </button>
-                <button
+                <button data-button-id="report-modal-button-03"
                   type="submit"
                   disabled={!canSubmit || isSubmitting}
                   className="flex-1 px-4 py-3 rounded-lg bg-[#A32E1D] text-white text-xs font-bold shadow-md transition-colors hover:bg-[#8d2718] disabled:bg-[#E5E7EB] disabled:text-[#5f5e5e] disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"

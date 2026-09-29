@@ -46,7 +46,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
   if (collapsed) {
     return (
       <footer className="bg-[#1C1C1C] text-white border-t border-[#E5E7EB] animate-fadeIn">
-        <button
+        <button data-button-id="session-summary-card-button-01"
           type="button"
           onClick={() => setCollapsed(false)}
           className="w-full max-w-xl mx-auto flex items-center justify-center gap-2 px-6 py-4 text-xs font-bold hover:bg-white/5 transition-colors cursor-pointer"
@@ -82,7 +82,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
             <p className="text-xs font-bold text-white">이런 이야기를 털어놨어요</p>
             <div className="space-y-1.5">
               {myLines.map(m => (
-                <button
+                <button data-button-id="session-summary-card-button-02"
                   key={m.id}
                   type="button"
                   onClick={() => { setCollapsed(true); onJumpToMessage(m.id); }}
@@ -112,14 +112,14 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
         )}
 
         <div className="flex gap-2 pt-1">
-          <button
+          <button data-button-id="session-summary-card-button-03"
             type="button"
             onClick={onContinue}
             className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border border-white/20"
           >
             더 이야기할래요
           </button>
-          <button
+          <button data-button-id="session-summary-card-button-04"
             type="button"
             onClick={onFinish}
             className="flex-1 px-4 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] rounded-lg text-xs font-bold hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"

@@ -287,7 +287,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
           <h2 className="font-headline-md text-base font-bold text-white">사연</h2>
           <div className="flex items-center gap-3">
             <div className="relative" ref={menuRef}>
-              <button 
+              <button data-button-id="story-detail-modal-button-01"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsMenuOpen(!isMenuOpen);
@@ -299,12 +299,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-32 bg-[#2a2a2a] rounded-md shadow-lg border border-[#3a3a3a] z-50 py-1 font-body-sm text-xs">
                   {isMyStory && onEditStory && (
-                    <button onClick={() => { setIsMenuOpen(false); onEditStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-white flex items-center gap-2 cursor-pointer">
+                    <button data-button-id="story-detail-modal-button-02" onClick={() => { setIsMenuOpen(false); onEditStory(story.id); onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-white flex items-center gap-2 cursor-pointer">
                       <Edit2 className="w-3.5 h-3.5" /> 수정
                     </button>
                   )}
                   {isMyStory && onSetVisibility && (
-                    <button disabled={isVisibilitySaving} onClick={async () => {
+                    <button data-button-id="story-detail-modal-button-03" disabled={isVisibilitySaving} onClick={async () => {
                       const next = isPrivate ? 'public' : 'private';
                       if (next === 'private' && !window.confirm(
                         '사연을 비공개로 옮길까요? 다른 이용자는 원문과 댓글을 볼 수 없지만, 이미 만든 다른 사람의 AI 대화에는 사연 내용이 남아 있을 수 있습니다.'
@@ -319,22 +319,22 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   )}
                   {onHideStory && (
-                    <button onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                    <button data-button-id="story-detail-modal-button-04" onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                       <EyeOff className="w-3.5 h-3.5" /> 숨기기
                     </button>
                   )}
-                  {!isPrivate && <button onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                  {!isPrivate && <button data-button-id="story-detail-modal-button-05" onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
                     <ShieldAlert className="w-3.5 h-3.5" /> 신고
                   </button>}
                   {isMyStory && onDeleteStory && (
-                    <button onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
+                    <button data-button-id="story-detail-modal-button-06" onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
                       <Trash2 className="w-3.5 h-3.5" /> 삭제
                     </button>
                   )}
                 </div>
               )}
             </div>
-            <button onClick={onClose} className="text-[#5f5e5e] hover:text-white cursor-pointer">
+            <button data-button-id="story-detail-modal-button-07" onClick={onClose} className="text-[#5f5e5e] hover:text-white cursor-pointer">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -389,7 +389,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     24시간 익명으로 이야기할 수 있습니다.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <button
+                    <button data-button-id="story-detail-modal-button-08"
                       onClick={() => setShowSensitiveBody(true)}
                       className="px-4 py-2 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
                     >
@@ -424,7 +424,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
                 {/* 사연 피드 카드와 동일한 투표 버튼 — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <button data-button-id="story-detail-modal-button-09"
                     onClick={() => handleVote('B')}
                     disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}
@@ -438,7 +438,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   >
                     니 편
                   </button>
-                  <button
+                  <button data-button-id="story-detail-modal-button-10"
                     onClick={() => handleVote('A')}
                     disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}
@@ -497,7 +497,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                       )
                     )}
                   </div>
-                  <button
+                  <button data-button-id="story-detail-modal-button-11"
                     onClick={() => onStartAIChat(story)}
                     className="px-4 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs sm:text-sm rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer shrink-0 transition-all"
                   >
@@ -557,7 +557,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-2 ml-2">
-                          <button
+                          <button data-button-id="story-detail-modal-button-12"
                             onClick={() => onLikeComment(c.id)}
                             disabled={isPrivate || likePendingIds.includes(c.id)}
                             aria-pressed={Boolean(c.userLiked)}
@@ -569,13 +569,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                           </button>
                           {c.authorId === currentUser.id ? (
                             <div className="relative">
-                              <button onClick={() => setCommentMenuOpenId(commentMenuOpenId === c.id ? null : c.id)} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 rounded cursor-pointer">
+                              <button data-button-id="story-detail-modal-button-13" onClick={() => setCommentMenuOpenId(commentMenuOpenId === c.id ? null : c.id)} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 rounded cursor-pointer">
                                 <MoreVertical className="w-4 h-4" />
                               </button>
                               {commentMenuOpenId === c.id && (
                                 <div className="absolute right-0 mt-1 w-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10 text-xs overflow-hidden">
-                                  {!isPrivate && <button onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>}
-                                  <button
+                                  {!isPrivate && <button data-button-id="story-detail-modal-button-14" onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>}
+                                  <button data-button-id="story-detail-modal-button-15"
                                     disabled={commentMutationId === c.id}
                                     onClick={async () => {
                                       if (!onDeleteComment || commentMutationId) return;
@@ -592,7 +592,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                               )}
                             </div>
                           ) : !isPrivate ? (
-                            <button onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
+                            <button data-button-id="story-detail-modal-button-16" onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
                               <ShieldAlert className="w-4 h-4" />
                             </button>
                           ) : null}
@@ -607,8 +607,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                             rows={2}
                           />
                           <div className="flex justify-end gap-2">
-                            <button disabled={commentMutationId === c.id} onClick={() => setEditingCommentId(null)} className="px-3 py-1.5 text-xs text-[#5f5e5e] hover:bg-[#f3f4f5] rounded-md cursor-pointer font-bold">취소</button>
-                            <button
+                            <button data-button-id="story-detail-modal-button-17" disabled={commentMutationId === c.id} onClick={() => setEditingCommentId(null)} className="px-3 py-1.5 text-xs text-[#5f5e5e] hover:bg-[#f3f4f5] rounded-md cursor-pointer font-bold">취소</button>
+                            <button data-button-id="story-detail-modal-button-18"
                               disabled={commentMutationId === c.id || !editingCommentText.trim()}
                               onClick={async () => {
                                 if (!onEditComment || commentMutationId || !editingCommentText.trim()) return;
@@ -651,7 +651,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <p className="text-xs text-[#5f5e5e] font-body-sm leading-relaxed">
                       댓글은 <span className="font-bold text-[#1C1C1C]">로그인한 뒤</span>에 남길 수 있어요.
                     </p>
-                    <button
+                    <button data-button-id="story-detail-modal-button-19"
                       type="button"
                       onClick={() => onRequireLogin?.('댓글을 남기려면 로그인이 필요해요.')}
                       className="mt-3 px-4 py-2 bg-[#1C1C1C] text-white font-mono text-xs font-bold rounded hover:bg-black transition-colors cursor-pointer"
@@ -676,7 +676,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <span className="text-xs font-mono text-[#5f5e5e]">
                       {isMyStory ? '글쓴이로 표시됩니다' : '익명으로 등록됩니다'}
                     </span>
-                    <button
+                    <button data-button-id="story-detail-modal-button-20"
                       type="submit"
                       disabled={isCommentSubmitting || !commentText.trim()}
                       className="bg-[#1C1C1C] text-[#FF6B5A] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"
@@ -715,7 +715,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               <img src={previewUrl} alt="공유 카드 미리보기" className="w-full block" />
               <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-[#f9fafb] border-t border-[#E5E7EB]">
                 <span className="text-[11px] text-[#5f5e5e]">공유하면 이 카드가 나갑니다</span>
-                <button
+                <button data-button-id="story-detail-modal-button-21"
                   type="button"
                   onClick={closePreview}
                   className="px-3 py-1.5 rounded bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"

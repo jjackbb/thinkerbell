@@ -4,6 +4,8 @@
 
 사용자는 **이메일 소유권을 먼저 확인한 뒤에만 가입 여부를 알려주는 방식**을 선택했다. 임의의 이메일 주소만 입력해서 다른 사람의 가입 상태를 조회할 수 없도록 한다. 기존 Supabase 가입·비밀번호 로그인은 유지한다.
 
+**2026-09-28 Preview 후속:** 운영 DB의 SQL 2건과 15분 정리 작업은 적용됐고 정리 실행은 조회 시점 38회, 최신 상태 성공이다. Vercel Preview에만 발송 전용 키·암호화 키와 서버/화면 플래그를 설정했다. Preview 링크는 Vercel이 제공하는 해당 배포 주소를 쓰고 그 값이 없으면 발송 경로를 닫는다. [최신 Preview](2026-09-28-release-gates.md)의 `/api/health` 200을 확인했고 이전 배포에서 잘못된 이메일 400을 확인했다. 사용자는 A·B 가입 링크 시험을 모두 마쳤다고 답했으나 수신·문안·로그인 결과는 아직 제공하지 않았다. 이후 Supabase Auth의 복귀 URL 두 개·한국어 재설정 제목/본문을 [관리 API로 적용·재조회](2026-09-28-pretest-browser-boundaries.md)했다. 실제 재설정 메일·복귀는 미검증이다. 아래의 “초안·미설정”은 작성 당시 기록이다.
+
 ## 로컬 구현 초안
 
 1. 가입 화면에서 이메일 소유 확인을 요청한다. 서버는 별도 Resend **Sending access** 키로 10분 유효 링크를 보낸다. 요청 API는 계정 존재 여부를 응답하지 않는다.
@@ -13,7 +15,7 @@
 
 [SQL 초안](sql/signup-email-ownership-draft.sql)은 주소·원문 토큰을 저장하지 않고 서로 다른 키로 만든 해시와 만료 시각만 보관한다. 사용자는 **주소당 시간당 3회, 전체 24시간에 50회, 링크 10분, 기록 약 24시간 뒤 삭제**를 선택했다. [15분 간격 정리 작업 초안](sql/signup-email-ownership-retention-job-draft.sql)이 정상 실행되면 해시는 생성 뒤 약 24시간 15분 이내에 삭제된다. 메일 확인 링크와 가입 증명은 각각 1회 사용이다. 전체 상한에 닿으면 다른 이용자의 요청도 막히므로 운영 발송 로그를 보고 조정할 수 있다.
 
-서버 플래그 `EMAIL_CHECK_ENABLED`와 화면 플래그 `VITE_EMAIL_CHECK_ENABLED`는 기본적으로 꺼져 있다. 사용자는 기존 SMTP 키와 분리된 `auth.jjackbb.com` 범위의 **Sending access** 키를 선택했다. 활성화에는 운영 DB SQL, 새 Resend 키를 서버 전용 `RESEND_EMAIL_CHECK_API_KEY`에 설정, 정확한 `APP_URL`, 32바이트 암호화 키, 시험용 메일함의 실제 링크 확인이 필요하다. 기존 SMTP 키를 자동 재사용하지 않는다. 비밀번호 재설정의 복귀 URL `https://thinkerbell-eight.vercel.app/?auth=recovery`는 Supabase Auth Redirect URLs에 허용해야 한다. 한국어 제목 `니편내편 비밀번호 재설정`과 [본문 초안](../email-templates/reset-password.ko.html)은 사용자가 Supabase Email Templates → Reset Password에 저장한 뒤 실제 메일로 확인해야 한다. 로컬 코드·격리 시험 결과와 실제 서비스 결과는 구분한다.
+서버 플래그 `EMAIL_CHECK_ENABLED`와 화면 플래그 `VITE_EMAIL_CHECK_ENABLED`는 기본적으로 꺼져 있다. 사용자는 기존 SMTP 키와 분리된 `auth.jjackbb.com` 범위의 **Sending access** 키를 선택했다. 활성화에는 운영 DB SQL, 새 Resend 키를 서버 전용 `RESEND_EMAIL_CHECK_API_KEY`에 설정, 정확한 `APP_URL`, 32바이트 암호화 키, 시험용 메일함의 실제 링크 확인이 필요하다. 기존 SMTP 키를 자동 재사용하지 않는다. 비밀번호 재설정의 복귀 URL `https://thinkerbell-eight.vercel.app/?auth=recovery`, Preview 패턴, 한국어 제목 `니편내편 비밀번호 재설정`과 [본문](../email-templates/reset-password.ko.html)은 이후 관리 API로 적용·재조회했다. 실제 메일·복귀 확인은 남았다. 로컬 코드·격리 시험 결과와 실제 서비스 결과는 구분한다.
 
 로컬 `.env`에는 무작위 32바이트 `EMAIL_CHECK_SECRET`을 생성했고 파일 권한을 소유자만 읽도록 바꿨다. Resend API에서 인증 완료된 `auth.jjackbb.com` 도메인을 확인하고, `thinkerbell-email-check`라는 별도 `sending_access` 키를 이 도메인 ID 범위로 생성해 로컬 `.env`에 저장했다. 이 키로 도메인 관리 API를 읽으면 `restricted_api_key`가 반환돼 발송 외 관리 권한이 없음을 확인했다. 키 값은 출력·문서화·Git 추가하지 않았다. Vercel Preview·Production 비밀값은 아직 설정되지 않았다. 최종 로컬 TypeScript 검사·빌드는 통과했다. 모의 HTTP 2건은 상태 비노출·1회 링크·확인 후 관리자 계정 생성 1회만 호출을 통과했고, 격리 PostgreSQL은 1회 가입 증명·시간/전체 발송 상한·역할 제한을 통과했다. 이 검사는 실제 Supabase Auth 관리자 API·Resend 발송·복귀 링크가 동작한다는 증거가 아니다.
 
@@ -23,7 +25,7 @@
 
 ## 활성화 전 설정 순서
 
-1. 니편내편 Supabase의 **Authentication → URL Configuration → Redirect URLs**에 `https://thinkerbell-eight.vercel.app/?auth=recovery`를 허용한다. Preview에서 시험할 정확한 URL도 별도로 허용한다. **Authentication → Email Templates → Reset Password**에는 제목 `니편내편 비밀번호 재설정`과 [한국어 본문 초안](../email-templates/reset-password.ko.html)을 검토해 저장한다. 현재 저장·발송 여부는 확인되지 않았다.
+1. 니편내편 Supabase의 **Authentication → URL Configuration → Redirect URLs**에 `https://thinkerbell-eight.vercel.app/?auth=recovery`와 Preview 범위의 `https://thinkerbell-*-jjackbb-projects.vercel.app/**`를 기존 목록을 보존해 추가하고, **Authentication → Email Templates → Reset Password**에 제목 `니편내편 비밀번호 재설정`과 [한국어 본문](../email-templates/reset-password.ko.html)을 저장한다. **설정 적용·재조회 완료.** 실제 발송·복귀 확인은 별도다.
 2. [가입 소유 확인 DB 적용 기록](2026-09-28-signup-email-ownership-applied.md)에 따라 테이블·함수·권한과 15분 정리 작업 등록까지 완료했다. 첫 정리 작업의 실제 실행 결과는 아직 확인되지 않았다.
 3. Vercel `thinkerbell`의 **Preview** 서버 변수에 `EMAIL_CHECK_SECRET`, `RESEND_EMAIL_CHECK_API_KEY`, `APP_URL`을 설정한다. `APP_URL`은 시험할 Preview 원점 주소와 끝의 `/`까지 일치해야 한다. 키 값은 로컬 `.env`에서 관리 화면으로 직접 옮기고 채팅·문서에 보내지 않는다. SQL 준비 전에는 두 기능 플래그를 계속 꺼 둔다.
 4. Preview에서 `EMAIL_CHECK_ENABLED=true`와 빌드 변수 `VITE_EMAIL_CHECK_ENABLED=true`로 새 배포를 만든 뒤, 두 실제 메일함으로 가입 가능·기존 계정·미확인 계정·중복 요청·재설정·만료·복귀를 확인한다. 정상 메일 한 통·DB 생성·로그인까지 확인하기 전에는 **Production** 변수를 켜지 않는다. 운영 SQL이 적용됐어도 화면 플래그가 꺼져 있으면 기존 가입 경로가 유지된다.

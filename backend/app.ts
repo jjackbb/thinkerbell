@@ -2,9 +2,9 @@ import express, { Request, Response } from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { buildEmpathyPrompt, buildSimulationPrompt, changeEmpathyRatio, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts";
-import { consumePotensStream } from "./potensStream";
-import { registerEmailOwnershipRoutes } from "./emailOwnership";
+import { buildEmpathyPrompt, buildSimulationPrompt, changeEmpathyRatio, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts.js";
+import { consumePotensStream } from "./potensStream.js";
+import { registerEmailOwnershipRoutes } from "./emailOwnership.js";
 
 dotenv.config();
 

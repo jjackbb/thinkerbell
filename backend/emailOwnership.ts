@@ -10,8 +10,13 @@ function settings(): Settings | null {
   const raw = process.env.EMAIL_CHECK_SECRET || "";
   const master = Buffer.from(raw, "base64");
   const resendKey = process.env.RESEND_EMAIL_CHECK_API_KEY || "";
+  // A CLI Preview gets a new hostname on every deployment. Use Vercel's own
+  // deployment hostname for its email link; never derive it from request Host.
+  const isPreview = process.env.VERCEL_ENV === "preview";
+  const previewHost = isPreview ? process.env.VERCEL_URL : null;
+  if (isPreview && !previewHost) return null;
   let appUrl: URL;
-  try { appUrl = new URL(process.env.APP_URL || "https://invalid.example"); }
+  try { appUrl = new URL(previewHost ? `https://${previewHost}/` : process.env.APP_URL || "https://invalid.example"); }
   catch { return null; }
   if (master.length !== 32 || !resendKey ||
       (appUrl.protocol !== "https:" &&

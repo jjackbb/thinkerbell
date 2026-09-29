@@ -1,3 +1,5 @@
+import type { AnalyticsEntryPoint, ConversationType } from './lib/analyticsContext';
+
 export type StoryCategory = '전체' | '연애' | '직장' | '친구' | '가족' | '기타';
 
 export interface UserProfile {
@@ -87,6 +89,8 @@ export interface ChatMessage {
 }
 
 export interface ChatSession {
+  analyticsEntryPoint?: AnalyticsEntryPoint;
+  conversationType?: ConversationType;
   id: string;
   personaId: string;
   personaName: string;

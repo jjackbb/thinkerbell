@@ -1,3 +1,5 @@
+import { RECRUITMENT_STORAGE_KEY } from './analyticsContext';
+
 export type AnalyticsConsent = 'unknown' | 'accepted' | 'refused';
 
 const CONSENT_KEY = 'nipyeon_analytics_consent_v1';
@@ -40,6 +42,7 @@ export function enforceAnalyticsRefusal(): void {
   if (getAnalyticsConsent() === 'refused') {
     disableGA4(true);
     clearAnalyticsCookies();
+    try { sessionStorage.removeItem(RECRUITMENT_STORAGE_KEY); } catch { /* optional storage */ }
   }
 }
 
@@ -56,6 +59,7 @@ export function setAnalyticsConsent(consent: Exclude<AnalyticsConsent, 'unknown'
   if (consent === 'refused') {
     // 이미 수집된 서버 데이터까지 삭제하는 동작은 아니다.
     clearAnalyticsCookies();
+    try { sessionStorage.removeItem(RECRUITMENT_STORAGE_KEY); } catch { /* optional storage */ }
   }
   window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED));
 }

@@ -17,7 +17,7 @@ export const AdultVerificationModal: React.FC<AdultVerificationModalProps> = ({ 
           <h2 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-red-500" /> 성인 인증 필요
           </h2>
-          <button
+          <button data-button-id="adult-verification-modal-button-01"
             onClick={onClose}
             className="p-1.5 rounded-xl hover:bg-[#e8e2d0] text-[#0a0a0a] transition-colors cursor-pointer"
           >
@@ -40,7 +40,7 @@ export const AdultVerificationModal: React.FC<AdultVerificationModalProps> = ({ 
 
           <div className="pt-4">
             {/* 인증 시뮬레이션 버튼 */}
-            <button
+            <button data-button-id="adult-verification-modal-button-02"
               onClick={() => {
                 onVerify();
                 onClose();

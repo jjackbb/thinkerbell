@@ -118,3 +118,23 @@ test('new account is created once only after mailbox proof, without a second sig
   assert.equal(replay.status, 410);
   assert.equal(createdUsers, 1);
 });
+
+test('preview refuses to send a link without its own deployment hostname', async () => {
+  const priorEnv = process.env.VERCEL_ENV;
+  const priorUrl = process.env.VERCEL_URL;
+  try {
+    process.env.VERCEL_ENV = 'preview';
+    delete process.env.VERCEL_URL;
+    const unavailable = await post('/api/auth/email-check/request', { email: 'invalid' });
+    assert.equal(unavailable.status, 503);
+
+    process.env.VERCEL_URL = 'thinkerbell-preview.example.vercel.app';
+    const configured = await post('/api/auth/email-check/request', { email: 'invalid' });
+    assert.equal(configured.status, 400);
+  } finally {
+    if (priorEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = priorEnv;
+    if (priorUrl === undefined) delete process.env.VERCEL_URL;
+    else process.env.VERCEL_URL = priorUrl;
+  }
+});

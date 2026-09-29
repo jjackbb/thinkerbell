@@ -27,13 +27,13 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
         <p className="text-sm text-[#5f5e5e] leading-relaxed mb-6">{message}</p>
 
         <div className="flex flex-col gap-2">
-          <button
+          <button data-button-id="login-prompt-modal-button-01"
             onClick={onGoToLogin}
             className="w-full px-4 py-3 bg-[#1C1C1C] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md hover:bg-[#333333]"
           >
             로그인 하러가기
           </button>
-          <button
+          <button data-button-id="login-prompt-modal-button-02"
             onClick={onClose}
             className="w-full px-4 py-2.5 bg-white text-[#5f5e5e] font-bold rounded-xl active:scale-95 transition-all cursor-pointer hover:bg-[#f3f4f5]"
           >

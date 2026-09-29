@@ -40,6 +40,24 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const verificationStarted = useRef(false);
 
+  // The dialog remains mounted while hidden. Drop credentials before another
+  // account opens it on a shared browser.
+  useEffect(() => {
+    if (isOpen) return;
+    setEmail('');
+    setPassword('');
+    setNickname('');
+    setConfirmationEmail(null);
+    setResendMessage('');
+    setSignupToken(null);
+    setRecoveryPassword('');
+    setRecoveryPasswordConfirm('');
+    setRecoveryError('');
+    setErrorMsg('');
+    setEmailCheckPhase('entry');
+    setRecoveryPhase('idle');
+  }, [isOpen]);
+
   useEffect(() => {
     if (passwordRecoveryReady) setRecoveryPhase('updating');
   }, [passwordRecoveryReady]);
@@ -310,7 +328,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               onChange={(event) => setEmail(event.target.value)} required
               className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]" />
             {recoveryError && <p role="alert" className="text-xs text-red-600">{recoveryError}</p>}
-            <button type="submit" disabled={recoveryLoading}
+            <button data-button-id="welcome-modal-button-01" type="submit" disabled={recoveryLoading}
               className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
               {recoveryLoading ? '요청 중…' : '재설정 메일 요청하기'}
             </button>
@@ -318,7 +336,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         ) : recoveryPhase === 'sent' ? (
           <div className="space-y-4 text-left" role="status">
             <p className="text-sm text-[#1C1C1C]">계정이 있는 주소라면 재설정 링크가 도착합니다. 받은편지함과 스팸함을 확인해 주세요.</p>
-            <button type="button" onClick={() => setRecoveryPhase('request')}
+            <button data-button-id="welcome-modal-button-02" type="button" onClick={() => setRecoveryPhase('request')}
               className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">다른 이메일 사용하기</button>
           </div>
         ) : recoveryPhase === 'updating' ? (
@@ -335,7 +353,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
                 autoComplete="new-password"
                 className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]" />
               {recoveryError && <p role="alert" className="text-xs text-red-600">{recoveryError}</p>}
-              <button type="submit" disabled={recoveryLoading}
+              <button data-button-id="welcome-modal-button-03" type="submit" disabled={recoveryLoading}
                 className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
                 {recoveryLoading ? '저장 중…' : '새 비밀번호 저장하기'}
               </button>
@@ -343,12 +361,12 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           ) : (
             <div className="space-y-4 text-left" role="status">
               <p className="text-sm text-[#1C1C1C]">재설정 링크를 확인하고 있습니다. 계속 진행되지 않으면 새 메일을 요청해 주세요.</p>
-              <button type="button" onClick={() => setRecoveryPhase('request')}
+              <button data-button-id="welcome-modal-button-04" type="button" onClick={() => setRecoveryPhase('request')}
                 className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">새 재설정 메일 요청하기</button>
             </div>
           )
         ) : recoveryPhase === 'done' ? (
-          <button type="button" onClick={() => { setRecoveryPhase('idle'); onPasswordRecoveryComplete(); }}
+          <button data-button-id="welcome-modal-button-05" type="button" onClick={() => { setRecoveryPhase('idle'); onPasswordRecoveryComplete(); }}
             className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl">
             니편내편 계속 이용하기
           </button>
@@ -372,7 +390,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               required
             />
             {errorMsg && <p className="text-xs text-red-600" role="alert">{errorMsg}</p>}
-            <button type="submit" disabled={isResending} className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
+            <button data-button-id="welcome-modal-button-06" type="submit" disabled={isResending} className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
               {isResending ? '요청 중…' : '확인 메일 다시 요청하기'}
             </button>
           </form>
@@ -387,7 +405,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             </p>
             {resendMessage && <p className="text-xs text-[#1C1C1C]">{resendMessage}</p>}
             {errorMsg && <p className="text-xs text-red-600" role="alert">{errorMsg}</p>}
-            <button
+            <button data-button-id="welcome-modal-button-07"
               type="button"
               onClick={() => void handleResend(confirmationEmail)}
               disabled={isResending}
@@ -395,7 +413,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             >
               {isResending ? '요청 중…' : '확인 메일 다시 요청하기'}
             </button>
-            <button
+            <button data-button-id="welcome-modal-button-08"
               type="button"
               onClick={() => {
                 setConfirmationEmail(null);
@@ -413,12 +431,12 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           <div className="space-y-4 text-left" role="status">
             <p className="text-sm text-[#1C1C1C]">이 이메일은 가입 확인이 아직 끝나지 않았습니다. 받은 가입 확인 메일의 링크를 열거나 확인 메일을 다시 요청해 주세요.</p>
             {errorMsg && <p role="alert" className="text-xs text-red-600">{errorMsg}</p>}
-            <button type="button" disabled={isResending}
+            <button data-button-id="welcome-modal-button-09" type="button" disabled={isResending}
               onClick={() => void handleResend(email)}
               className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
               {isResending ? '요청 중…' : '가입 확인 메일 다시 요청하기'}
             </button>
-            <button type="button" onClick={() => { setEmail(''); setEmailCheckPhase('entry'); }}
+            <button data-button-id="welcome-modal-button-10" type="button" onClick={() => { setEmail(''); setEmailCheckPhase('entry'); }}
               className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">다른 이메일 사용하기</button>
           </div>
         ) : emailCheckEnabled && !isLoginMode && emailCheckPhase !== 'available' ? (
@@ -437,7 +455,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
                 className="w-full p-3 text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl text-[#1C1C1C]"
                 placeholder="example@email.com" />
               {emailCheckError && <p role="alert" className="text-xs text-red-600">{emailCheckError}</p>}
-              <button type="submit" disabled={emailCheckLoading}
+              <button data-button-id="welcome-modal-button-11" type="submit" disabled={emailCheckLoading}
                 className="w-full py-3.5 bg-[#1C1C1C] text-white font-extrabold text-sm rounded-2xl disabled:opacity-50">
                 {emailCheckLoading ? '요청 중…' : emailCheckPhase === 'sent' ? '확인 링크 다시 요청하기' : '이메일 소유 확인하기'}
               </button>
@@ -499,7 +517,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             </div>
           )}
 
-          <button
+          <button data-button-id="welcome-modal-button-12"
             type="submit"
             disabled={isLoading}
             className="w-full py-3.5 bg-[#1C1C1C] hover:bg-[#333333] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
@@ -508,14 +526,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             {!isLoading && <Check className="w-4 h-4 text-[#FF6B5A]" />}
           </button>
           {isLoginMode && (
-            <button type="button" onClick={() => { setRecoveryError(''); setRecoveryPhase('request'); }}
+            <button data-button-id="welcome-modal-button-13" type="button" onClick={() => { setRecoveryError(''); setRecoveryPhase('request'); }}
               className="w-full text-xs font-bold text-[#5f5e5e] hover:underline">
               비밀번호를 잊으셨나요?
             </button>
           )}
         </form>}
 
-        {recoveryPhase === 'idle' && <button
+        {recoveryPhase === 'idle' && <button data-button-id="welcome-modal-button-14"
           type="button"
           onClick={() => {
             setShowExpiredLink(false);
@@ -528,11 +546,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
 
         {recoveryPhase !== 'updating' && recoveryPhase !== 'done' && <div className="pt-2 border-t border-[#E5E7EB] text-xs font-bold text-[#5f5e5e]">
           {recoveryPhase !== 'idle' ? (
-            <button type="button" onClick={() => { setRecoveryPhase('idle'); setRecoveryError(''); }}
+            <button data-button-id="welcome-modal-button-15" type="button" onClick={() => { setRecoveryPhase('idle'); setRecoveryError(''); }}
               className="text-[#FF6B5A] hover:underline">로그인으로 돌아가기</button>
           ) : <>
           {confirmationEmail || showExpiredLink ? '이미 확인하셨나요? ' : isLoginMode ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
-          <button 
+          <button data-button-id="welcome-modal-button-16"
             type="button" 
             onClick={() => {
               if (emailCheckEnabled && isLoginMode && emailCheckPhase === 'registered') {

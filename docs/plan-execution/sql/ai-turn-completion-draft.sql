@@ -2,6 +2,8 @@
 -- The server calls this only after Potens sends an explicit done with a nonempty
 -- answer. Appending the turn and consuming the first-reply reservation happen
 -- in one PostgreSQL transaction. Never grant this RPC to a browser role.
+-- This is a new server-only RPC; the deployed browser's ai_personas UPDATE
+-- grant and policy remain unchanged until the separately reviewed cutover.
 create or replace function public.complete_ai_turn(
   p_user_id uuid,
   p_persona_id text,

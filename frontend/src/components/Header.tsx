@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-3">
         {/* Write Button */}
         {showWriteButton && (
-        <button
+        <button data-button-id="header-button-01"
           onClick={onOpenCreateStory}
           /* 좁은 화면에서는 옆의 '사연 등록' 글자가 숨겨져 아이콘만 남는다.
              그때 이름 없는 버튼이 되지 않도록 aria-label을 따로 준다 */
@@ -70,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* 내 이름표 — 로그인했다는 유일한 표시다 */}
         {!isGuest && (
-        <button
+        <button data-button-id="header-button-02"
           onClick={onOpenProfile}
           aria-label={`내 계정 (${user.nickname})`}
           className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 hover:border-[#FF6B5A] rounded-lg font-mono text-xs font-medium text-white transition-all cursor-pointer"

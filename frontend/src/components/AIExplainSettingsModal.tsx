@@ -26,7 +26,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
             <Settings2 className="w-4 h-4 text-[#FF6B5A]" />
             공감 비율 설정
           </h3>
-          <button 
+          <button data-button-id="ai-explain-settings-modal-button-01"
             onClick={onClose}
             className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1"
           >
@@ -86,7 +86,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
             </div>
           </div>
 
-          <button
+          <button data-button-id="ai-explain-settings-modal-button-02"
             onClick={() => onConfirm(ratio)}
             className="w-full bg-[#1C1C1C] text-[#FF6B5A] font-bold text-sm py-3 rounded-lg hover:bg-black transition-colors"
           >

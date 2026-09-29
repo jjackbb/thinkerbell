@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { hasAnalyticsConsent } from './analyticsConsent';
 import { sendGA4Event } from './ga4';
 import { shouldSendToGA4 } from './ga4EventPolicy';
+import { safeEventProps } from './analyticsContext';
 
 export type EventName =
   | 'app_open'
@@ -52,24 +53,12 @@ export const currentSessionId = (): string => {
   }
 };
 
-/** GA4에는 고정된 비민감 값만 허용한다. 내부 ID·원문·임의 오류는 제외한다. */
-function ga4Props(props: Record<string, unknown>): Record<string, string | number | boolean> {
-  const result: Record<string, string | number | boolean> = { event_schema_version: 2 };
-  if (props.mode === 'simulation' || props.mode === 'explanation') result.mode = props.mode;
-  if (props.operation === 'ai_reply_save') result.operation = props.operation;
-  if (props.error_code === 'save_failed') result.error_code = props.error_code;
-  if (props.outcome === 'completed' || props.outcome === 'submitted' || props.outcome === 'skipped') {
-    result.outcome = props.outcome;
-  }
-  return result;
-}
-
 /** 선택적 행동 분석은 동의 상태에서만 기록한다. 두 전송 경로는 서로 기다리지 않는다. */
 export function track(name: EventName, props: Record<string, unknown> = {}): void {
   if (!hasAnalyticsConsent()) return;
 
   if (shouldSendToGA4(name, props)) {
-    try { sendGA4Event(name, ga4Props(props)); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
+    try { sendGA4Event(name, safeEventProps(name, props)); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
   }
 
   // 운영 DB는 현재 9개 이름만 허용한다. 새 결과 이벤트는 스키마 동기화 전까지 GA4 전용이다.

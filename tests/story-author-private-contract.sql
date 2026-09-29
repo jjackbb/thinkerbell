@@ -194,4 +194,28 @@ begin
 end $$;
 reset role;
 
+-- Even if a future story policy accidentally allows the private parent row to
+-- be selected, the comment policy must independently reject its comments.
+begin;
+update public.stories set visibility='private', "isBlind"=false
+  where id='story-1';
+create policy synthetic_story_read_open on public.stories
+  for select to anon, authenticated using (true);
+set role anon;
+do $$ begin
+  if (select count(*) from public.comments where "storyId"='story-1') <> 0 then
+    raise exception 'anonymous comment leaked through permissive story policy';
+  end if;
+end $$;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+do $$ begin
+  if (select count(*) from public.comments where "storyId"='story-1') <> 0 then
+    raise exception 'other account comment leaked through permissive story policy';
+  end if;
+end $$;
+reset role;
+rollback;
+
 select 'PASS: author/private/other/anonymous REST and invalidation contract' as result;

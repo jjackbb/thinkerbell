@@ -1,3 +1,4 @@
+-- 2026-09-30 correction: apply backend/supabase/migrations/20260929203532_preserve_ai_quota_after_room_delete.sql after this baseline. Applied on 2026-09-30 KST after user approval.
 -- DRAFT ONLY. Run in an isolated database before any operating migration.
 -- The caller must be the server's service_role; do not expose these RPCs to clients.
 -- The server must save a nonempty completed answer before calling finish(..., true).

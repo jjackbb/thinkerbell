@@ -59,7 +59,7 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
               <Check className="w-3.5 h-3.5" /> {note}
             </p>
           ) : (
-            <button
+            <button data-button-id="share-result-bar-button-01"
               type="button"
               onClick={onPreview}
               disabled={!onPreview}
@@ -70,7 +70,7 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
           )}
         </div>
 
-        <button
+        <button data-button-id="share-result-bar-button-02"
           type="button"
           onClick={handleDownload}
           disabled={busy}
@@ -80,7 +80,7 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
           <ImageDown className="w-4 h-4" />
         </button>
 
-        <button
+        <button data-button-id="share-result-bar-button-03"
           type="button"
           onClick={handleShare}
           disabled={busy}

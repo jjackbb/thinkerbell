@@ -90,6 +90,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const successfulTurns = useRef(0);
   const episodeKey = useRef(crypto.randomUUID());
   const pendingRequestId = useRef<string | null>(null);
+  const analyticsProps = {
+    mode: activeSession?.chatMode,
+    entry_point: activeSession?.analyticsEntryPoint,
+    conversation_type: activeSession?.conversationType,
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -146,8 +151,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const openPersona = (persona: AIPersona) => {
     if (!isGuest) track('ai_chat_open', {
       mode: persona.opening ? 'simulation' : persona.ratio ? 'explanation' : 'legacy',
+      entry_point: 'chat_list', conversation_type: 'continuation',
     });
     if (activeSession && activeSession.personaId === persona.id) {
+      onUpdateSession?.(activeSession.id, persona.id, { analyticsEntryPoint: 'chat_list', conversationType: 'continuation' });
+      successfulTurns.current = 0;
+      episodeKey.current = crypto.randomUUID();
       setShowChat(true);
     } else {
       onStartSession(persona);
@@ -234,10 +243,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         counted = true;
         successfulTurns.current += 1;
         if (successfulTurns.current === 1) {
-          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', { mode: activeSession?.chatMode });
+          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', analyticsProps);
         }
         if (successfulTurns.current === 3) {
-          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', { mode: activeSession?.chatMode });
+          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', analyticsProps);
         }
       };
 
@@ -269,11 +278,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           pendingRequestId.current = null;
           throw new Error(data.error || 'ai_unavailable');
         }
-        if (data.type === 'provider_done') markAnswerComplete();
+        // Provider completion alone is not a successfully saved answer.
         if (data.type === 'done') {
           completed = true;
           persistedByServer = data.persisted === true;
-          markAnswerComplete();
         }
         if (data.type === 'text' && data.text) {
           aiResponseText += data.text;
@@ -314,9 +322,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           catch { saved = false; }
           setIsSaving(false);
         }
+        if (saved) markAnswerComplete();
         setSaveFailed(!saved);
         if (saved && ended) setSimEndResult(ended);
         track(saved ? 'operation_success' : 'operation_error', {
+          ...analyticsProps,
           operation: 'ai_reply_save',
           ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
         });
@@ -330,7 +340,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
       */
       if (saveErrorOccurred) {
-        track('operation_error', { operation: 'ai_reply_save', error_code: 'save_failed' });
+        track('operation_error', { ...analyticsProps, operation: 'ai_reply_save', error_code: 'save_failed' });
       }
       setMessages(prev => [
         ...(saveErrorOccurred ? prev : prev.filter(m => m.id !== aiMsgId)),
@@ -432,12 +442,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   const beginFinish = () => {
     if (!canFinish) return;
-    track('ai_chat_finish', { mode: activeSession?.chatMode });
+    track('ai_chat_finish', analyticsProps);
     if (!feedbackModeKnown) {
       finishAndKeep();
       return;
     }
-    track('ai_feedback_view', { mode: activeSession?.chatMode });
+    track('ai_feedback_view', analyticsProps);
     setFeedbackError(false);
     setShowFeedback(true);
   };
@@ -450,7 +460,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     try {
       await submitAiFeedback(selectedPersona.id, latestCompletedAnswer.requestId, score);
       track('ai_feedback_submit', {
-        mode: activeSession?.chatMode,
+        ...analyticsProps,
         outcome: score === null ? 'skipped' : 'submitted',
       });
       finishAndKeep();
@@ -520,7 +530,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 )}
               </p>
               {onGoToFeed && (
-                <button
+                <button data-button-id="ai-chat-view-button-01"
                   onClick={onGoToFeed}
                   className="mt-5 px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
                 >
@@ -553,7 +563,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                     <div className="flex items-center gap-2 relative">
                       <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
                       <div ref={openMenuId === persona.id ? menuRef : null}>
-                        <button 
+                        <button data-button-id="ai-chat-view-button-02"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(openMenuId === persona.id ? null : persona.id);
@@ -572,17 +582,17 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                               삭제는 이 자리에서 카드가 실제로 사라지므로 남긴다.
                             */}
                             {!isGuest && onTogglePinPersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
+                              <button data-button-id="ai-chat-view-button-03" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
                                 <Pin className="w-3.5 h-3.5" /> {persona.isPinned ? '고정 해제' : '고정'}
                               </button>
                             )}
                             {!isGuest && onReportErrorPersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-button-id="ai-chat-view-button-04" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <ShieldAlert className="w-3.5 h-3.5" /> 오류 신고
                               </button>
                             )}
                             {onDeletePersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); void onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-button-id="ai-chat-view-button-05" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); void onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <Trash2 className="w-3.5 h-3.5" /> 삭제
                               </button>
                             )}
@@ -606,7 +616,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   카드 쪽에 stopPropagation이 하나 생기는 순간 조용히 죽는 버튼이다.
                   AI 대화는 이 서비스의 핵심 경로라 그런 우연에 기대면 안 된다.
                 */}
-                <button
+                <button data-button-id="ai-chat-view-button-06"
                   onClick={(e) => { e.stopPropagation(); openPersona(persona); }}
                   className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#FF6B5A] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
@@ -636,7 +646,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button aria-label="대화창 나가기" onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
+          <button data-button-id="ai-chat-view-button-07" aria-label="대화창 나가기" onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
@@ -652,11 +662,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           {/* 공감 비율은 다음 답장부터 반영되는 값이다. 답장을 보낼 수 없는
               게스트에게는 바꿔도 달라지는 게 없어 감춘다 */}
           {!isGuest && (activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
-            <button aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
+            <button data-button-id="ai-chat-view-button-08" aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
           )}
-          <button
+          <button data-button-id="ai-chat-view-button-09"
             aria-label="대화창 닫기"
             onClick={handleLeave}
             className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer"
@@ -712,7 +722,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   </p>
                 </div>
                 {failedText && msg.id === messages[messages.length - 1]?.id && (
-                  <button
+                  <button data-button-id="ai-chat-view-button-10"
                     type="button"
                     onClick={() => { void sendMessage(failedText, true); }}
                     disabled={isLoading}
@@ -763,14 +773,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             충분한 대화가 오갔어요. 여기서 한번 정리해볼까요?
           </span>
           <div className="flex items-center gap-2">
-            <button
+            <button data-button-id="ai-chat-view-button-11"
               type="button"
               onClick={() => setSimEndResult('success')}
               className="px-3 py-1.5 bg-[#FF6B5A] text-[#1C1C1C] text-xs font-bold font-mono rounded hover:bg-[#FF6B5A]/90 transition-all cursor-pointer shadow-2xs"
             >
               🤝 화해로 끝내기
             </button>
-            <button
+            <button data-button-id="ai-chat-view-button-12"
               type="button"
               onClick={() => setSimEndResult('fail')}
               className="px-3 py-1.5 bg-[#1C1C1C] text-white text-xs font-bold font-mono rounded hover:bg-[#1C1C1C]/90 transition-all cursor-pointer shadow-2xs"
@@ -807,7 +817,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             {/* 로그인 안내를 띄울 길이 없으면 버튼도 내지 않는다. 눌러도 아무
                 일 없는 버튼을 만드느니 안내 문구만 두는 게 낫다 */}
             {onRequireLogin && (
-              <button
+              <button data-button-id="ai-chat-view-button-13"
                 type="button"
                 onClick={() => onRequireLogin('AI와 대화를 이어가려면 로그인이 필요해요.')}
                 className="shrink-0 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer"
@@ -820,7 +830,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       ) : (
         <footer className="bg-white border-t border-[#E5E7EB] p-4">
           {canFinish && (
-            <button type="button" onClick={beginFinish}
+            <button data-button-id="ai-chat-view-button-14" type="button" onClick={beginFinish}
               className="mb-3 w-full rounded-lg border border-[#FF6B5A] px-4 py-2.5 text-xs font-bold text-[#1C1C1C] hover:bg-[#FF6B5A]/10 cursor-pointer">
               대화 마무리
             </button>
@@ -829,7 +839,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           {saveFailed && (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3" role="alert">
               <p className="text-xs font-bold text-[#A32E1D]">답변은 받았지만 대화를 저장하지 못했습니다. 입력은 이 화면에 남아 있습니다. 다시 요청하면 새 답변을 받습니다.</p>
-              <button type="button" onClick={retrySave} disabled={isSaving || isLoading} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">새 답변 요청</button>
+              <button data-button-id="ai-chat-view-button-15" type="button" onClick={retrySave} disabled={isSaving || isLoading} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">새 답변 요청</button>
             </div>
           )}
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
@@ -840,7 +850,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               placeholder="메시지를 입력하세요"
               className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#FF6B5A]"
             />
-            <button
+            <button data-button-id="ai-chat-view-button-16"
               type="submit"
               disabled={!inputText.trim() || isLoading || isSaving || saveFailed || Boolean(failedText)}
               className="bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -859,7 +869,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         >
           <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
             {/* 취소는 우측 상단 X 로 처리한다 */}
-            <button
+            <button data-button-id="ai-chat-view-button-17"
               onClick={() => setShowExitChoice(false)}
               className="absolute top-3 right-3 text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
               aria-label="취소"
@@ -878,13 +888,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               </p>
 
               <div className="flex flex-col gap-2">
-                <button
+                <button data-button-id="ai-chat-view-button-18"
                   onClick={keepAndClose}
                   className="w-full py-3 bg-[#1C1C1C] text-white rounded-lg font-bold text-sm hover:bg-black transition-colors cursor-pointer"
                 >
                   남겨두고 닫기
                 </button>
-                <button
+                <button data-button-id="ai-chat-view-button-19"
                   onClick={() => { void discardAndClose(); }}
                   className="w-full py-3 bg-white border border-[#E5E7EB] text-[#ba1a1a] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
                 >
@@ -904,7 +914,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             <p className="mt-2 text-xs text-[#5f5e5e]">평가를 남겨도 대화는 보관됩니다. 답변 내용은 평가에 저장하지 않습니다.</p>
             <div className="mt-5 grid gap-2">
               {FEEDBACK_CHOICES.map((label, index) => (
-                <button key={label} type="button" disabled={feedbackSaving}
+                <button data-button-id="ai-chat-view-button-20" key={label} type="button" disabled={feedbackSaving}
                   onClick={() => { void finishWithFeedback((index + 1) as 1 | 2 | 3 | 4 | 5); }}
                   className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-left text-sm hover:border-[#FF6B5A] cursor-pointer disabled:opacity-50">
                   {label}
@@ -913,11 +923,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             </div>
             {feedbackError && <p role="alert" className="mt-3 text-xs text-[#A32E1D]">평가를 저장하지 못했습니다. 다시 시도하거나 평가 없이 닫을 수 있습니다.</p>}
             <div className="mt-4 flex items-center justify-between gap-3">
-              <button type="button" disabled={feedbackSaving} onClick={() => { void finishWithFeedback(null); }}
+              <button data-button-id="ai-chat-view-button-21" type="button" disabled={feedbackSaving} onClick={() => { void finishWithFeedback(null); }}
                 className="text-xs text-[#5f5e5e] underline cursor-pointer disabled:opacity-50">건너뛰기</button>
-              {feedbackError && <button type="button" onClick={finishAndKeep}
+              {feedbackError && <button data-button-id="ai-chat-view-button-22" type="button" onClick={finishAndKeep}
                 className="text-xs text-[#5f5e5e] underline cursor-pointer">평가 없이 닫기</button>}
-              <button type="button" disabled={feedbackSaving} onClick={() => setShowFeedback(false)}
+              <button data-button-id="ai-chat-view-button-23" type="button" disabled={feedbackSaving} onClick={() => setShowFeedback(false)}
                 className="text-xs text-[#1C1C1C] underline cursor-pointer disabled:opacity-50">대화로 돌아가기</button>
             </div>
           </div>

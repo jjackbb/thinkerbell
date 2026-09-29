@@ -126,7 +126,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           {appealed ? (
             <span className="text-xs font-bold text-[#4553C4]">이의 제기 검토 중</span>
           ) : (
-            <button
+            <button data-button-id="story-card-button-01"
               onClick={(e) => { e.stopPropagation(); onAppeal?.(story.id); }}
               className="px-3 py-1.5 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
             >
@@ -178,7 +178,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           </div>
 
           <div className="relative" ref={menuRef}>
-            <button
+            <button data-button-id="story-card-button-02"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsMenuOpen(!isMenuOpen);
@@ -191,20 +191,20 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             {isMenuOpen && (
               <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg border border-[#E5E7EB] z-10 py-1 font-body-sm text-xs">
                 {isMyStory && onEdit && (
-                  <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
+                  <button data-button-id="story-card-button-03" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
                     <Edit2 className="w-3.5 h-3.5" /> 수정
                   </button>
                 )}
                 {onHide && (
-                  <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onHide(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                  <button data-button-id="story-card-button-04" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onHide(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                     <EyeOff className="w-3.5 h-3.5" /> 숨기기
                   </button>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onReport(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                <button data-button-id="story-card-button-05" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onReport(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
                   <ShieldAlert className="w-3.5 h-3.5" /> 신고
                 </button>
                 {isMyStory && onDelete && (
-                  <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                  <button data-button-id="story-card-button-06" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                     <Trash2 className="w-3.5 h-3.5" /> 삭제
                   </button>
                 )}
@@ -224,7 +224,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             </p>
             {story.body.length > 100 && (
               <div className="text-right">
-                <button 
+                <button data-button-id="story-card-button-07"
                   onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} 
                   className="text-xs text-[#5f5e5e] font-bold mt-1 hover:text-[#1C1C1C]"
                 >
@@ -257,7 +257,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
 
           {/* Quick Vote Buttons — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
           <div className="grid grid-cols-2 gap-2 mb-2">
-            <button
+            <button data-button-id="story-card-button-08"
               onClick={(e) => {
                 e.stopPropagation();
                 if (isBlurRequired && onRequireAdultVerification) {
@@ -280,7 +280,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             >
               니 편
             </button>
-            <button
+            <button data-button-id="story-card-button-09"
               onClick={(e) => {
                 e.stopPropagation();
                 if (isBlurRequired && onRequireAdultVerification) {
@@ -326,7 +326,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             수를 눌러보는 사람이 생겼다. 댓글 쪽만 테두리를 줘서 버튼으로 보이게
             하고, 투표 수는 테두리 없는 글자로 둔다.
           */}
-          <button
+          <button data-button-id="story-card-button-10"
             type="button"
             aria-expanded={activeCommentTab !== null}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-label-sm text-xs transition-colors ${
@@ -366,26 +366,26 @@ export const StoryCard: React.FC<StoryCardProps> = ({
         <div className="bg-[#f9fafb] p-4 border-t border-[#E5E7EB] space-y-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2">
             <div className="flex gap-4 text-xs font-bold font-mono">
-              <button 
+              <button data-button-id="story-card-button-11"
                 onClick={() => setActiveCommentTab('all')} 
                 className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'all' ? 'text-[#1C1C1C] border-b-2 border-[#1C1C1C]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
               >
                 전체
               </button>
-              <button 
+              <button data-button-id="story-card-button-12"
                 onClick={() => setActiveCommentTab('A')} 
                 className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'A' ? 'text-[#FF6B5A] border-b-2 border-[#FF6B5A]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
               >
                 내 편
               </button>
-              <button 
+              <button data-button-id="story-card-button-13"
                 onClick={() => setActiveCommentTab('B')} 
                 className={`pb-2 -mb-[9px] transition-colors ${activeCommentTab === 'B' ? 'text-[#1C1C1C] border-b-2 border-[#1C1C1C]' : 'text-[#5f5e5e] hover:text-[#1C1C1C]'}`}
               >
                 니 편
               </button>
             </div>
-            <button onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
+            <button data-button-id="story-card-button-14" onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>

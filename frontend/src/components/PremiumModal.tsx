@@ -26,7 +26,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
             <Sparkles className="w-4 h-4 text-[#FF6B5A]" aria-hidden="true" />
             AI 대화 무료 체험
           </h2>
-          <button
+          <button data-button-id="premium-modal-button-01"
             aria-label="닫기"
             onClick={onClose}
             className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
@@ -57,21 +57,21 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
           <div className="space-y-2">
             <p className="text-center text-xs text-[#5f5e5e]">구독 기능은 준비 중입니다.</p>
-            <button
+            <button data-button-id="premium-modal-button-02"
               onClick={onOpenMyStories}
               className="w-full px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
             >
               내 사연 보기
             </button>
             {hasExistingChats && (
-              <button
+              <button data-button-id="premium-modal-button-03"
                 onClick={onOpenExistingChats}
                 className="w-full px-5 py-3 bg-white border border-[#E5E7EB] text-[#1C1C1C] font-bold text-xs rounded-lg hover:border-[#FF6B5A] transition-colors cursor-pointer"
               >
                 기존 대화 이어가기
               </button>
             )}
-            <button onClick={onClose} className="w-full px-5 py-2 text-[#5f5e5e] font-bold text-xs cursor-pointer">닫기</button>
+            <button data-button-id="premium-modal-button-04" onClick={onClose} className="w-full px-5 py-2 text-[#5f5e5e] font-bold text-xs cursor-pointer">닫기</button>
           </div>
         </div>
       </div>

@@ -37,6 +37,7 @@ create table public.ai_chat_usage (
 grant select, insert on public.ai_chat_usage to service_role;
 \ir ../docs/plan-execution/sql/ai-room-choice-unique-draft.sql
 \ir ../docs/plan-execution/sql/ai-quota-reservations-draft.sql
+\ir ../backend/supabase/migrations/20260929203532_preserve_ai_quota_after_room_delete.sql
 \ir ../docs/plan-execution/sql/ai-turn-completion-draft.sql
 \ir ../docs/plan-execution/sql/ai-legacy-room-open-draft.sql
 \ir ../docs/plan-execution/sql/ai-feedback-draft.sql
@@ -455,6 +456,42 @@ begin
     raise exception 'repeated ratings from one user qualified a month';
   end if;
 end $$;
+
+-- Deleting all completed chats must not restore today's allowance.
+do $$
+declare
+  u uuid := '77777777-7777-4777-8777-777777777777';
+  t timestamptz := '2027-01-01 12:00:00+09';
+  req uuid;
+  rejected boolean := false;
+begin
+  for n in 1..3 loop
+    insert into public.ai_personas(id, "userId") values ('delete-quota-' || n, u);
+    req := gen_random_uuid();
+    perform public.reserve_ai_first_reply(u, 'delete-quota-' || n, req, t, t + interval '5 minutes');
+    perform public.finish_ai_first_reply(u, req, true, t + interval '1 minute');
+  end loop;
+  delete from public.ai_personas where "userId" = u;
+  if (select count(*) from public.ai_quota_reservations where user_id=u and status='completed') <> 3
+      or exists(select 1 from public.ai_quota_completed_rooms where user_id=u) then
+    raise exception 'chat deletion lost quota history or retained room markers';
+  end if;
+  insert into public.ai_personas(id, "userId") values ('delete-quota-new', u);
+  begin
+    perform public.reserve_ai_first_reply(u, 'delete-quota-new', gen_random_uuid(), t, t + interval '5 minutes');
+  exception when others then rejected := sqlerrm = 'AI_QUOTA_REACHED';
+  end;
+  if not rejected then raise exception 'chat deletion bypassed daily limit'; end if;
+  perform public.purge_ai_quota_reservations(t + interval '30 days');
+  if (select count(*) from public.ai_quota_reservations where user_id=u) <> 3 then
+    raise exception 'deleted-chat accounting expired before 30 days from completion';
+  end if;
+  perform public.purge_ai_quota_reservations(t + interval '30 days 1 minute');
+  if exists(select 1 from public.ai_quota_reservations where user_id=u) then
+    raise exception 'deleted-chat accounting exceeded 30 day retention';
+  end if;
+end $$;
+select 'PASS: deleted chats retain daily quota until 30-day expiry' as result;
 
 -- Leave two of three slots occupied for the separate-process race in the runner.
 insert into public.ai_personas (id, "userId")

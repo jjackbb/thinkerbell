@@ -2,6 +2,9 @@
 -- configured Seoul midnight. This RPC makes room creation and legacy usage one
 -- transaction; otherwise a failed usage INSERT leaves a free reusable room.
 -- Requires ai-room-choice-unique-draft.sql and the existing story_hides table.
+-- This is a NEW RPC. It does not replace an existing function or change the
+-- current ai_personas INSERT grant/policy used by the deployed browser. The
+-- REVOKE below removes default PUBLIC execution only from this new RPC.
 create or replace function public.open_legacy_ai_room(
   p_user_id uuid, p_request_id uuid, p_room jsonb, p_received_at timestamptz
 )

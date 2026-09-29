@@ -27,6 +27,7 @@ import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
 import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
+import type { AnalyticsEntryPoint, ConversationType } from './lib/analyticsContext';
 import { setupGA4 } from './lib/ga4';
 import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
 import { submitInquiry } from './lib/inquiries';
@@ -110,10 +111,9 @@ export default function App() {
   }, []);
 
   // User Profile State
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('nipyeon_user');
-    return saved ? JSON.parse(saved) : makeDefaultUser();
-  });
+  // The persisted Supabase session, not an old browser profile, identifies the user.
+  const [user, setUser] = useState<UserProfile>(makeDefaultUser);
+  useEffect(() => { localStorage.removeItem('nipyeon_user'); }, []);
 
   /*
     둘러보기는 새로고침을 견뎌야 한다.
@@ -139,6 +139,7 @@ export default function App() {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const authUserIdRef = useRef(authUserId);
   authUserIdRef.current = authUserId;
+  const authTransitionVersion = useRef(0);
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(wasBrowsingAsGuest);
@@ -148,6 +149,8 @@ export default function App() {
   // 막으면 다른 앱으로 옮겨갈 뿐이라, 리소스만 보여주고 흐름은 그대로 둔다.
   const [isCrisisOpen, setIsCrisisOpen] = useState<boolean>(false);
   const [appealTargetId, setAppealTargetId] = useState<string | null>(null);
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealError, setAppealError] = useState<string | null>(null);
   const notifyIfCrisis = (...texts: (string | undefined)[]) => {
     if (texts.some(t => detectCrisis(t ?? ''))) setIsCrisisOpen(true);
   };
@@ -189,7 +192,9 @@ export default function App() {
 
   // Initialize Supabase Auth
   useEffect(() => {
+    const initialVersion = authTransitionVersion.current;
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (initialVersion !== authTransitionVersion.current) return;
       if (recoveryCallbackAccessToken) {
         window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
       }
@@ -199,12 +204,13 @@ export default function App() {
             !recoveryLinkExpired) setPasswordRecoveryReady(true);
         setShowLandingPage(false);
         setIsGuest(false);
+        authUserIdRef.current = session.user.id;
         setAuthUserId(session.user.id);
-        setUser(prev => ({
-          ...prev,
+        setUser({
+          ...makeDefaultUser(),
           id: session.user.id,
-          nickname: session.user.user_metadata?.nickname || prev.nickname,
-        }));
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
       } else if (!wasBrowsingAsGuest) {
         /*
           세션이 없어도 '둘러보는 중'이던 사람에게는 로그인 창을 다시 띄우지
@@ -217,30 +223,37 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        authTransitionVersion.current += 1;
+        if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        authUserIdRef.current = session.user.id;
         trackOnce(`login_success:${session.user.id}`, 'login_success');
         if (!passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
-        setUser(prev => ({
-          ...prev,
+        setUser({
+          ...makeDefaultUser(),
           id: session.user.id,
-          nickname: session.user.user_metadata?.nickname || prev.nickname,
-        }));
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
         loadMyVotes();
       } else if (event === 'PASSWORD_RECOVERY' && session) {
+        authTransitionVersion.current += 1;
+        if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        authUserIdRef.current = session.user.id;
         setPasswordRecoveryReady(true);
         setShowWelcomeModal(true);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
-        setUser(prev => ({
-          ...prev,
+        setUser({
+          ...makeDefaultUser(),
           id: session.user.id,
-          nickname: session.user.user_metadata?.nickname || prev.nickname,
-        }));
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
         loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
+        authTransitionVersion.current += 1;
         /*
           로그아웃하면 이 사람이 시작하지도 않은 대화가 목록에 남아서는 안 된다.
           닉네임도 마찬가지다. 예전에는 둘 다 남아서, 같은 브라우저에서 다른
@@ -249,16 +262,12 @@ export default function App() {
           로그인 전에는 게스트와 같은 제약(투표·AI 대화 차단)을 받아야 하므로
           isGuest도 함께 켠다.
         */
+        authUserIdRef.current = null;
         setAuthUserId(null);
-        setPersonas([]);
-        setActiveChatSession(null);
-        setActiveTab('feed');
+        clearAccountBoundViews();
         setIsGuest(true);
         setShowWelcomeModal(true);
-        localStorage.removeItem('nipyeon_user');
         setUser(makeDefaultUser());
-        setMyVoteRecords([]);
-        setStories(prev => prev.map(s => ({ ...s, userVoted: undefined, voteChanged: false })));
       }
     });
 
@@ -319,8 +328,11 @@ export default function App() {
   }, [authUserId, hiddenStoriesLoadNonce]);
 
   useEffect(() => {
+    let active = true;
+    const accountId = authUserId;
     // Initial fetch
     supabase.from('stories').select('*').order('createdAt', { ascending: false }).then(({ data, error }) => {
+      if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         setStories(data);
         loadMyVotes();
@@ -329,8 +341,9 @@ export default function App() {
 
     // Realtime subscription
     const channel = supabase
-      .channel('public:stories')
+      .channel(`public:stories:${accountId ?? 'guest'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => {
           // Prevent duplicates if local insert happened first
           if (prev.some(s => s.id === payload.new.id)) return prev;
@@ -338,18 +351,21 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
         setSelectedStory(prev => prev?.id === payload.new.id ? { ...prev, ...payload.new } : prev);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => prev.filter(s => s.id !== payload.old.id));
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authUserId]);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
@@ -377,8 +393,11 @@ export default function App() {
   }, [authUserId, likedCommentLoadNonce]);
 
   useEffect(() => {
+    let active = true;
+    const accountId = authUserId;
     // Initial fetch
     supabase.from('comments').select('*').order('createdAt', { ascending: true }).then(({ data, error }) => {
+      if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         const newMap: Record<string, Comment[]> = {};
         data.forEach(c => {
@@ -391,8 +410,9 @@ export default function App() {
 
     // Realtime subscription
     const channel = supabase
-      .channel('public:comments')
+      .channel(`public:comments:${accountId ?? 'guest'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const comment = payload.new as Comment;
           const storyComments = prev[comment.storyId] || [];
@@ -401,6 +421,7 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const comment = payload.new as Comment;
           const storyComments = prev[comment.storyId] || [];
@@ -411,6 +432,7 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const updatedMap = { ...prev };
           let found = false;
@@ -427,9 +449,10 @@ export default function App() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authUserId]);
 
   /**
    * 로그인한 사람의 대화방만 담는다. 로그인 전에는 비어 있어야 한다.
@@ -458,7 +481,7 @@ export default function App() {
         supabase.from('stories').select('*').order('createdAt', { ascending: false }),
         supabase.from('comments').select('*').order('createdAt', { ascending: true }),
       ]);
-      if (!active || current !== generation) return;
+      if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
       if (!storyResult.error && storyResult.data) {
         const visible = storyResult.data as Story[];
         setStories(visible);
@@ -478,10 +501,11 @@ export default function App() {
         setCommentsMap(next);
       }
     };
-    const channel = supabase.channel('story-access-invalidations')
+    const channel = supabase.channel(`story-access-invalidations:${authUserId ?? 'guest'}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'story_access_invalidations',
       }, async (payload) => {
+        if (!active || authUserIdRef.current !== authUserId) return;
         const id = payload.new.story_id;
         if (typeof id !== 'string') return;
         const current = ++generation;
@@ -499,7 +523,7 @@ export default function App() {
           supabase.from('stories').select('*').eq('id', id).maybeSingle(),
           supabase.from('comments').select('*').eq('storyId', id).order('createdAt', { ascending: true }),
         ]);
-        if (!active || current !== generation) return;
+        if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
         if (!storyResult.error && storyResult.data) {
           const visible = storyResult.data as Story;
           setStories(prev => prev.some(s => s.id === id)
@@ -510,7 +534,9 @@ export default function App() {
           setCommentsMap(prev => ({ ...prev, [id]: commentResult.data as Comment[] }));
         }
       })
-      .subscribe(status => { if (status === 'SUBSCRIBED') void refreshVisibleStories(); });
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED' && authUserIdRef.current === authUserId) void refreshVisibleStories();
+      });
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [storyPrivateReady, authUserId]);
 
@@ -564,10 +590,44 @@ export default function App() {
   const [myVoteRecords, setMyVoteRecords] = useState<{ storyId: string; option: 'A' | 'B' }[]>([]);
   const pendingVoteIds = useRef(new Set<string>());
 
-  // Save to LocalStorage
-  useEffect(() => {
-    localStorage.setItem('nipyeon_user', JSON.stringify(user));
-  }, [user]);
+  // A shared browser must drop the former account's in-memory content before
+  // any request under the next account can finish.
+  function clearAccountBoundViews() {
+    setStories([]);
+    setCommentsMap({});
+    setSelectedStory(null);
+    setPersonas([]);
+    setActiveChatSession(null);
+    setMyVoteRecords([]);
+    setHiddenStoryIds([]);
+    setHiddenStoryOwnerId(null);
+    setLikedCommentIds([]);
+    setLikedCommentOwnerId(null);
+    setAiQuotaUsed(0);
+    setPremiumModalStory(null);
+    setAiChatModeStory(null);
+    setAiExplainSettingsStory(null);
+    setEditingStory(null);
+    setErrorReportPersona(null);
+    setIsCreateStoryOpen(false);
+    setIsReportOpen(false);
+    setIsExplainSettingsModalOpen(false);
+    setReportTargetId(null);
+    setStoryToDelete(null);
+    setAppealTargetId(null);
+    setAppealSubmitting(false);
+    setAppealError(null);
+    setUndoHiddenStoryId(null);
+    setToastMessage(null);
+    setActiveTab('feed');
+    pendingVoteIds.current.clear();
+    pendingLikeRequests.current.clear();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('story')) {
+      url.searchParams.delete('story');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }
+  }
 
   // (Removed stories localStorage sync as it is now in Supabase)
 
@@ -580,12 +640,14 @@ export default function App() {
   const loadMyVotes = useCallback(async () => {
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.user) {
-      setMyVoteRecords([]);
+      if (!authUserIdRef.current) setMyVoteRecords([]);
       return;
     }
+    const accountId = session.session.user.id;
+    if (authUserIdRef.current !== accountId) return;
 
     const { data, error } = await supabase.from('votes').select('storyId, option, changeCount');
-    if (error || !data) return;
+    if (error || !data || authUserIdRef.current !== accountId) return;
 
     const voteByStory = new Map<string, { option: 'A' | 'B'; changeCount: number }>(
       data.map((v: any) => [v.storyId, { option: v.option, changeCount: v.changeCount }])
@@ -621,7 +683,7 @@ export default function App() {
     if (!id) { deepLinkHandled.current = true; return; }
     const target = stories.find(s => s.id === id);
     deepLinkHandled.current = true;
-    if (target && !hiddenStoryIds.includes(id) && !target.isHidden) openStoryDetail(target);
+    if (target && !hiddenStoryIds.includes(id) && !target.isHidden) openStoryDetail(target, 'shared_link');
     else syncStoryUrl(null);
   }, [stories, hiddenStoriesReady, hiddenStoryIds]);
 
@@ -912,6 +974,7 @@ export default function App() {
     const { data, error } = await supabase.rpc('set_story_visibility', {
       p_story_id: storyId, p_visibility: visibility,
     });
+    if (authUserIdRef.current !== authUserId) return false;
     if (error || !data || data.id !== storyId || data.authorId !== authUserId ||
         data.visibility !== visibility) {
       setToastMessage('공개 상태를 저장하지 못했습니다. 다시 시도해 주세요.');
@@ -1026,18 +1089,21 @@ export default function App() {
   };
 
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
-  const handleDeleteAllAiChats = async () => {
-    if (!authUserId) return;
-    const ok = await deleteAllPersonas(authUserId);
+  const handleDeleteAllAiChats = async (): Promise<boolean> => {
+    if (!authUserId) return false;
+    const accountId = authUserId;
+    const ok = await deleteAllPersonas(accountId);
+    if (authUserIdRef.current !== accountId) return false;
     if (!ok) {
       setToastMessage('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      return false;
     }
     setPersonas([]);
     setActiveChatSession(null);
     setToastMessage('AI 대화를 모두 지웠습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   const handleReportErrorPersona = (personaId: string) => {
@@ -1176,13 +1242,16 @@ export default function App() {
     });
   }, []);
 
+  const aiEntryPoint = useRef<AnalyticsEntryPoint>('story_detail');
+
   const handleStartAIChatWithStory = async (story: Story) => {
     /*
       AI로 가는 길목의 첫 걸음. 무료 횟수 판정보다 먼저 센다 —
       '눌렀는데 막혔다'도 눌렀다는 사실이다.
       이 뒤로 모드 선택·시작점 선택이 남아 있고, 그 사이 낙폭이 H2의 답이다.
     */
-    track('ai_entry_click', { storyId: story.id, category: story.category });
+    aiEntryPoint.current = selectedStory ? 'story_detail' : 'my_page';
+    track('ai_entry_click', { storyId: story.id, category: story.category, entry_point: aiEntryPoint.current });
 
     /*
       둘러보는 사람은 무료 횟수를 세지 않는다. 어차피 AI가 먼저 거는
@@ -1222,12 +1291,13 @@ export default function App() {
     const story = aiChatModeStory;
 
     /* 여기까지 오면 대화방이 실제로 열린다 = AI 진입 성공 */
-    track('ai_start_select', { storyId: story.id, mode, opening });
+    track('ai_start_select', { storyId: story.id, mode, opening, entry_point: aiEntryPoint.current });
 
     if (mode === 'simulation') {
       // 같은 사연을 같은 시작점으로 다시 열면 새로 만들지 않고 이어서 한다.
       // 매번 새로 만들면 AI 대화 탭이 똑같은 카드로 뒤덮인다.
       const existing = personas.find(p => p.storyId === story.id && p.opening === opening);
+      let conversationType: ConversationType = existing ? 'continuation' : 'new';
       let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: OPPONENT_LABELS[story.category] ?? '상대방',
@@ -1264,6 +1334,7 @@ export default function App() {
               return;
             }
             ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(story.id, { mode: 'simulation', opening }));
+            if (recovered) conversationType = 'continuation';
             if (authUserIdRef.current !== authUserId) return;
           } catch {
             if (authUserIdRef.current !== authUserId) return;
@@ -1301,9 +1372,11 @@ export default function App() {
         messages,
         createdAt: new Date().toISOString(),
         status: 'active',
-        chatMode: 'simulation'
+        chatMode: 'simulation',
+        analyticsEntryPoint: aiEntryPoint.current,
+        conversationType,
       });
-      if (!isGuest) track('ai_chat_open', { mode: 'simulation' });
+      if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
@@ -1314,7 +1387,7 @@ export default function App() {
   };
 
   const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
-    track('ai_settings_confirm', { mode: 'explanation' });
+    track('ai_settings_confirm', { mode: 'explanation', entry_point: aiExplainSettingsStory ? aiEntryPoint.current : activeChatSession?.analyticsEntryPoint });
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
     const systemInstruction = buildEmpathyPrompt({
       storyBody: story?.body || '',
@@ -1331,6 +1404,7 @@ export default function App() {
       const target = aiExplainSettingsStory;
       // 같은 사연을 같은 비율로 다시 열면 이어서 한다
       const existing = personas.find(p => p.storyId === target.id && p.ratio === ratio);
+      let conversationType: ConversationType = existing ? 'continuation' : 'new';
       let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: personaName,
@@ -1363,6 +1437,7 @@ export default function App() {
               return;
             }
             ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
+            if (recovered) conversationType = 'continuation';
             if (authUserIdRef.current !== authUserId) return;
           } catch {
             if (authUserIdRef.current !== authUserId) return;
@@ -1398,9 +1473,11 @@ export default function App() {
         createdAt: new Date().toISOString(),
         status: 'active',
         chatMode: 'explanation',
+        analyticsEntryPoint: aiEntryPoint.current,
+        conversationType,
         explanationRatio: ratio
       });
-      if (!isGuest) track('ai_chat_open', { mode: 'explanation' });
+      if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
@@ -1487,22 +1564,32 @@ export default function App() {
   };
 
   // 가려진 글의 작성자가 이의를 제기한다
-  const handleSubmitAppeal = async (targetId: string, text: string) => {
-    const { error } = await supabase.rpc('submit_appeal', {
-      p_target_type: 'story',
-      p_target_id: targetId,
-      p_text: text,
-    });
-
-    if (error) {
-      setToastMessage(error.message || '이의 제기를 접수하지 못했습니다.');
-    } else {
+  const handleSubmitAppeal = async (targetId: string, text: string): Promise<boolean> => {
+    const accountId = authUserIdRef.current;
+    setAppealSubmitting(true);
+    setAppealError(null);
+    try {
+      const { error } = await supabase.rpc('submit_appeal', {
+        p_target_type: 'story',
+        p_target_id: targetId,
+        p_text: text,
+      });
+      if (authUserIdRef.current !== accountId) return false;
+      if (error) throw error;
       setStories(prev => prev.map(s =>
         s.id === targetId ? { ...s, appealStatus: 'pending', appealText: text } : s
       ));
       setToastMessage('이의 제기가 접수되었습니다. 검토 후 안내드릴게요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return true;
+    } catch {
+      if (authUserIdRef.current === accountId) {
+        setAppealError('이의 제기를 접수하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.');
+      }
+      return false;
+    } finally {
+      if (authUserIdRef.current === accountId) setAppealSubmitting(false);
     }
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const baseFilteredStories = stories.filter(s => {
@@ -1578,6 +1665,10 @@ export default function App() {
   const hiddenStories = stories.filter(s => hiddenStoryIds.includes(s.id));
   const myComments = (Object.values(commentsMap) as Comment[][]).flat()
     .filter(c => c.authorId === user.id && !hiddenStoryIds.includes(c.storyId));
+  // A delayed request must not display the former account's private detail.
+  const visibleSelectedStory = selectedStory &&
+    (selectedStory.visibility !== 'private' || selectedStory.authorId === authUserId)
+      ? selectedStory : null;
 
   // 게스트는 홈 피드 탐색만 가능하므로, 나머지 진입점은 로그인 안내로 대체한다
   /**
@@ -1596,7 +1687,7 @@ export default function App() {
     syncStoryUrl(null);
   };
 
-  const openStoryDetail = (story: Story) => {
+  const openStoryDetail = (story: Story, entryPoint: AnalyticsEntryPoint = activeTab === 'mypage' ? 'my_page' : 'feed') => {
     if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id) ||
         (story.isAdult && story.authorId !== user.id) ||
         (story.visibility === 'private' && story.authorId !== user.id)) return;
@@ -1612,7 +1703,7 @@ export default function App() {
 
     /* 공개 사연만 분석한다. 비공개·운영 차단 사연의 조회는 외부 계측에서 뺀다. */
     if (story.visibility !== 'private' && !story.isAdult && !story.isBlind && !story.isHidden) {
-      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category });
+      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category, entry_point: entryPoint });
     }
 
     /*
@@ -1662,6 +1753,9 @@ export default function App() {
         isGuest={isGuest}
       />
 
+      {/* Optional analytics choice stays in the page flow, so it cannot cover controls. */}
+      {!showWelcomeModal && <AnalyticsConsentBanner />}
+
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
         
@@ -1670,7 +1764,7 @@ export default function App() {
           <div className="rounded-lg border border-[#E5E7EB] bg-white p-6 text-sm text-[#1C1C1C]">
             <p>{hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '사연 목록을 불러오는 중입니다.'}</p>
             {hiddenStoriesLoadError && (
-              <button type="button" className="mt-3 text-[#A32E1D] font-bold underline"
+              <button data-button-id="app-button-01" type="button" className="mt-3 text-[#A32E1D] font-bold underline"
                 onClick={() => setHiddenStoriesLoadNonce(n => n + 1)}>
                 다시 시도
               </button>
@@ -1695,7 +1789,7 @@ export default function App() {
             <WeeklyTopBanner
               weeklyTopStories={weeklyTopStories}
               realtimeTopStories={realtimeTopStories}
-              onSelectStory={openStoryDetail}
+              onSelectStory={(story) => openStoryDetail(story, 'weekly_top')}
             />
 
             {/* Feed Category & Search Controls */}
@@ -1703,7 +1797,7 @@ export default function App() {
               {/* Category Pills */}
               <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scroll-hide">
                 {CATEGORIES.map((cat) => (
-                  <button
+                  <button data-button-id="app-button-02"
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`whitespace-nowrap px-5 py-2 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
@@ -1719,7 +1813,7 @@ export default function App() {
 
               {/* Sort Switch */}
               <div className="flex items-center gap-2 font-mono text-xs shrink-0">
-                <button
+                <button data-button-id="app-button-03"
                   onClick={() => setSortBy('latest')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'latest'
@@ -1729,7 +1823,7 @@ export default function App() {
                 >
                   <Clock className="w-3.5 h-3.5" /> 최신순
                 </button>
-                <button
+                <button data-button-id="app-button-04"
                   onClick={() => setSortBy('votes')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'votes'
@@ -1751,7 +1845,7 @@ export default function App() {
                     등록된 사연이 없습니다.
                   </h3>
                   <p className="font-mono text-xs text-[#5f5e5e]">첫 번째 사연을 등록해 논리 대결을 시작해보세요!</p>
-                  <button
+                  <button data-button-id="app-button-05"
                     onClick={openCreateStory}
                     className="mt-2 px-6 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer"
                   >
@@ -1774,7 +1868,7 @@ export default function App() {
                     onHide={story.authorId === user.id ? undefined : handleHideStory}
                     comments={commentsMap[story.id] || []}
                     isGuest={isGuest}
-                    onAppeal={(id) => setAppealTargetId(id)}
+                    onAppeal={(id) => { setAppealError(null); setAppealTargetId(id); }}
                   />
                 ))
               )}
@@ -1825,7 +1919,9 @@ export default function App() {
                 createdAt: new Date().toISOString(),
                 status: 'active',
                 chatMode: isExplanation ? 'explanation' : 'simulation',
-                explanationRatio: ratio
+                explanationRatio: ratio,
+                analyticsEntryPoint: 'chat_list',
+                conversationType: 'continuation',
               };
               setActiveChatSession(newSession);
               setAiExplainSettingsStory(null);
@@ -1843,7 +1939,7 @@ export default function App() {
             onReturnToStory={(storyId) => {
               const target = stories.find(s => s.id === storyId);
               setActiveTab('feed');
-              if (target) openStoryDetail(target);
+              if (target) openStoryDetail(target, 'chat_return');
             }}
           />
         )}
@@ -1871,7 +1967,7 @@ export default function App() {
             /* 마이페이지에서 열 때도 피드와 같은 길로 연다. 여기만 따로
                setSelectedStory를 부르면 조회수·주소(?story=) 처리가 빠져,
                같은 사연인데 어디서 들어왔느냐에 따라 다르게 동작한다 */
-            onSelectStory={openStoryDetail}
+            onSelectStory={(story) => openStoryDetail(story)}
             aiChatCount={personas.length}
             onDeleteAllAiChats={handleDeleteAllAiChats}
           />
@@ -1903,7 +1999,7 @@ export default function App() {
                 <p className="text-[#5f5e5e] font-body-md text-xs">세상의 모든 갈등과 고민은 명확한 논리로 해답을 찾을 수 있습니다.</p>
               </div>
             </div>
-            <button
+            <button data-button-id="app-button-06"
               onClick={openCreateStory}
               className="shrink-0 bg-[#1C1C1C] text-white hover:bg-black px-8 py-3 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
             >
@@ -1914,7 +2010,7 @@ export default function App() {
       )}
 
       {activeTab === 'feed' && (
-        <button
+        <button data-button-id="app-button-07"
           onClick={openCreateStory}
           aria-label="익명 사연 쓰기"
           className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
@@ -1925,7 +2021,6 @@ export default function App() {
       )}
 
       {/* Bottom Navigation */}
-      {!showWelcomeModal && <AnalyticsConsentBanner />}
       <Navbar
         activeTab={activeTab}
         onTabChange={(tab) => {
@@ -1982,24 +2077,26 @@ export default function App() {
               placeholder="예: 특정인을 비방한 내용이 아니라 제 상황을 설명한 글입니다."
               className="w-full p-3 text-xs border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:border-[#FF6B5A]"
             />
+            {appealError && <p role="alert" className="text-xs text-[#A32E1D]">{appealError}</p>}
             <div className="flex gap-2">
-              <button
+              <button data-button-id="app-button-08"
+                disabled={appealSubmitting}
                 onClick={() => setAppealTargetId(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer disabled:opacity-50"
               >
                 취소
               </button>
-              <button
-                onClick={() => {
+              <button data-button-id="app-button-09"
+                disabled={appealSubmitting}
+                onClick={async () => {
                   const el = document.getElementById('appeal-text') as HTMLTextAreaElement | null;
                   const text = el?.value.trim() ?? '';
                   if (!text) return;
-                  handleSubmitAppeal(appealTargetId, text);
-                  setAppealTargetId(null);
+                  if (await handleSubmitAppeal(appealTargetId, text)) setAppealTargetId(null);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-[#1C1C1C] text-white text-sm font-bold hover:bg-black cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#1C1C1C] text-white text-sm font-bold hover:bg-black cursor-pointer disabled:opacity-50"
               >
-                제출하기
+                {appealSubmitting ? '제출 중…' : '제출하기'}
               </button>
             </div>
           </div>
@@ -2014,8 +2111,8 @@ export default function App() {
       />
 
       <StoryDetailModal 
-        story={hiddenStoriesReady ? selectedStory : null}
-        comments={selectedStory ? (commentsMap[selectedStory.id] || []).map(comment => ({
+        story={hiddenStoriesReady ? visibleSelectedStory : null}
+        comments={visibleSelectedStory ? (commentsMap[visibleSelectedStory.id] || []).map(comment => ({
           ...comment,
           userLiked: likedCommentOwnerId === authUserId && likedCommentIds.includes(comment.id),
         })) : []}
@@ -2034,8 +2131,8 @@ export default function App() {
         onReportStory={handleReport}
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}
-        onHideStory={selectedStory?.authorId === user.id ? undefined : handleHideStory}
-        onSetVisibility={authorPrivateLaunchEnabled && storyPrivateReady && selectedStory?.authorId === user.id
+        onHideStory={visibleSelectedStory?.authorId === user.id ? undefined : handleHideStory}
+        onSetVisibility={authorPrivateLaunchEnabled && storyPrivateReady && visibleSelectedStory?.authorId === user.id
           ? handleSetStoryVisibility : undefined}
         onReportComment={handleReport}
         onEditComment={handleEditComment}
@@ -2088,6 +2185,7 @@ export default function App() {
       {/* AI Chat Mode Selection Modal */}
       {aiChatModeStory && (
         <AIChatModeSelectionModal
+          analyticsEntryPoint={aiEntryPoint.current}
           onClose={() => setAiChatModeStory(null)}
           onSelectMode={handleSelectAiChatMode}
           opponentLabel={OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방'}
@@ -2123,7 +2221,7 @@ export default function App() {
           <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
           {toastMessage}
           {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
-            <button type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
+            <button data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
               className="ml-2 text-[#FF6B5A] underline shrink-0">되돌리기</button>
           )}
         </div>

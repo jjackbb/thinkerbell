@@ -112,7 +112,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
             <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
-          <button onClick={onClose} disabled={isSubmitting} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <button data-button-id="create-story-modal-button-01" onClick={onClose} disabled={isSubmitting} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -134,7 +134,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 {CATEGORIES.map((cat) => (
-                  <button
+                  <button data-button-id="create-story-modal-button-02"
                     key={cat}
                     type="button"
                     onClick={() => setCategory(cat)}
@@ -229,14 +229,14 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button
+            <button data-button-id="create-story-modal-button-03"
               type="button"
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-xs font-bold text-[#5f5e5e] hover:bg-[#f8f9fa] cursor-pointer"
             >
               취소
             </button>
-            <button
+            <button data-button-id="create-story-modal-button-04"
               type="submit"
               disabled={isSubmitDisabled}
               className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 ${
