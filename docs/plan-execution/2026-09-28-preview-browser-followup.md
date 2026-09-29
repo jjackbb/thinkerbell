@@ -1,5 +1,8 @@
 # 최신 Preview 브라우저 후속 확인 — 2026-09-28
 
+> **시점별 근거 문서:** 아래 상태·결정·SQL 안내는 제목 날짜와 후속 기록 당시의 이력입니다. 현재 작업 지시는 [최신 인수인계](README.md)와 [PLAN](../../PLAN.md)을 따릅니다. 과거 미적용·미실행 표시만 보고 재실행하지 않습니다.
+
+
 아래 세 과업의 대상은 **17:49 KST Preview** `dpl_6ruBwtwh41JmJgZY9EZ9u1gp5HZ1` (`thinkerbell-p6w6218g9-jjackbb-projects.vercel.app`)과 니편내편 Supabase `vzhyhadjtaqbapicjrco`다. 390×844 헤드리스 Chrome으로 확인했다. 보호된 Preview는 로그인된 Vercel CLI의 접근 권한을 해당 도메인 요청에만 적용해 열었다. 실제 이용자 계정·글은 시험에 사용하지 않았다.
 
 | 사전 작업 | 직접 확인한 결과 | 남은 경계 |

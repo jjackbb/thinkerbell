@@ -1,0 +1,92 @@
+[
+  {
+    "source": "PLAN.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/PLAN.md",
+    "sha256": "9ec356458392b51b953e8f75777cddbb458522eed7148677589ff43f64f73d83",
+    "bytes": 58145
+  },
+  {
+    "source": "README.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/README.md",
+    "sha256": "7a5188884773014637d4336cb50f10619e4178dd0cec483a34791388900189d0",
+    "bytes": 2645
+  },
+  {
+    "source": "docs/plan-execution/README.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/README.md",
+    "sha256": "9c9a0afb7ca80a764af602bf2373206e8d6d13ad6631e57e1b48b455e95ef7ab",
+    "bytes": 46646
+  },
+  {
+    "source": "docs/plan-execution/2026-09-28-pre-user-test-work.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/2026-09-28-pre-user-test-work.md",
+    "sha256": "8c6f301f4b67416b6fd971fa7f01a2f494a76cf58feae87d14db801126d27e39",
+    "bytes": 15854
+  },
+  {
+    "source": "docs/plan-execution/2026-09-28-release-gates.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/2026-09-28-release-gates.md",
+    "sha256": "adde1b244971765c11efddde06ab2d0e57407dfb96e080aa0699932fa556b341",
+    "bytes": 27762
+  },
+  {
+    "source": "docs/plan-execution/2026-09-28-two-account-browser-checklist.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/2026-09-28-two-account-browser-checklist.md",
+    "sha256": "ba3d95c51aa896746f739e35cd007a6e7367a63011d6689ca7160a3ff72b0615",
+    "bytes": 19807
+  },
+  {
+    "source": "docs/plan-execution/2026-09-28-in-progress-release-preflight.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/2026-09-28-in-progress-release-preflight.md",
+    "sha256": "fd26514b66795d0cee6c2281b99ae991107844ec58a1d4a46c09f6dcaa03c2ff",
+    "bytes": 49030
+  },
+  {
+    "source": "docs/ai-prompts.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/ai-prompts.md",
+    "sha256": "8cf584fbde547bb197556592008b850be264e7df2dd264b1739a2a10a5e88fb7",
+    "bytes": 4184
+  },
+  {
+    "source": "docs/admin.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/admin.md",
+    "sha256": "fe5e79dd2f738127d5ce6b58150a3686ad81b505180119ca578c5646bf75416e",
+    "bytes": 8461
+  },
+  {
+    "source": "backend/supabase/README.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/backend/supabase/README.md",
+    "sha256": "8ec80071c35f0c180e6e690cf6ef9bc086828f9422a6562304b0e8a31a011304",
+    "bytes": 2241
+  },
+  {
+    "source": "docs/release-improvement/README.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/release-improvement/README.md",
+    "sha256": "9e7a15799ccc799e3e528ce61825c1f0d411b96cc1e6be83c4a1b516e53a252f",
+    "bytes": 1704
+  },
+  {
+    "source": "docs/release-improvement/02-events-and-buttons.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/release-improvement/02-events-and-buttons.md",
+    "sha256": "32b759ff08c193a211bd5a7c09fc19bfe4bf541c1ff6fb4acb6d3a8f5809be6a",
+    "bytes": 28207
+  },
+  {
+    "source": "docs/release-improvement/03-validation-and-improvement.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/release-improvement/03-validation-and-improvement.md",
+    "sha256": "2ff046a24c1bee484d3a0967a9cface06e47c5e0b809d1516536145dac4e5412",
+    "bytes": 25393
+  },
+  {
+    "source": "docs/release-improvement/04-ux-priorities-and-decisions.md",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/docs/release-improvement/04-ux-priorities-and-decisions.md",
+    "sha256": "310939e6c757a84f2ad3ff95abfc1a22cea2074441332daaf0d8a56f1ba037ac",
+    "bytes": 6583
+  },
+  {
+    "source": "tools/render-plan-reader.mjs",
+    "snapshot": "archive/2026-09-30/current-docs-before-cleanup/tools/render-plan-reader.mjs",
+    "sha256": "baee730f8a9e509cc6ede34d3a4c93d574ea278ad76710a667c3f755d90759db",
+    "bytes": 25457
+  }
+]

@@ -2,7 +2,17 @@
 
 최신 정책은 [PLAN.md](../PLAN.md)입니다. 아래 PATCH-001~042는 [기존 PRD 원본](../archive/2026-09-22/legacy/PRD.md)의 §7을 보존한 과거 기록입니다. 당시 PASS·운영 상태·경로를 현재 검증으로 해석하지 않습니다. `src/` → `frontend/src/`, API 구현 → `backend/app.ts`, `supabase/` → `backend/supabase/`로 이동했습니다.
 
-이번 폴더 정리의 변경·검증은 [별도 기록](folder-reorganization.md)에 있습니다. 아직 커밋하지 않았으므로 과거 PATCH 번호에 새 커밋이 생긴 것처럼 기록하지 않습니다.
+## 현재 변경 한눈에 보기
+
+| 변경 | 이유 | 확인 |
+| --- | --- | --- |
+| 답변 완료·저장 결과 분리 복원 | 사용자 원래 합의와 다르게 저장 성공 때만 세던 집계 수정 | 타입 검사 PASS, 이번 운영 배포·수신은 실행 기록에 추가 |
+| 현재 안내와 과거 원본 분리 | 상단 최신 안내와 하단 낡은 상태·HTML 고정 목록의 충돌 제거 | 원본 15개 바이트·SHA-256 보존, 링크/문서 대조 |
+| 기존 운영 작업 묶음 50f7cff | 운영 반영 코드·마이그레이션·기술 근거를 작업 브랜치에 보존 | 원격 브랜치 일치 확인 |
+
+대상 파일: PLAN, README, docs의 현재 계약/인수인계, HTML 생성기, AIChatView. 사용자 결정은 정상 답변 완료를 세고 저장 성공·실패는 따로 기록하는 것이다. 계측 외 기능·DB·자정 설정은 변경하지 않는다. 보존 원본과 manifest는 [이력 안내](../archive/2026-09-30/current-docs-before-cleanup/INDEX.md), 최종 배포 결과는 [실행 기록](plan-execution/2026-09-28-in-progress-release-preflight.md)을 따른다.
+
+이번 폴더 정리의 이전 변경·검증은 [별도 기록](folder-reorganization.md)에 있다. 아래 PATCH-001~042는 역사 자료다.
 
 ## 과거 패치 노트
 

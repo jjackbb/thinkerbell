@@ -107,29 +107,47 @@ const generatedAt = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', d
 // This is a dated execution index, not a second policy source. Keep the scope
 // in each item so a technical PASS cannot be mistaken for a user-test PASS.
 const statusGroups = [
-  { id: 'done', title: '완료', note: '기록된 정책·기술 범위만 완료', items: [
-    ['첫 공개 정책·공개 방식 확정', '커뮤니티·SNS 자발적 이용, 직접 모집 선행 조건 없음', '../../PLAN.md'],
-    ['기존 운영 배포·직접 쓰기 정책 7개 차단', '서버 저장·실제 AI·권한 경계 확인 기록', '2026-09-28-in-progress-release-preflight.md'],
-    ['지정 A·B 메일·로그인·핵심 과업', '가상 데이터 기술 검증, 일반 이용자 성과 아님', '2026-09-28-two-account-browser-checklist.md'],
-    ['운영자 문의·조건부 동작·실패 복구', '선택한 핵심 경로 PASS, 174개 전체 상태 전수 PASS 아님', '2026-09-28-in-progress-release-preflight.md'],
-    ['버튼 174개 위치·계약 지도', '정적 연결·중복 없는 목록', '2026-09-28-button-behavior-matrix.md'],
-    ['AI 횟수 보관·일일 정리', '삭제 후 보관·동시 요청·cron 실행 기록, 자정 전환은 별도', '2026-09-28-in-progress-release-preflight.md'],
-    ['운영 GA4 속성·동의·수신', '변경 전 정의의 기록. 이번 복원 수신은 별도', '2026-09-28-in-progress-release-preflight.md'],
-    ['답변 완료·저장 결과 분리 확정 및 로컬 복원', '정상 완료 1/저장 실패 1로 분리, 타입 검사 PASS', '../../PLAN.md'],
-    ['Chrome 기기 모드 확인', '390×844·터치 기술 확인, 실물 Safari 아님', '2026-09-28-two-account-browser-checklist.md'],
+  { id: 'done', title: '완료', note: '정책 확정 또는 적힌 범위의 기술 검증 완료', items: [
+    ['첫 공개 범위·AI 두 모드·숨김·평가 보관 규칙 확정', '제품 판단 완료', '../../PLAN.md'],
+    ['Vercel·니편내편 DB·메일·GA4 대상 확인', '계정·설정 범위', '2026-09-28-release-gates.md'],
+    ['A·B 실제 소유 확인 메일 도착·링크 복귀', 'A·B 가입·로그인·세션 복원 확인, A registered 분기도 실제 메일 확인', '2026-09-28-two-account-browser-checklist.md'],
+    ['가입 확인 메일·재설정 URL과 한국어 문안 설정', 'A 실제 재설정 메일·폼 복귀 확인; 저장·재로그인 사용자 완료 보고', '2026-09-28-pretest-browser-boundaries.md'],
+    ['운영 DB 호환 마이그레이션 9건 적용', '후속 마이그레이션으로 직접 쓰기 차단도 완료', '2026-09-28-db-expansion-applied.md'],
+    ['AI 보관·사연 접근 정리의 예약 실행 확인', '9월 29·30일 각각 2회 성공; 실제 월말 평가 집계는 별도', '2026-09-28-in-progress-release-preflight.md'],
+    ['버튼 174곳의 정적 연결·계약 지도 작성', '조건부 실제 동작은 별도', '2026-09-28-button-behavior-matrix.md'],
+    ['임시 계정의 Preview AI·DB 경로와 17:49 Preview 계정 전환·실시간 제거 확인', '기술 시험 범위', '2026-09-28-preview-browser-followup.md'],
+    ['17:49 Preview에서 주입한 두 실패 화면과 QA 사연 조회 전송 확인', '500은 주입, GA4 수집 HTTP 204', '2026-09-28-preview-browser-followup.md'],
+    ['18:47 Preview의 비차단 동의 배너와 오류 뒤 정상 재시도 확인', '선택 전 버튼 접근·Google 요청 0건, 이의 제기 저장·AI 방 삭제', '2026-09-28-preview-browser-followup.md'],
+    ['임시 계정의 사연·댓글 저장과 AI 실패 재요청·대화 복원 확인', '선택한 핵심 버튼·주입 실패·실제 서버 성공 범위', '2026-09-28-in-progress-release-preflight.md'],
+    ['운영 DB AI 횟수 함수의 동시 마지막 1회·자정 요청일 귀속 확인', '가상 Auth 계정·사연·방만 사용, 삭제 후 5종 잔여 0건', '2026-09-28-in-progress-release-preflight.md'],
+    ['이의 제기·AI 방 삭제의 공개 전 오류 복구 기준 확정', '주입 500 뒤 입력 보존·실제 서버 재시도 성공; 실제 장애 재현은 아님', '2026-09-28-in-progress-release-preflight.md'],
+    ['Production Supabase URL 두 변수 재설정', '사용자 완료 보고 후 공개 서버 A/B 인증·저장 실행 확인', '2026-09-28-in-progress-release-preflight.md'],
+    ['Production 변수 8개·공개 주소 유지 사전 배포 검증', '사전 검증 후 공개 전환·직접 쓰기 차단까지 완료', '2026-09-28-in-progress-release-preflight.md'],
+    ['공개 전환·메일 복귀 설정 결함 교정', '메일 교정 배포 검증 후 현재 AR7TgDna… READY, 실제 소유 확인 registered·재설정 입력 폼 복귀 PASS', '2026-09-28-in-progress-release-preflight.md'],
+    ['직접 쓰기 7경로 차단·공개 서버 연동 확인', '마이그레이션 20260929210710 적용, 직접 쓰기 거부·서버 저장/실제 AI/복원/삭제 PASS', '2026-09-28-in-progress-release-preflight.md'],
+    ['GA4 분석 속성·맞춤 측정기준 9개·공개 반영', '배포/화면/진입/신규·이어하기/유입 연결, 개인정보·동의·실제 저장·운영 수신 확인', '2026-09-28-in-progress-release-preflight.md'],
+    ['첫 답변 성공 시점 보정', '저장 실패 시 첫 답변 0, 실제 재시도 저장 후 1 확인', '2026-09-28-in-progress-release-preflight.md'],
+    ['공개 앱의 운영 GA4 핵심 이벤트 수신', 'story_view·ai_chat_turn1·operation_success 각 1건. 통제된 기술 시험이며 사용자 성과 아님', '2026-09-28-in-progress-release-preflight.md'],
+    ['추가 조건부 동작·권한 경계 검증', '문의 답변 실패/재시도·닉네임·댓글·분석 철회·재연결·성인 보류·기술 계정 탈퇴 PASS', '2026-09-28-in-progress-release-preflight.md'],
+    ['실제 운영 계정으로 권한 이전·문의 수신 확인', '승인된 A가 유일한 운영자, 기존 역할 해제·계정 보존, A 문의 표시·B 메뉴 없음', '2026-09-28-in-progress-release-preflight.md'],
+    ['삭제 후 횟수 보관 결함 운영 수정·검증', '운영 적용 완료; 실제 방 삭제 후 DB·API 사용 횟수 1 유지, 격리 3회 한도·30일 정리 PASS', '2026-09-28-in-progress-release-preflight.md'],
+    ['Chrome 기기 모드 핵심 과업 확인', '사용자 요청한 390×844·터치 모드 사연→AI→저장→다시 찾기 PASS; 실물 Safari 아님', '2026-09-28-in-progress-release-preflight.md'],
+    ['실제 A·B 핵심 과업과 QA AI 이벤트 수신', '사연·참여·비공개·실제 AI 저장·복원, ai_chat_turn1·operation_success Realtime 확인', '2026-09-28-in-progress-release-preflight.md'],
+    ['최신 Preview의 QA 사연 조회 이벤트 수신', '격리 게스트 story_view Realtime 1건, 합성 qa_debug_probe DebugView 1건', '2026-09-28-in-progress-release-preflight.md'],
   ]},
-  { id: 'in-progress', title: '작업 중', note: '현재 승인된 변경', items: [
-    ['문서 정리·계측 복원 운영 반영', '현재 안내와 과거 원본 분리 후 커밋·푸시·배포', 'README.md'],
-    ['복원된 답변 완료·저장 결과 수신 확인', '배포 후 정상/부분/저장 실패의 건수와 GA4 확인', '2026-09-28-in-progress-release-preflight.md'],
+  { id: 'in-progress', title: '작업 중', note: '기술 시험이 일부 끝났지만 완료 기준은 남음', items: [
+    ['나머지 조건부 버튼의 실제 노출·서버 결과 대조', '게스트 쓰기·작성자 저장·댓글·AI 진입은 Preview 통과', '2026-09-28-in-progress-release-preflight.md'],
+    ['AI 브라우저 동시 요청·자정·실제 장애의 차감·복원 경계 검증', '실제 B 두 탭 200/429·3회 한도 PASS; 실제 자정·장애는 별도', '2026-09-28-in-progress-release-preflight.md'],
+    ['최신 Preview의 나머지 핵심 과업과 출시 중단 조건 대조', '실제 A·B 핵심 과업·횟수 결함 수정·Chrome 기기 모드 PASS; 운영자 문의까지 PASS; 나머지 조건부 상태 대조 남음', '2026-09-28-in-progress-release-preflight.md'],
   ]},
-  { id: 'not-started', title: '작업 전', note: '게시 이후 또는 별도 보류', items: [
-    ['커뮤니티·SNS 실제 게시', '소개 글·링크 초안 준비, 게시 경로/시각 기록 필요', '2026-09-28-release-blockers-questions.html'],
-    ['처리 보고서·기준선 대조', '실제 유입 후 기술 시험 제외·기간/버전/분모 기록', '../../PLAN.md'],
-    ['별도 보류: 자정 횟수 전환 확인', '사용자 요청으로 이번 범위 제외, 설정 유지', 'README.md'],
+  { id: 'not-started', title: '작업 전', note: '공개 후 남은 구현·시간 경계·관찰', items: [
+    ['이번 범위 제외: 자정 횟수 규칙 확인', '사용자 요청으로 수행하지 않음. 활성화 설정은 유지', '2026-09-28-in-progress-release-preflight.md'],
+    ['출시 버전 기준선과 GA4 처리 보고서 비교', '공개와 실제 유입 뒤', '../../PLAN.md'],
   ]},
-  { id: 'user-test', title: '유저 테스트 필요', note: '공개 후 자발적 이용·피드백. 직접 관찰은 필요 시', items: [
-    ['실제 이용과 불편·도움 피드백', '기술 시험을 만족도나 자연 유입으로 세지 않음', '../../PLAN.md'],
-    ['근거 있는 첫 개선과 재확인', '확인된 문제 하나를 선택하고 효과/악화/판단 보류 구분', '../../PLAN.md'],
+  { id: 'user-test', title: '유저 테스트 필요', note: '자발적 이용·피드백부터 확인, 직접 관찰은 필요 시 후속', items: [
+    ['실제 사용자의 사연→AI→저장→다시 찾기 관찰', 'Chrome 기기 모드 기술 확인 완료, 실물·Safari 관찰과 구분', '2026-09-28-two-account-browser-checklist.md'],
+    ['도움 평가·불편 지점·이탈 이유 관찰', 'GA4와 짧은 인터뷰를 구분', '../../PLAN.md'],
+    ['개선 배포 뒤 같은 과업 재확인', '기능 확인과 사용성 개선 판단 분리', '../../PLAN.md'],
   ]},
 ];
 const orderedStatusGroups = ['not-started', 'in-progress', 'done', 'user-test']
@@ -138,10 +156,9 @@ const orderedStatusGroups = ['not-started', 'in-progress', 'done', 'user-test']
 // Execution order follows PLAN section 4 and the release-gates handoff. Items
 // waiting for a real account or an owner decision stay explicitly pending.
 const nextActions = [
-  ['진행 중', '문서 정리·계측 복원 커밋과 운영 배포', '현재 안내와 과거 근거를 분리하고 승인된 변경을 반영한다. 기존 DB 정책·자정 시각은 유지한다.', 'README.md'],
-  ['배포 후', '답변 완료·저장 결과 계측 확인', '정상 완료와 저장 실패를 각각 집계하고, 부분 실패·중복·운영 수신을 변경 범위에서 확인한다.', '2026-09-28-in-progress-release-preflight.md'],
-  ['실제 게시', '커뮤니티·SNS 소개 글과 링크', '자발적 이용을 위한 게시다. Vercel 배포와 구분하며 게시 경로·시각·주소를 기록한다.', '2026-09-28-release-blockers-questions.html'],
-  ['이용·보고서 처리 후', '기준선·불편 근거·첫 개선', '기술 시험 제외, 신규/이어하기 분리, 실제 건수·피드백으로 문제를 선택하고 개선을 확인한다.', '../../PLAN.md'],
+  ['계측 준비 완료', '기술 시험을 제외한 공개 기준선 기록', '배포·유입·대화 구분 속성과 운영 맞춤 측정기준 등록을 마쳤다. 공개 게시 뒤 실제 이용을 기술 시험과 분리한다.', '2026-09-28-in-progress-release-preflight.md'],
+  ['공개 방식 결정 완료', '커뮤니티·SNS 공개 글 사용', '사용자는 공개 게시 후 자발적 이용부터 확인하기로 했다. 커뮤니티·SNS 초안을 준비했다. 게시 경로·시각을 기록하고 직접 모집·동석 관찰을 선행 조건으로 두지 않는다.', '2026-09-28-release-blockers-questions.html'],
+  ['실제 이용·보고서 처리 후', '기준선·불편 근거·첫 개선 비교', '일반 24~48시간 처리 지연을 감안해 GA4 보고서와 실제 관찰을 대조한다. 문제 하나를 고르고 개선 뒤 같은 과업을 다시 확인한다.', '../../PLAN.md'],
 ];
 
 function renderStatusBoard() {
@@ -267,7 +284,7 @@ const html = `<!doctype html>
       </section>
       <section class="panel" id="next-actions" aria-labelledby="next-actions-title">
         <div class="panel-top"><div><p class="kicker">다음 실행 순서</p><h2 id="next-actions-title">앞으로 할 일</h2></div><div><a href="2026-09-28-release-blockers-questions.html">공개 글 초안 열기 ↗</a><br><a href="2026-09-28-release-gates.md">출시 인수인계 열기 ↗</a></div></div>
-        <p class="meta">첫 답변 기준은 확정됐습니다. 기존 운영 배포·직접 쓰기 차단은 완료됐으며, 이번 복원 수정의 배포·수신 확인을 진행합니다.</p>
+        <p class="meta">확인·판단이 필요한 일은 답변 대기로 남겼습니다. Production 배포와 권한 차단은 앞 단계 결과가 나온 뒤 진행합니다.</p>
         <ol class="next-list">${renderNextActions()}</ol>
       </section>
       <section class="panel" id="plan" aria-labelledby="plan-title">

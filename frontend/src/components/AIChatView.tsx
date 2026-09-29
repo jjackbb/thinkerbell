@@ -278,7 +278,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           pendingRequestId.current = null;
           throw new Error(data.error || 'ai_unavailable');
         }
-        // Provider completion alone is not a successfully saved answer.
+        // Answer completion and persistence are separate analytics outcomes.
+        // Only the server's explicit provider completion counts a full answer;
+        // a later save error must not erase that completed-answer event.
+        if (data.type === 'provider_done') markAnswerComplete();
         if (data.type === 'done') {
           completed = true;
           persistedByServer = data.persisted === true;
@@ -306,6 +309,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       if (buffer.trim()) handleStreamLine(buffer);
 
       if (completed && stripSimEnd(aiResponseText).trim()) {
+        // Compatibility fallback for completed streams without provider_done.
+        // counted prevents duplication when both completion signals arrive.
+        markAnswerComplete();
         const ended = detectSimEnd(aiResponseText);
         const finalText = stripSimEnd(aiResponseText);
         const finalMessages: ChatMessage[] = [...updatedMessages, { id: aiMsgId, sender: 'ai', text: finalText, timestamp: aiTimestamp, requestId }];
@@ -322,7 +328,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           catch { saved = false; }
           setIsSaving(false);
         }
-        if (saved) markAnswerComplete();
         setSaveFailed(!saved);
         if (saved && ended) setSimEndResult(ended);
         track(saved ? 'operation_success' : 'operation_error', {
