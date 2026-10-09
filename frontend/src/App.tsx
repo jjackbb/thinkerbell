@@ -1,3 +1,4 @@
+import { createSignupLandingGate, signupLandingHref } from './lib/signupLanding';
 import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
 import { beginTask, blockedAction } from './lib/taskAnalytics';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -125,12 +126,23 @@ export default function App() {
     둘러보는 사람이 그 화면에 머문다 — 그 상태로 새로고침하면 댓글창이
     열린 것처럼 보이고, 써서 등록하면 서버가 조용히 거절한다.
   */
-  const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
+  const initialNavigation = new URLSearchParams(window.location.search);
+  const requestedWrite = useRef(initialNavigation.get('action') === 'write');
+  const landingSource = useRef(initialNavigation.get('source'));
+  const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1' || initialNavigation.get('browse') === '1';
+  const signupLandingGate = useRef(createSignupLandingGate());
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('action') || url.searchParams.has('browse')) {
+      url.searchParams.delete('action');
+      url.searchParams.delete('browse');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }
+  }, []);
 
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired || passwordRecoveryReturn || Boolean(emailCheckToken));
   const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false);
   const passwordRecoveryFlowRef = useRef(passwordRecoveryReturn);
-  const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
    * 실제로 로그인된 계정의 id. 로그아웃 상태면 null.
@@ -164,9 +176,9 @@ export default function App() {
   }, [isGuest]);
 
   const handleGuestBrowse = () => {
+    requestedWrite.current = false;
     setIsGuest(true);
     setShowWelcomeModal(false);
-    setShowLandingPage(false);
   };
 
   const handleGoToLogin = () => {
@@ -204,7 +216,6 @@ export default function App() {
         if (!emailCheckToken && !passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
         if (recoveryCallbackAccessToken && session.access_token === recoveryCallbackAccessToken &&
             !recoveryLinkExpired) setPasswordRecoveryReady(true);
-        setShowLandingPage(false);
         setIsGuest(false);
         authUserIdRef.current = session.user.id;
         setAuthUserId(session.user.id);
@@ -230,7 +241,6 @@ export default function App() {
         authUserIdRef.current = session.user.id;
         trackOnce(`login_success:${session.user.id}`, 'login_success');
         if (!passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
-        setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
         setUser({
@@ -245,7 +255,6 @@ export default function App() {
         authUserIdRef.current = session.user.id;
         setPasswordRecoveryReady(true);
         setShowWelcomeModal(true);
-        setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
         setUser({
@@ -561,6 +570,12 @@ export default function App() {
     }
   }, [hiddenStoriesReady, hiddenStoryIds, selectedStory]);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
+  useEffect(() => {
+    if (authUserId && requestedWrite.current) {
+      requestedWrite.current = false;
+      setIsCreateStoryOpen(true);
+    }
+  }, [authUserId]);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
@@ -617,6 +632,7 @@ export default function App() {
     setReportTargetId(null);
     setStoryToDelete(null);
     setStoryDeleting(false);
+    requestedWrite.current = false;
     setAppealTargetId(null);
     setAppealSubmitting(false);
     setAppealError(null);
@@ -727,7 +743,6 @@ export default function App() {
     };
     setUser(updatedUser);
     setShowWelcomeModal(false);
-        setShowLandingPage(false);
   };
 
   const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
@@ -2064,6 +2079,12 @@ export default function App() {
         isOpen={showWelcomeModal}
         onComplete={handleCompleteWelcome}
         onGuestBrowse={handleGuestBrowse}
+        canStartSignupLogin={(createdUserId) => !authUserIdRef.current || authUserIdRef.current === createdUserId}
+        onSignupCreated={(createdUserId) => {
+          if (signupLandingGate.current(createdUserId, authUserIdRef.current)) {
+            window.location.assign(signupLandingHref(landingSource.current));
+          }
+        }}
         signupLinkExpired={signupLinkExpired}
         emailCheckToken={emailCheckToken}
         passwordRecoveryReturn={passwordRecoveryReturn}
@@ -2074,7 +2095,6 @@ export default function App() {
           setPasswordRecoveryReady(false);
           window.history.replaceState(window.history.state, '', window.location.pathname);
           setShowWelcomeModal(false);
-          setShowLandingPage(false);
           setIsGuest(false);
         }}
       />

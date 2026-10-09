@@ -52,6 +52,9 @@ test('unlabelled or arbitrary source does not invent a recruitment channel', () 
 
 test('general surfaces and fixed controls are eligible while sensitive controls fail closed', () => {
   assert.equal(shouldSendToGA4('page_view', { screen: 'login' }), true);
+  assert.equal(shouldSendToGA4('page_view', { screen: 'landing' }), true);
+  assert.equal(shouldSendToGA4('ui_click', { screen: 'landing', button_id: 'landing-demo-button-01' }), true);
+  assert.equal(shouldSendToGA4('ui_click', { screen: 'landing', button_id: 'landing-consent-button-01' }), false);
   assert.equal(shouldSendToGA4('page_view', { screen: 'excluded' }), false);
   assert.equal(shouldSendToGA4('ui_click', { screen: 'feed', button_id: 'navbar-button-01' }), true);
   for (const id of ['story-card-button-05', 'my-page-view-button-10', 'ai-chat-view-button-20', 'analytics-consent-button-03', 'unknown-control', 'constructor', 'toString', '__proto__']) {

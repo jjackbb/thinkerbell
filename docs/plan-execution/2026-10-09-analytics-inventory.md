@@ -1,21 +1,21 @@
 # 전체 화면·행동 계측 목록 — 2026-10-09
 
-정책은 PLAN §3. 현재 코드의 정적 목록이며 조건부 노출·기능 작동·GA4 수신 판정과 구분한다. 민감 화면/영역의 모든 하위 행동은 아래 개별 허용 여부와 관계없이 제외된다. 전파 제어만 하는 컨테이너는 행동으로 세지 않는다. 반복 카드는 동일한 행동 ID를 사용하며 원문·대상 ID·링크 주소를 보내지 않는다.
+정책은 PLAN §3. 현재 TSX와 독립 랜딩 HTML의 정적 목록이며 조건부 노출·기능 작동·GA4 수신 판정과 구분한다. 민감 화면/영역의 모든 하위 행동은 아래 개별 허용 여부와 관계없이 제외된다. 전파 제어만 하는 컨테이너는 행동으로 세지 않는다. 반복 카드는 동일한 행동 ID를 사용하며 원문·대상 ID·링크 주소를 보내지 않는다.
 
-생성: `node tools/generate-analytics-inventory.mjs`. 총 192개, 개별 제외 54개.
+생성: `node tools/generate-analytics-inventory.mjs`. 총 218개, 개별 제외 56개.
 
 | ID | 종류 | 개별 정책 | 코드 |
 | --- | --- | --- | --- |
-| `app-button-01` | button | 제외 | [frontend/src/App.tsx:1789](../../frontend/src/App.tsx) |
-| `app-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1822](../../frontend/src/App.tsx) |
-| `app-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1838](../../frontend/src/App.tsx) |
-| `app-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1848](../../frontend/src/App.tsx) |
-| `app-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1870](../../frontend/src/App.tsx) |
-| `app-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2024](../../frontend/src/App.tsx) |
-| `app-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2035](../../frontend/src/App.tsx) |
-| `app-button-08` | button | 제외 | [frontend/src/App.tsx:2104](../../frontend/src/App.tsx) |
-| `app-button-09` | button | 제외 | [frontend/src/App.tsx:2111](../../frontend/src/App.tsx) |
-| `app-button-10` | button | 제외 | [frontend/src/App.tsx:2246](../../frontend/src/App.tsx) |
+| `app-button-01` | button | 제외 | [frontend/src/App.tsx:1804](../../frontend/src/App.tsx) |
+| `app-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1837](../../frontend/src/App.tsx) |
+| `app-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1853](../../frontend/src/App.tsx) |
+| `app-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1863](../../frontend/src/App.tsx) |
+| `app-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1885](../../frontend/src/App.tsx) |
+| `app-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2039](../../frontend/src/App.tsx) |
+| `app-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2050](../../frontend/src/App.tsx) |
+| `app-button-08` | button | 제외 | [frontend/src/App.tsx:2124](../../frontend/src/App.tsx) |
+| `app-button-09` | button | 제외 | [frontend/src/App.tsx:2131](../../frontend/src/App.tsx) |
+| `app-button-10` | button | 제외 | [frontend/src/App.tsx:2266](../../frontend/src/App.tsx) |
 | `ai-chat-mode-selection-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:50](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
 | `ai-chat-mode-selection-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:58](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
 | `ai-chat-mode-selection-modal-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:67](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
@@ -182,19 +182,45 @@
 | `weekly-top-banner-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:211](../../frontend/src/components/WeeklyTopBanner.tsx) |
 | `weekly-top-banner-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:218](../../frontend/src/components/WeeklyTopBanner.tsx) |
 | `weekly-top-banner-self-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:263](../../frontend/src/components/WeeklyTopBanner.tsx) |
-| `welcome-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:359](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:367](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:384](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:392](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:397](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:421](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:436](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:444](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:462](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:467](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:486](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:548](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:557](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:564](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-15` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:577](../../frontend/src/components/WelcomeModal.tsx) |
-| `welcome-modal-button-16` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:581](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:387](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:395](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:412](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:420](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:425](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:449](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:464](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:472](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:490](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:495](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:514](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:576](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:585](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:592](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-15` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:606](../../frontend/src/components/WelcomeModal.tsx) |
+| `welcome-modal-button-16` | button | 허용 (민감 영역 제외) | [frontend/src/components/WelcomeModal.tsx:610](../../frontend/src/components/WelcomeModal.tsx) |
+| `landing-consent-button-01` | button | 제외 | [frontend/landing.html:343](../../frontend/landing.html) |
+| `landing-consent-button-02` | button | 제외 | [frontend/landing.html:344](../../frontend/landing.html) |
+| `landing-a-01` | link | 허용 (민감 영역 제외) | [frontend/landing.html:348](../../frontend/landing.html) |
+| `landing-a-02` | link | 허용 (민감 영역 제외) | [frontend/landing.html:350](../../frontend/landing.html) |
+| `landing-a-03` | link | 허용 (민감 영역 제외) | [frontend/landing.html:351](../../frontend/landing.html) |
+| `landing-a-04` | link | 허용 (민감 영역 제외) | [frontend/landing.html:352](../../frontend/landing.html) |
+| `landing-a-05` | link | 허용 (민감 영역 제외) | [frontend/landing.html:353](../../frontend/landing.html) |
+| `landing-a-06` | link | 허용 (민감 영역 제외) | [frontend/landing.html:355](../../frontend/landing.html) |
+| `landing-a-07` | link | 허용 (민감 영역 제외) | [frontend/landing.html:368](../../frontend/landing.html) |
+| `landing-a-08` | link | 허용 (민감 영역 제외) | [frontend/landing.html:369](../../frontend/landing.html) |
+| `landing-demo-button-01` | button | 허용 (민감 영역 제외) | [frontend/landing.html:385](../../frontend/landing.html) |
+| `landing-demo-button-02` | button | 허용 (민감 영역 제외) | [frontend/landing.html:386](../../frontend/landing.html) |
+| `landing-demo-button-03` | button | 허용 (민감 영역 제외) | [frontend/landing.html:494](../../frontend/landing.html) |
+| `landing-demo-button-04` | button | 허용 (민감 영역 제외) | [frontend/landing.html:499](../../frontend/landing.html) |
+| `landing-demo-button-05` | button | 허용 (민감 영역 제외) | [frontend/landing.html:504](../../frontend/landing.html) |
+| `landing-demo-button-06` | button | 허용 (민감 영역 제외) | [frontend/landing.html:528](../../frontend/landing.html) |
+| `landing-demo-button-07` | button | 허용 (민감 영역 제외) | [frontend/landing.html:529](../../frontend/landing.html) |
+| `landing-demo-button-08` | button | 허용 (민감 영역 제외) | [frontend/landing.html:553](../../frontend/landing.html) |
+| `landing-demo-button-09` | button | 허용 (민감 영역 제외) | [frontend/landing.html:554](../../frontend/landing.html) |
+| `landing-summary-01` | button | 허용 (민감 영역 제외) | [frontend/landing.html:649](../../frontend/landing.html) |
+| `landing-summary-02` | button | 허용 (민감 영역 제외) | [frontend/landing.html:650](../../frontend/landing.html) |
+| `landing-summary-03` | button | 허용 (민감 영역 제외) | [frontend/landing.html:651](../../frontend/landing.html) |
+| `landing-summary-04` | button | 허용 (민감 영역 제외) | [frontend/landing.html:652](../../frontend/landing.html) |
+| `landing-summary-05` | button | 허용 (민감 영역 제외) | [frontend/landing.html:653](../../frontend/landing.html) |
+| `landing-a-09` | link | 허용 (민감 영역 제외) | [frontend/landing.html:664](../../frontend/landing.html) |
+| `landing-a-10` | link | 허용 (민감 영역 제외) | [frontend/landing.html:665](../../frontend/landing.html) |

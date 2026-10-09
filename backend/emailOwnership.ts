@@ -201,7 +201,7 @@ export function registerEmailOwnershipRoutes(app: Express, client: () => Supabas
         return void res.status(503).json({ error: "SIGNUP_UNAVAILABLE" });
       }
       if (!data.user) throw new Error("MISSING_CREATED_USER");
-      return void res.status(201).json({ created: true });
+      return void res.status(201).json({ created: true, userId: data.user.id });
     } catch {
       // An uncertain Admin API result is never retried with the same proof.
       // The visitor can try password login or request a new mailbox link.

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<!-- 랜딩페이지 시안 (로컬 전용, 미배포). 화면 속 사연·숫자·대화는 예시다. -->
+<!-- 서비스 소개. 화면 속 사연·숫자·대화는 예시이며 실제 참여 결과가 아니다. -->
 <title>니편내편</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +84,11 @@ a, button { font: inherit; }
 .btn-sm { height: 38px; padding-inline: 14px; font-size: 13px; border-radius: 10px; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
+/* 독립 페이지도 앱과 동일한 선택적 분석 동의를 사용한다. */
+.landing-consent { padding: 16px 24px; border-bottom: 1px solid var(--line); background: white; font-size: 13px; }
+.landing-consent p { max-width: 1120px; margin: 0 auto 8px; }
+.landing-consent button { border: 1px solid var(--onyx); border-radius: 8px; padding: 7px 18px; background: white; cursor: pointer; margin-right: 8px; }
+.landing-consent #landing-accept { background: var(--onyx); color: white; }
 /* ── 상단 ── */
 .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--onyx); border-bottom: 1px solid var(--line-dark); }
 .nav .wrap { display: flex; align-items: center; gap: 40px; height: 64px; }
@@ -332,18 +337,22 @@ a, button { font: inherit; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
-<body>
+<body data-analytics-screen="landing" data-analytics-layer="0">
+<section id="landing-consent" aria-label="선택적 이용 분석 동의" class="landing-consent">
+<p><b>이용 흐름을 살펴봐도 될까요?</b> 동의하면 일반 화면·클릭·기능 결과만 분석합니다. 예시 투표·공감은 실제 참여로 세지 않고 글·대화 내용과 개인정보는 보내지 않습니다. 거부해도 계속 이용할 수 있으며 앱 마이 화면에서 변경할 수 있습니다.</p>
+<button type="button" data-button-id="landing-consent-button-01" data-analytics-exclude="true" id="landing-refuse">거부</button>
+<button type="button" data-button-id="landing-consent-button-02" data-analytics-exclude="true" id="landing-accept">동의</button></section>
 
 <header class="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><span class="ms" aria-hidden="true">terminal</span>니편내편</a>
+    <a data-action-id="landing-a-01" class="brand" href="#top"><span class="ms" aria-hidden="true">terminal</span>니편내편</a>
     <nav class="nav-links" aria-label="페이지 안내">
-      <a href="#features">서비스 소개</a>
-      <a href="#ai">AI 대화</a>
-      <a href="#safe">안심 장치</a>
-      <a href="#faq">자주 묻는 질문</a>
+      <a data-action-id="landing-a-02" href="#features">서비스 소개</a>
+      <a data-action-id="landing-a-03" href="#ai">AI 대화</a>
+      <a data-action-id="landing-a-04" href="#safe">안심 장치</a>
+      <a data-action-id="landing-a-05" href="#faq">자주 묻는 질문</a>
     </nav>
-    <a class="btn btn-coral btn-sm" href="/"><span class="ms" aria-hidden="true">edit</span><span class="btn-label">사연 올리기</span></a>
+    <a data-action-id="landing-a-06" class="btn btn-coral btn-sm" data-landing-cta="write" href="/?action=write"><span class="ms" aria-hidden="true">edit</span><span class="btn-label">사연 올리기</span></a>
   </div>
 </header>
 
@@ -356,8 +365,8 @@ a, button { font: inherit; }
         <h1><span class="you">니 편</span><span class="vs">VS</span><span class="me">내 편</span><br>누가 맞는지<br>물어보세요</h1>
         <p class="hero-sub">억울한 일, 익명으로 올리면 <br><strong>사람들이 편을 갈라 답해줘요.</strong> <br>못다 한 말은 AI와 이어서 해보세요.</p>
         <div class="cta-row">
-          <a class="btn btn-coral" href="#start">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
-          <a class="btn btn-ghost" href="#start">내 사연 올리기</a>
+          <a data-action-id="landing-a-07" class="btn btn-coral" data-landing-cta="browse" href="/?browse=1">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
+          <a data-action-id="landing-a-08" class="btn btn-ghost" data-landing-cta="write" href="/?action=write">내 사연 올리기</a>
         </div>
         <p class="hero-note">로그인 없이 둘러볼 수 있어요</p>
       </div>
@@ -373,8 +382,8 @@ a, button { font: inherit; }
           <div class="vote">
             <p class="vote-q">당신은 누구 편? 눌러보세요</p>
             <div class="vote-btns">
-              <button class="vb you" id="v-you" aria-pressed="false">니 편<small>한 번 더 기회를</small></button>
-              <button class="vb me" id="v-me" aria-pressed="false">내 편<small>당장 손절</small></button>
+              <button data-button-id="landing-demo-button-01" type="button" class="vb you" id="v-you" aria-pressed="false">니 편<small>한 번 더 기회를</small></button>
+              <button data-button-id="landing-demo-button-02" type="button" class="vb me" id="v-me" aria-pressed="false">내 편<small>당장 손절</small></button>
             </div>
             <div class="gauge" aria-hidden="true"><div class="fill" id="fill"></div></div>
             <div class="legend"><span class="l">니 편 <span class="pct num">8%</span></span><span class="r"><span class="pct num">92%</span> 내 편</span></div>
@@ -482,17 +491,17 @@ a, button { font: inherit; }
               <div class="cm">
                 <span class="who">퇴근희망자 <span class="side me">내 편</span></span>
                 <p>빌려간 사람이 먼저 말 꺼내야 하는 거 아닌가요? 치사한 거 아니에요.</p>
-                <button class="like" aria-pressed="true" data-n="24"><span class="ms" aria-hidden="true">favorite</span><span class="num">24</span></button>
+                <button data-button-id="landing-demo-button-03" type="button" class="like" aria-pressed="true" data-n="24"><span class="ms" aria-hidden="true">favorite</span><span class="num">24</span></button>
               </div>
               <div class="cm">
                 <span class="who">평화주의자 <span class="side you">니 편</span></span>
                 <p>손절 전에 날짜 정해서 한 번만 딱 말해보세요. 그래도 안 주면 그때.</p>
-                <button class="like" aria-pressed="false" data-n="11"><span class="ms" aria-hidden="true">favorite</span><span class="num">11</span></button>
+                <button data-button-id="landing-demo-button-04" type="button" class="like" aria-pressed="false" data-n="11"><span class="ms" aria-hidden="true">favorite</span><span class="num">11</span></button>
               </div>
               <div class="cm">
                 <span class="who">억울한야옹이 <span class="side me">내 편</span></span>
                 <p>저도 똑같은 일 있었는데 결국 연락 끊겼어요…</p>
-                <button class="like" aria-pressed="false" data-n="7"><span class="ms" aria-hidden="true">favorite</span><span class="num">7</span></button>
+                <button data-button-id="landing-demo-button-05" type="button" class="like" aria-pressed="false" data-n="7"><span class="ms" aria-hidden="true">favorite</span><span class="num">7</span></button>
               </div>
             </div>
           </div>
@@ -516,8 +525,8 @@ a, button { font: inherit; }
           <div class="visual-body">
             <div class="rank">
               <div class="rank-tabs" role="tablist">
-                <button role="tab" aria-selected="true" data-tab="weekly">주간 TOP 3</button>
-                <button role="tab" aria-selected="false" data-tab="live">실시간 TOP 3</button>
+                <button data-button-id="landing-demo-button-06" type="button" role="tab" aria-selected="true" data-tab="weekly">주간 TOP 3</button>
+                <button data-button-id="landing-demo-button-07" type="button" role="tab" aria-selected="false" data-tab="live">실시간 TOP 3</button>
               </div>
               <div id="rank-list"></div>
               <span class="rank-time" id="rank-time">이번 주 기준</span>
@@ -541,8 +550,8 @@ a, button { font: inherit; }
               <div class="dark-top"><span>오늘의 질문</span></div>
               <p class="q">주말에 팀장님이 개인 톡으로 가벼운 업무 지시를 내린다면?</p>
               <div class="opts">
-                <button class="bo a" id="b-a" aria-pressed="false">일단 읽씹</button>
-                <button class="bo b" id="b-b" aria-pressed="false">바로 답장</button>
+                <button data-button-id="landing-demo-button-08" type="button" class="bo a" id="b-a" aria-pressed="false">일단 읽씹</button>
+                <button data-button-id="landing-demo-button-09" type="button" class="bo b" id="b-b" aria-pressed="false">바로 답장</button>
               </div>
               <div class="bres">
                 <div class="bar2"><i class="a" id="ba" style="width:50%"></i><i class="b" id="bb" style="width:50%"></i></div>
@@ -637,11 +646,11 @@ a, button { font: inherit; }
         <h2 class="h2">궁금한 점이<br>있나요?</h2>
       </div>
       <div class="faq-list">
-        <details><summary>정말 익명인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">다른 사람에게는 내가 정한 닉네임만 보여요. 이메일 같은 개인 정보는 보이지 않아요.</p></details>
-        <details><summary>가입하지 않아도 쓸 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">사연은 로그인 없이 둘러볼 수 있어요. 사연 쓰기, 투표, 댓글, AI 대화는 이메일로 가입한 뒤 이용할 수 있어요.</p></details>
-        <details><summary>투표를 바꿀 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">한 번 바꿀 수 있어요. 바꾼 뒤에는 그대로 확정되고, 투표 취소는 할 수 없어요.</p></details>
-        <details><summary>AI 상대는 진짜 그 사람인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">아니요. 사연에 적힌 내용을 바탕으로 AI가 상대 역할을 연기해요. 실제 대화를 앞두고 연습하거나 마음을 정리하는 용도로 써주세요.</p></details>
-        <details><summary>내가 쓴 글을 지울 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">네. 내 사연은 언제든 수정하거나 삭제할 수 있어요.</p></details>
+        <details><summary data-action-id="landing-summary-01">정말 익명인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">다른 사람에게는 내가 정한 닉네임만 보여요. 이메일 같은 개인 정보는 보이지 않아요.</p></details>
+        <details><summary data-action-id="landing-summary-02">가입하지 않아도 쓸 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">사연은 로그인 없이 둘러볼 수 있어요. 사연 쓰기, 투표, 댓글, AI 대화는 이메일로 가입한 뒤 이용할 수 있어요.</p></details>
+        <details><summary data-action-id="landing-summary-03">투표를 바꿀 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">한 번 바꿀 수 있어요. 바꾼 뒤에는 그대로 확정되고, 투표 취소는 할 수 없어요.</p></details>
+        <details><summary data-action-id="landing-summary-04">AI 상대는 진짜 그 사람인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">아니요. 사연에 적힌 내용을 바탕으로 AI가 상대 역할을 연기해요. 실제 대화를 앞두고 연습하거나 마음을 정리하는 용도로 써주세요.</p></details>
+        <details><summary data-action-id="landing-summary-05">내가 쓴 글을 지울 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">네. 내 사연은 언제든 수정하거나 삭제할 수 있어요.</p></details>
       </div>
     </div>
   </section>
@@ -652,8 +661,8 @@ a, button { font: inherit; }
       <h2>익명이라<br><em>솔직하게.</em></h2>
       <p class="lede">지금 사람들이 어떤 사연에 편을 갈랐는지 확인해 보세요.</p>
       <div class="cta-row">
-        <a class="btn btn-coral" href="/">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
-        <a class="btn btn-ghost" href="/">내 사연 올리기</a>
+        <a data-action-id="landing-a-09" class="btn btn-coral" data-landing-cta="browse" href="/?browse=1">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
+        <a data-action-id="landing-a-10" class="btn btn-ghost" data-landing-cta="write" href="/?action=write">내 사연 올리기</a>
       </div>
     </div>
   </section>
@@ -728,5 +737,6 @@ a, button { font: inherit; }
   document.getElementById('b-b').addEventListener('click', () => pick('b'));
 })();
 </script>
+<script type="module" src="/src/landing.ts"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /** Fixed UI vocabulary. Never read content, URL parameters or account fields. */
 export const ANALYTICS_SCREENS = new Set([
-  'feed', 'ai_list', 'ai_chat', 'ai_feedback', 'ai_summary', 'my_page',
+  'landing', 'feed', 'ai_list', 'ai_chat', 'ai_feedback', 'ai_summary', 'my_page',
   'my_activity', 'account_settings', 'notifications', 'story_detail',
   'story_editor', 'story_edit', 'ai_opening_selection', 'ai_mode_selection', 'ai_settings',
   'login', 'signup', 'email_check', 'email_pending', 'password_recovery',

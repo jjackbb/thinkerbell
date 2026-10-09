@@ -767,6 +767,110 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
   "welcome-modal-button-16": {
     "kind": "button",
     "excluded": false
+  },
+  "landing-consent-button-01": {
+    "kind": "button",
+    "excluded": true
+  },
+  "landing-consent-button-02": {
+    "kind": "button",
+    "excluded": true
+  },
+  "landing-a-01": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-02": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-03": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-04": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-05": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-06": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-07": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-08": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-demo-button-01": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-02": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-03": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-04": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-05": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-06": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-07": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-08": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-demo-button-09": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-summary-01": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-summary-02": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-summary-03": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-summary-04": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-summary-05": {
+    "kind": "button",
+    "excluded": false
+  },
+  "landing-a-09": {
+    "kind": "link",
+    "excluded": false
+  },
+  "landing-a-10": {
+    "kind": "link",
+    "excluded": false
   }
 };
 export function getAnalyticsControl(id: unknown) {

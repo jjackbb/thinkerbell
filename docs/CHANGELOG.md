@@ -2,6 +2,13 @@
 
 최신 정책은 [PLAN.md](../PLAN.md)입니다. 아래 PATCH-001~042는 [기존 PRD 원본](../archive/2026-09-22/legacy/PRD.md)의 §7을 보존한 과거 기록입니다. 당시 PASS·운영 상태·경로를 현재 검증으로 해석하지 않습니다. `src/` → `frontend/src/`, API 구현 → `backend/app.ts`, `supabase/` → `backend/supabase/`로 이동했습니다.
 
+## 2026-10-09 신규 가입 직후 1회 소개·독립 랜딩 계측
+
+- 무엇을/왜: 사용자 추가 요구에 따라 신규 생성 응답에서만 계정별 한 번 소개로 이동한다. 일반 로그인/세션 복원은 제외하고 중복·중단·계정 전환을 방어한다. 작성 CTA와 게스트 탐색, 독립 페이지의 기존 동의·예시 ui_click 구분을 연결한다.
+- 확인: 신규 회귀8개·가입 HTTP3개·계측6개 PASS, 타입/빌드·목록218개/제외56개·가상 예시 DOM PASS. 실제 브라우저/Supabase/GA4는 Chrome 승인 반복으로 보류. 최종 관련22개·lint/build PASS. 사용자 요청에 따라 main 커밋·푸시 인계를 진행한다. 전체75%(9/12), 별도 배포 미실행.
+- 파일: emailOwnership, App/WelcomeModal, signupLanding, landing HTML/모듈, 계측 surface/catalog/생성기, 관련 테스트와 기존 계획/기록/HTML. 기존 계정 갱신·DB migration 없음.
+
+
 ## 2026-10-09 팀원 랜딩 수신·경로/계측 연결 보완
 
 - 요약/무엇을: `5aa097b`를 받아 팀원 랜딩과 삭제 수정 보존 확인. 로컬 `/landing`·`/landing/` 라우트와 Vercel `/landing` rewrite, 새 소개 링크 2개 계측 ID를 연결했다.

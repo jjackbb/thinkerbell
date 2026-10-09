@@ -1,3 +1,4 @@
+import { createdSignupUser, finishCreatedSignup } from '../lib/signupLanding';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Check, AlertCircle } from 'lucide-react';
@@ -7,6 +8,8 @@ interface WelcomeModalProps {
   isOpen: boolean;
   onComplete: (nickname: string, provider: 'kakao' | 'apple' | 'google') => void;
   onGuestBrowse: () => void;
+  onSignupCreated: (userId: string) => void;
+  canStartSignupLogin: (userId: string) => boolean;
   signupLinkExpired?: boolean;
   emailCheckToken?: string | null;
   passwordRecoveryReturn?: boolean;
@@ -19,7 +22,7 @@ type EmailCheckPhase = 'entry' | 'sent' | 'verifying' | 'registered' | 'pending'
 type RecoveryPhase = 'idle' | 'request' | 'sent' | 'updating' | 'done';
 const emailCheckEnabled = import.meta.env.VITE_EMAIL_CHECK_ENABLED === 'true';
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, signupLinkExpired = false, emailCheckToken = null, passwordRecoveryReturn = false, passwordRecoveryReady = false, recoveryLinkExpired = false, onPasswordRecoveryComplete }) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, onSignupCreated, canStartSignupLogin, signupLinkExpired = false, emailCheckToken = null, passwordRecoveryReturn = false, passwordRecoveryReady = false, recoveryLinkExpired = false, onPasswordRecoveryComplete }) => {
   const [isLoginMode, setIsLoginMode] = useState(!(emailCheckEnabled && emailCheckToken));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,11 +43,15 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
   const [recoveryError, setRecoveryError] = useState(recoveryLinkExpired ? '재설정 링크를 사용할 수 없습니다. 새 메일을 요청해 주세요.' : '');
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const verificationStarted = useRef(false);
+  const signupAttemptVersion = useRef(0);
+  const automaticSignupLogin = useRef(false);
+  const submitPending = useRef(false);
 
   // The dialog remains mounted while hidden. Drop credentials before another
   // account opens it on a shared browser.
   useEffect(() => {
     if (isOpen) return;
+    if (!automaticSignupLogin.current) signupAttemptVersion.current += 1;
     setEmail('');
     setPassword('');
     setNickname('');
@@ -198,6 +205,9 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitPending.current) return;
+    submitPending.current = true;
+    const attemptVersion = ++signupAttemptVersion.current;
     setErrorMsg('');
     setIsLoading(true);
 
@@ -239,7 +249,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             setEmailCheckError('확인 시간이 지났습니다. 이메일 소유 확인을 다시 요청해 주세요.');
             return;
           }
-          if (!response.ok || result.created !== true) {
+          const createdUserId = createdSignupUser(result);
+          if (!response.ok || !createdUserId) {
             if (response.status === 400) throw new Error('가입 정보를 다시 확인해 주세요.');
             task.finish('error');
             setSignupToken(null);
@@ -250,16 +261,30 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           }
           setSignupToken(null);
           task.finish('success');
+          const isCurrent = () => signupAttemptVersion.current === attemptVersion && canStartSignupLogin(createdUserId);
+          if (!isCurrent()) return;
           const autoLogin = beginTask('login');
-          const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-          autoLogin.finish(loginError ? 'error' : 'success');
-          if (loginError) {
+          automaticSignupLogin.current = true;
+          const loggedIn = await finishCreatedSignup(createdUserId, async () => {
+            try {
+              const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+              autoLogin.finish(loginError ? 'error' : 'success');
+              return !loginError;
+            } catch {
+              autoLogin.finish('error');
+              return false;
+            }
+          }, onSignupCreated, isCurrent);
+          automaticSignupLogin.current = false;
+          if (!isCurrent()) return;
+          if (!loggedIn) {
             setEmailCheckPhase('registered');
             setIsLoginMode(true);
             setErrorMsg('계정이 만들어졌지만 자동 로그인하지 못했습니다. 아래에서 로그인해 주세요.');
           }
           return;
         }
+        automaticSignupLogin.current = true;
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -271,6 +296,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         });
         if (error) throw error;
         task.finish('success');
+        if (data.session && data.user?.id && signupAttemptVersion.current === attemptVersion) onSignupCreated(data.user.id);
         if (!data.session) {
           setConfirmationEmail(email.trim());
           setPassword('');
@@ -286,6 +312,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         setErrorMsg(getKoreanErrorMessage(error));
       }
     } finally {
+      submitPending.current = false;
+      automaticSignupLogin.current = false;
       setIsLoading(false);
     }
   };
@@ -564,6 +592,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
         {recoveryPhase === 'idle' && <button data-button-id="welcome-modal-button-14"
           type="button"
           onClick={() => {
+            signupAttemptVersion.current += 1;
             setShowExpiredLink(false);
             onGuestBrowse();
           }}
@@ -581,6 +610,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           <button data-button-id="welcome-modal-button-16"
             type="button" 
             onClick={() => {
+              signupAttemptVersion.current += 1;
               if (emailCheckEnabled && isLoginMode && emailCheckPhase === 'registered') {
                 setEmail('');
                 setEmailCheckPhase('entry');

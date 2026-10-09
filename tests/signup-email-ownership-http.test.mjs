@@ -113,7 +113,7 @@ test('new account is created once only after mailbox proof, without a second sig
     nickname: '새계정', signupToken: verified.body.signupToken };
   const created = await post('/api/auth/email-check/signup', signup);
   assert.equal(created.status, 201);
-  assert.deepEqual(created.body, { created: true });
+  assert.deepEqual(created.body, { created: true, userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
   const replay = await post('/api/auth/email-check/signup', signup);
   assert.equal(replay.status, 410);
   assert.equal(createdUsers, 1);
