@@ -626,7 +626,7 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
   },
   "story-detail-modal-button-09": {
     "kind": "button",
-    "excluded": true
+    "excluded": false
   },
   "story-detail-modal-button-10": {
     "kind": "button",

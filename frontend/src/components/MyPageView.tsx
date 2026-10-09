@@ -226,7 +226,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     if (activeTab === 'stories') {
       if (items.length === 0) return <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">작성한 사연이 없습니다.</p>;
       return (items as Story[]).map((s) => (
-        <div data-action-id="my-page-view-action-01" data-analytics-exclude={s.visibility === "private" || s.isAdult || s.isBlind ? "true" : undefined}
+        <div data-action-id="my-page-view-action-01" data-analytics-exclude={s.visibility === "private" || s.isAdult || s.isBlind || s.isHidden ? "true" : undefined}
           key={s.id}
           onClick={() => onSelectStory(s)}
           className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg cursor-pointer transition-colors flex justify-between items-center"

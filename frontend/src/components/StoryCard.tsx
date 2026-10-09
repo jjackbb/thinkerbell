@@ -139,7 +139,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   }
 
   return (
-    <article data-action-id="story-card-action-01"
+    <article data-action-id="story-card-action-01" data-analytics-exclude={story.visibility === "private" || story.isAdult || story.isBlind || story.isHidden ? "true" : undefined}
       ref={cardRef}
       onClick={() => {
         if (isBlurRequired && onRequireAdultVerification) {

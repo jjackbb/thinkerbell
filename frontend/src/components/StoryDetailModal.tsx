@@ -280,7 +280,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isZeroVotes = totalVotes === 0;
 
   return (
-    <div data-analytics-screen={isPrivate || story.isAdult || story.isBlind || story.isHidden ? "excluded" : "story_detail"} data-analytics-layer="20" data-action-id="story-detail-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen={isPrivate || isSensitive || story.isAdult || story.isBlind || story.isHidden ? "excluded" : "story_detail"} data-analytics-layer="20" data-action-id="story-detail-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
       <div data-analytics-ignore="true" onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         {/* Toast Alert */}
         {toastMessage && (
@@ -433,7 +433,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
                 {/* 사연 피드 카드와 동일한 투표 버튼 — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-09"
+                  <button data-button-id="story-detail-modal-button-09"
                     onClick={() => handleVote('B')}
                     disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}

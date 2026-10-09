@@ -112,7 +112,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const isSubmitDisabled = isSubmitting;
 
   return (
-    <div data-analytics-screen={initialData?.visibility === "private" || initialData?.isAdult || initialData?.isBlind ? "excluded" : initialData ? "story_edit" : "story_editor"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen={initialData?.visibility === "private" || initialData?.isAdult || initialData?.isBlind || initialData?.isHidden ? "excluded" : initialData ? "story_edit" : "story_editor"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
         
         {/* Modal Header */}

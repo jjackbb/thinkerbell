@@ -2,7 +2,7 @@
 
 정책은 PLAN §3. 현재 코드의 정적 목록이며 조건부 노출·기능 작동·GA4 수신 판정과 구분한다. 민감 화면/영역의 모든 하위 행동은 아래 개별 허용 여부와 관계없이 제외된다. 전파 제어만 하는 컨테이너는 행동으로 세지 않는다. 반복 카드는 동일한 행동 ID를 사용하며 원문·대상 ID·링크 주소를 보내지 않는다.
 
-생성: `node tools/generate-analytics-inventory.mjs`. 총 190개, 개별 제외 55개.
+생성: `node tools/generate-analytics-inventory.mjs`. 총 190개, 개별 제외 54개.
 
 | ID | 종류 | 개별 정책 | 코드 |
 | --- | --- | --- | --- |
@@ -162,7 +162,7 @@
 | `story-detail-modal-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:346](../../frontend/src/components/StoryDetailModal.tsx) |
 | `story-detail-modal-button-08` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:401](../../frontend/src/components/StoryDetailModal.tsx) |
 | `story-detail-modal-action-02` | link | 제외 | [frontend/src/components/StoryDetailModal.tsx:407](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-09` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:436](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:436](../../frontend/src/components/StoryDetailModal.tsx) |
 | `story-detail-modal-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:450](../../frontend/src/components/StoryDetailModal.tsx) |
 | `story-detail-modal-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:509](../../frontend/src/components/StoryDetailModal.tsx) |
 | `story-detail-modal-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:569](../../frontend/src/components/StoryDetailModal.tsx) |
