@@ -1,3 +1,4 @@
+import { ownsStory } from '../lib/storyOwnership';
 import React, { useState, useRef, useEffect } from 'react';
 import { Story, UserProfile, Comment } from '../types';
 import { VoteResult } from './VoteResult';
@@ -64,7 +65,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   }, [isExpanded, isMenuOpen]);
 
   const isBlurRequired = story.isAdult && !isUserAdultVerified;
-  const isMyStory = currentUser?.id === story.authorId;
+  const isMyStory = ownsStory(currentUser?.id, story.authorId, isGuest);
 
   const handleVoteClick = async (e: React.MouseEvent, option: 'A' | 'B') => {
     e.stopPropagation();

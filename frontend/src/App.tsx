@@ -1,3 +1,4 @@
+import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
 import { beginTask, blockedAction } from './lib/taskAnalytics';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession, ChatMessage } from './types';
@@ -615,6 +616,7 @@ export default function App() {
     setIsExplainSettingsModalOpen(false);
     setReportTargetId(null);
     setStoryToDelete(null);
+    setStoryDeleting(false);
     setAppealTargetId(null);
     setAppealSubmitting(false);
     setAppealError(null);
@@ -1052,27 +1054,32 @@ export default function App() {
   };
 
   const handleDeleteStory = (storyId: string) => {
+    const story = stories.find(item => item.id === storyId);
+    if (!authUserId || !story || !ownsStory(authUserId, story.authorId, isGuest)) return;
     setStoryToDelete(storyId);
   };
 
   const confirmDeleteStory = async () => {
-    if (!storyToDelete || !authUserId || storyDeleting) return;
+    if (!storyToDelete || !authUserId || isGuest || storyDeleting) return;
     const storyId = storyToDelete;
+    const accountId = authUserId;
+    const accountVersion = authTransitionVersion.current;
+    const isCurrentAccount = () => authUserIdRef.current === accountId &&
+      authTransitionVersion.current === accountVersion;
     setStoryDeleting(true);
     try {
-      const { data, error } = await supabase.from('stories').delete()
-        .eq('id', storyId).eq('authorId', authUserId)
-        .select('id').maybeSingle();
-      if (error || !data) throw new Error('delete failed');
+      await deleteOwnedStory(supabase, storyId, accountId, isCurrentAccount);
       setStories(prev => prev.filter(s => s.id !== storyId));
       if (selectedStory?.id === storyId) setSelectedStory(null);
       setStoryToDelete(null);
       setToastMessage('사연이 삭제되었습니다.');
     } catch {
-      setToastMessage('사연을 삭제하지 못했습니다. 다시 시도해 주세요.');
+      if (isCurrentAccount()) setToastMessage('사연을 삭제하지 못했습니다. 다시 시도해 주세요.');
     } finally {
-      setStoryDeleting(false);
-      setTimeout(() => setToastMessage(null), 3000);
+      if (isCurrentAccount()) {
+        setStoryDeleting(false);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
     }
   };
 

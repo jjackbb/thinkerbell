@@ -1,3 +1,4 @@
+import { ownsStory } from '../lib/storyOwnership';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
@@ -168,7 +169,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const isMyStory = story ? currentUser.id === story.authorId : false;
+  const isMyStory = !!story && ownsStory(currentUser.id, story.authorId, isGuest);
 
   if (!story) return null;
   const isPrivate = story.visibility === 'private';

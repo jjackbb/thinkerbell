@@ -119,7 +119,7 @@ const statusGroups = [
     ['현재 문서·이력 분리와 커밋·운영 배포', '원본 15개 보존, fee5ea5 푸시·운영 READY·공개 주소 확인', 'README.md'],
     ['Chrome 기기 모드 확인', '390×844·터치 기술 확인, 실물 Safari 아님', '2026-09-28-two-account-browser-checklist.md'],
   ]},
-  { id: 'in-progress', title: '작업 중', note: '2026-10-09 전체 이벤트 확대', items: [['전체 화면·행동·기능 결과 계측', '구현 푸시·QA Preview READY. 브라우저 도구 연결 오류로 GA4 실제 수신·운영 반영 대기', 'README.md']] },
+  { id: 'in-progress', title: '작업 중', note: '2026-10-09 삭제 조사·랜딩페이지 수신 대기', items: [['삭제 소유권·세션 경계 보강', '격리 회귀 PASS. 제보·운영 DB 권한 미검증, 팀원 새 커밋 확인 후 재개', '2026-09-28-in-progress-release-preflight.md'], ['전체 화면·행동·기능 결과 계측', '구현 푸시·QA Preview READY. 현재 Chrome 읽기 성공, 신규 GA4 실제 수신·운영 반영 미검증', 'README.md']] },
   { id: 'not-started', title: '작업 전', note: '게시 이후 또는 별도 보류', items: [
     ['커뮤니티·SNS 실제 게시', '소개 글·링크 초안 준비, 게시 경로/시각 기록 필요', '2026-09-28-release-blockers-questions.html'],
     ['처리 보고서·기준선 대조', '실제 유입 후 기술 시험 제외·기간/버전/분모 기록', '../../PLAN.md'],
@@ -136,6 +136,7 @@ const orderedStatusGroups = ['not-started', 'in-progress', 'done', 'user-test']
 // Execution order follows PLAN section 4 and the release-gates handoff. Items
 // waiting for a real account or an owner decision stay explicitly pending.
 const nextActions = [
+  ['수신 대기', '팀원 랜딩페이지 반영 후 삭제 제보 검증 재개', '현재 main 수정 커밋·푸시를 우선한다. 새 팀원 커밋이 없으며 변경 손실·충돌의 임의 해결 없이 통합한다. 별도 배포는 실행하지 않는다.', '2026-09-28-in-progress-release-preflight.md'],
   ['확인 후', 'QA 수신·운영 반영', '기존 계정은 테스트·팀원 계정으로 별도 재동의 전환을 생략한다. 맞춤 측정기준·Preview 수신을 확인한 뒤 운영에 반영한다. 신규 내부 DB 이벤트는 추가하지 않는다.', '2026-10-09-analytics-scope.html'],
   ['실제 게시', '커뮤니티·SNS 소개 글과 링크', '자발적 이용을 위한 게시다. Vercel 배포와 구분하며 게시 경로·시각·주소를 기록한다.', '2026-09-28-release-blockers-questions.html'],
   ['이용·보고서 처리 후', '기준선·불편 근거·첫 개선', '기술 시험 제외, 신규/이어하기 분리, 실제 건수·피드백으로 문제를 선택하고 개선을 확인한다.', '../../PLAN.md'],
@@ -277,6 +278,7 @@ const html = `<!doctype html>
         </details>
       </section>
       <p class="meta">이 HTML은 문서를 변경하거나 운영 상태를 판정하지 않습니다. 각 PASS는 원문에 적힌 검증 범위에만 적용됩니다.</p>
+<section class="panel" id="dots-questions"><h2>보류한 확인 질문</h2><p>선택은 자동 제출되지 않습니다. 각 질문의 선택 또는 기타 내용을 대화로 알려 주세요. 이미 확정한 main 작업·커밋/푸시·별도 배포 미실행은 다시 묻지 않습니다.</p><fieldset><legend>1. 팀원 랜딩페이지 커밋의 위치를 어떻게 확인할까요?</legend><p>이유: 아직 origin/main에 새 커밋이 없습니다. 정확한 위치를 확인해야 현재 수정을 보호하면서 통합할 수 있습니다.</p><label><input type="radio" name="landing" value="main">추천안: 팀원이 main 푸시를 완료한 뒤 커밋 해시를 제공. 현재 지시와 일치하고 통합 대상을 명확히 합니다.</label><br><label><input type="radio" name="landing" value="branch">대안 1: 다른 브랜치에 푸시했다면 정확한 브랜치·커밋을 제공.</label><br><label><input type="radio" name="landing" value="patch">대안 2: 아직 미푸시라면 변경 파일/패치를 제공해 통합 전 검토.</label><br><label><input type="radio" name="landing" value="other">기타: 직접 입력<textarea aria-label="랜딩페이지 기타"></textarea></label></fieldset><fieldset><legend>2. 팀원의 비로그인 삭제 제보 근거는 어떻게 받을까요?</legend><p>이유: 버튼/목록 변화와 실제 DB 삭제를 구분하지 못했습니다. 비밀값·메일·원문은 보내지 않아도 됩니다.</p><label><input type="radio" name="incident" value="evidence">추천안: 당시 커밋·서버/포트·연결 프로젝트·세션 유무·삭제 전후 행 존재 여부를 전달. 제보 환경과 현재 환경의 차이를 가장 직접적으로 확인합니다.</label><br><label><input type="radio" name="incident" value="observe">대안 1: 기존 데이터 삭제 없이 팀원이 화면과 네트워크 결과를 설명.</label><br><label><input type="radio" name="incident" value="isolated">대안 2: 증거를 구하기 어렵다면 제보는 미재현으로 유지하고 새 랜딩 버전의 격리 재현을 우선.</label><br><label><input type="radio" name="incident" value="other">기타: 직접 입력<textarea aria-label="삭제 제보 기타"></textarea></label></fieldset></section>
     </main>
   </div>
 </body>
