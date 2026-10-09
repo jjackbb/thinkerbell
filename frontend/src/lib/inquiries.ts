@@ -36,10 +36,14 @@ export async function fetchMyInquiries(): Promise<Inquiry[]> {
 }
 
 /** 문의를 남긴다 */
-export async function submitInquiry(userId: string, content: string): Promise<boolean> {
+export async function submitInquiry(
+  userId: string,
+  content: string,
+  category: '1:1 문의' | 'AI 오류' = '1:1 문의',
+): Promise<boolean> {
   const { error } = await supabase
     .from('inquiries')
-    .insert({ userId, category: '1:1 문의', content });
+    .insert({ userId, category, content });
   return !error;
 }
 

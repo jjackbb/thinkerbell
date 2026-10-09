@@ -7,12 +7,35 @@ import { supabase } from './supabase';
  * 횟수가 초기화됐다. 나중에 실제로 돈을 받을 거라면 그 숫자는 사용자 기기가
  * 아니라 서버가 들고 있어야 한다.
  *
- * 지금은 로그인한 사용자면 Supabase(`ai_chat_usage`)에서 세고, 로그인 전이거나
- * 서버가 응답하지 않으면 예전처럼 localStorage로 센다. 서버가 잠깐 죽었다고
- * 해서 쓰던 사람을 막아버리는 것보다는 낫다고 봤다.
+ * 사용량 조회는 서버가 현재 전환 모드에 맞는 DB 기록을 센다. 조회 실패를
+ * 기기 저장소의 성공 값으로 바꾸지 않는다. 아래 직접 INSERT는 자정 전환
+ * 전의 기존 대화방 생성 차감에만 쓰며, 서버 예약 단계가 연결되면 제거한다.
  */
 
 export const DAILY_AI_QUOTA = 3;
+
+export interface AiQuotaStatus {
+  mode: 'legacy' | 'server';
+  quotaDay: string;
+  used: number;
+  limit: number;
+}
+
+/** 서버가 사용 날짜와 예약을 포함한 현재 한도를 판정한다. 실패는 허용 횟수로 바꾸지 않는다. */
+export async function fetchAiQuotaStatus(): Promise<AiQuotaStatus> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('AUTH_REQUIRED');
+  const response = await fetch('/api/ai/quota', {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || (result.mode !== 'legacy' && result.mode !== 'server') ||
+      typeof result.quotaDay !== 'string' ||
+      !Number.isInteger(result.used) || result.used < 0 || result.limit !== DAILY_AI_QUOTA) {
+    throw new Error(typeof result.error === 'string' ? result.error : 'AI_QUOTA_UNAVAILABLE');
+  }
+  return result as AiQuotaStatus;
+}
 
 const LOCAL_KEY = 'nipyeon_ai_quota';
 
@@ -48,21 +71,9 @@ const currentUserId = async (): Promise<string | null> => {
   return data?.session?.user?.id ?? null;
 };
 
-/** 오늘 이 사람이 쓴 무료 횟수 */
+/** 오늘 이 사람이 쓴 무료 횟수. 실패하면 호출자가 새 이용을 막는다. */
 export async function fetchAiQuotaUsed(): Promise<number> {
-  const userId = await currentUserId();
-  if (!userId) return readLocal();
-
-  // head: true(HEAD 요청)로 개수만 받으면 값은 오는데 브라우저 콘솔에 계속
-  // 404/ERR_ABORTED가 찍힌다. 행이 하루 몇 개뿐이라 그냥 받아서 센다.
-  const { data, error } = await supabase
-    .from('ai_chat_usage')
-    .select('id')
-    .eq('userId', userId)
-    .eq('usedOn', seoulToday());
-
-  if (error) return readLocal();
-  return data?.length ?? 0;
+  return (await fetchAiQuotaStatus()).used;
 }
 
 /** 한 번 썼다고 기록하고, 갱신된 사용 횟수를 돌려준다 */

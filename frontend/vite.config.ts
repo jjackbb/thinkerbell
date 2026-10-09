@@ -8,6 +8,10 @@ export default defineConfig(() => {
     root: __dirname,
     envDir: path.resolve(__dirname, '..'),
     plugins: [react(), tailwindcss()],
+    define: {
+      // Generated per deployment, not supplied by a visitor or an account.
+      'import.meta.env.VITE_RELEASE_ID': JSON.stringify(process.env.VERCEL_URL || 'local'),
+    },
     build: {
       outDir: path.resolve(__dirname, '../dist'),
       emptyOutDir: true,

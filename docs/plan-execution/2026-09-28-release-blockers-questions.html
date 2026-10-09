@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>니편내편 · 첫 답변 집계 확인과 공개 글</title>
+  <style>
+    :root { color-scheme:light; --ink:#26323d; --muted:#61717d; --line:#dce4e7; --accent:#c84f40; --navy:#183f4a; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f4f7f7; color:var(--ink); font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; line-height:1.6; }
+    main { max-width:840px; margin:auto; padding:28px 18px 70px; }
+    h1 { margin:0 0 8px; color:var(--navy); font-size:clamp(1.55rem,4vw,2.25rem); line-height:1.3; }
+    h2 { margin:0 0 6px; color:var(--navy); font-size:1.2rem; }
+    p { margin:6px 0 12px; }
+    a { color:#a84035; }
+    .intro,.stage,.output { background:#fff; border:1px solid var(--line); border-radius:16px; padding:clamp(18px,3vw,28px); margin-bottom:18px; }
+    .intro { border-top:5px solid var(--accent); }
+    .muted,.hint { color:var(--muted); font-size:.9rem; }
+    .stage-kicker { color:var(--accent); font-size:.77rem; font-weight:800; letter-spacing:.06em; }
+    fieldset { border:0; border-top:1px solid var(--line); margin:18px 0 0; padding:18px 0 0; min-width:0; }
+    legend { font-size:1.03rem; font-weight:750; color:var(--navy); padding:0 0 4px; }
+    .option { display:flex; gap:10px; align-items:flex-start; padding:11px 12px; margin:8px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer; }
+    .option:has(input:checked) { border-color:var(--accent); background:#fff2ef; }
+    .option input { margin-top:5px; accent-color:var(--accent); }
+    .recommended { display:inline-block; color:#8c3b30; background:#ffe8e2; border-radius:99px; padding:1px 7px; font-size:.74rem; font-weight:800; margin-left:5px; }
+    .field-label { display:block; margin:16px 0 5px; font-weight:650; }
+    textarea { width:100%; min-height:96px; border:1px solid #b9c6ca; border-radius:9px; padding:10px 12px; font:inherit; resize:vertical; }
+    textarea:focus-visible,.option:focus-within,button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    button { border:0; border-radius:9px; background:var(--accent); color:#fff; padding:11px 16px; font:inherit; font-weight:750; cursor:pointer; }
+    #answers { min-height:230px; margin-top:12px; background:#f8faf9; }
+    #message { min-height:1.5em; font-weight:650; }
+    #message.error { color:#a92416; }
+    @media (max-width:540px) { main { padding:18px 12px 44px; } .intro,.stage,.output { padding:18px; } }
+  </style>
+</head>
+<body>
+  <main><section class="intro" id="analytics-question"><h1>첫 AI 답변 집계 기준 — 결정 완료</h1>
+<p><strong>선택: 답변 완료와 저장 결과 분리 — 원래 합의 복원</strong></p>
+<p>AI 답변이 정상적으로 끝까지 표시되면 첫 답변을 집계합니다. 저장이 실패했다면 ‘답변 완료 1건 + 저장 실패 1건’으로 기록합니다. 부분 응답·빈 응답은 첫 답변으로 세지 않습니다.</p>
+<p>저장 실패 미차감·입력 보존·새 답변 재요청은 유지합니다. 도움 평가도 정상 저장 답변이 있어야 가능합니다.</p>
+<p class="hint">코드·PLAN에 복원하고 운영 배포·가상 스트림 집계·운영 GA4 수신을 확인했습니다. 이 질문에 다시 답하실 필요는 없습니다.</p></section><section class="intro"><h1>커뮤니티·SNS 공개 글</h1><p>공개 게시 후 자발적으로 들어오는 이용과 반응부터 확인하기로 했습니다. 직접 모집이나 동석 관찰을 먼저 준비하실 필요는 없습니다.</p><p><a href="https://thinkerbell-eight.vercel.app">공개 앱</a> · <a href="2026-09-28-plan-reader.html">진행 현황</a></p><p class="hint">아래는 게시용 초안입니다. 실제로 게시하거나 다른 사람에게 전송하지 않았습니다.</p></section><section class="stage"><h2>커뮤니티용</h2><textarea id="community" aria-label="커뮤니티용 게시 초안" style="min-height:360px">제목: 갈등 상황에서 할 말을 연습해 보는 ‘니편내편’을 만들었습니다
+
+친구나 동료와 다툰 뒤 “그때 이렇게 말할걸” 싶었던 적 있으신가요?
+
+그런 상황을 사연으로 적고, AI와 상대에게 할 말을 연습하거나 양쪽 입장을 정리해 볼 수 있는 웹서비스 ‘니편내편’을 만들었습니다. 다른 사람이 올린 사연을 읽고 의견을 나눌 수도 있어요.
+
+직접 써 보시고, 불편했던 점이나 도움이 됐던 부분을 알려주시면 다음 개선에 반영하고 싶습니다. 공개해도 괜찮은 내용으로 가볍게 써 주세요.
+
+https://thinkerbell-eight.vercel.app/?source=community</textarea><button type="button" data-copy="community">글 복사하기</button></section><section class="stage"><h2>짧은 SNS용</h2><textarea id="sns" aria-label="짧은 SNS용 게시 초안" style="min-height:220px">다툰 뒤 “그때 이렇게 말할걸” 싶을 때 쓰는 웹서비스 ‘니편내편’을 만들었어요.
+AI와 상대에게 할 말을 연습하거나 양쪽 입장을 정리해 볼 수 있어요.
+써 보시고 불편한 점이나 도움이 됐던 부분을 알려주세요!
+
+https://thinkerbell-eight.vercel.app/?source=sns</textarea><button type="button" data-copy="sns">글 복사하기</button></section><section class="stage"><h2>게시 후 남길 정보</h2><p>게시한 플랫폼·게시 시각·게시물 주소만 기록하면 됩니다. 이용자의 계정이나 사연 원문은 필요하지 않습니다.</p><p>공개 글 반응·앱 첫 AI 답변·저장 오류·자발적 의견을 나누어 확인합니다. 댓글이 없다는 이유만으로 이용하지 않았거나 만족하지 않았다고 판단하지 않습니다.</p><p class="hint">두 초안의 링크는 각각 커뮤니티·SNS 유입을 구분합니다. 동의한 이용만 분석하며 원문·개인정보는 보내지 않습니다. 링크 재공유 시 기존 범주가 유지되므로 게시 시각과 게시물 주소도 기록합니다.</p></section><section class="stage"><h2>별도로 남은 작업</h2><p>공개 전 계측 보완·운영 반영·실제 수신 확인을 마쳤습니다. 자정 횟수 전환 검증은 사용자 요청으로 이번 범위에서 제외했습니다. 실제 게시와 데이터 처리 이후 보고서·자발적 피드백을 대조합니다. 첫 답변 집계 기준은 맨 위에 확정 기록으로 남겼습니다. 복원 코드의 운영 반영·가상 스트림 확인·GA4 수신까지 마쳤습니다.</p></section><p id="message" role="status"></p></main>
+<script>
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{const t=document.getElementById(b.dataset.copy);try{await navigator.clipboard.writeText(t.value);document.getElementById('message').textContent='복사했습니다.'}catch{t.focus();t.select();document.getElementById('message').textContent='선택된 글을 직접 복사해 주세요.'}}));
+</script></body></html>

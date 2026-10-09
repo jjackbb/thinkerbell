@@ -1,3 +1,5 @@
+import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
+import { beginTask, blockedAction } from './lib/taskAnalytics';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession, ChatMessage } from './types';
 import { INITIAL_STORIES, INITIAL_COMMENTS } from './data/mockData';
@@ -13,25 +15,39 @@ import { AIChatModeSelectionModal, ChatOpening } from './components/AIChatModeSe
 import { AIExplainSettingsModal, ExplainRatio } from './components/AIExplainSettingsModal';
 import { AIErrorReportModal } from './components/AIErrorReportModal';
 import { MyPageView } from './components/MyPageView';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsent';
 import { ReportModal } from './components/ReportModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { LoginPromptModal } from './components/LoginPromptModal';
 import { CrisisSupportModal } from './components/CrisisSupportModal';
-import { AdultVerificationModal } from './components/AdultVerificationModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
-import { DAILY_AI_QUOTA, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
-import { fetchPersonas, createPersona, savePersona, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
+import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
+import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
+import type { AnalyticsEntryPoint, ConversationType } from './lib/analyticsContext';
+import { setupGA4 } from './lib/ga4';
+import { useAnalyticsConsent } from './lib/useAnalyticsConsent';
+import { submitInquiry } from './lib/inquiries';
 
 const CATEGORIES: StoryCategory[] = ['전체', '연애', '직장', '친구', '가족', '기타'];
+const authorPrivateLaunchEnabled = import.meta.env.DEV ||
+  import.meta.env.VITE_AUTHOR_PRIVATE_ENABLED === 'true';
 
 // Supabase가 만료된 인증 링크를 앱으로 돌려보낼 때 URL 조각에 오류 코드를 담는다.
-const signupLinkExpired = new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
+const passwordRecoveryReturn = new URLSearchParams(window.location.search).get('auth') === 'recovery';
+const recoveryHash = new URLSearchParams(window.location.hash.slice(1));
+const recoveryCallbackAccessToken = passwordRecoveryReturn && recoveryHash.get('type') === 'recovery'
+  ? recoveryHash.get('access_token') : null;
+const recoveryLinkExpired = passwordRecoveryReturn &&
+  Boolean(new URLSearchParams(window.location.hash.slice(1)).get('error_code'));
+const signupLinkExpired = !passwordRecoveryReturn &&
+  new URLSearchParams(window.location.hash.slice(1)).get('error_code') === 'otp_expired';
+const emailCheckToken = new URLSearchParams(window.location.hash.slice(1)).get('email_check');
 
 // 사연 기반 AI 시뮬레이션에서 대화 상대를 부르는 호칭
 const OPPONENT_LABELS: Partial<Record<StoryCategory, string>> = {
@@ -91,16 +107,15 @@ const makeDefaultUser = (): UserProfile => ({
 
 export default function App() {
   useEffect(() => {
-    if (signupLinkExpired) {
+    if (signupLinkExpired || recoveryLinkExpired || emailCheckToken) {
       window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
   }, []);
 
   // User Profile State
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('nipyeon_user');
-    return saved ? JSON.parse(saved) : makeDefaultUser();
-  });
+  // The persisted Supabase session, not an old browser profile, identifies the user.
+  const [user, setUser] = useState<UserProfile>(makeDefaultUser);
+  useEffect(() => { localStorage.removeItem('nipyeon_user'); }, []);
 
   /*
     둘러보기는 새로고침을 견뎌야 한다.
@@ -112,7 +127,9 @@ export default function App() {
   */
   const wasBrowsingAsGuest = localStorage.getItem('nipyeon_guest') === '1';
 
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired);
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!wasBrowsingAsGuest || signupLinkExpired || passwordRecoveryReturn || Boolean(emailCheckToken));
+  const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false);
+  const passwordRecoveryFlowRef = useRef(passwordRecoveryReturn);
   const [showLandingPage, setShowLandingPage] = useState<boolean>(!wasBrowsingAsGuest);
 
   /**
@@ -122,6 +139,9 @@ export default function App() {
    * 대화방을 어느 계정 것으로 담고 비울지는 이 값으로만 판단한다.
    */
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const authUserIdRef = useRef(authUserId);
+  authUserIdRef.current = authUserId;
+  const authTransitionVersion = useRef(0);
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(wasBrowsingAsGuest);
@@ -131,6 +151,8 @@ export default function App() {
   // 막으면 다른 앱으로 옮겨갈 뿐이라, 리소스만 보여주고 흐름은 그대로 둔다.
   const [isCrisisOpen, setIsCrisisOpen] = useState<boolean>(false);
   const [appealTargetId, setAppealTargetId] = useState<string | null>(null);
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealError, setAppealError] = useState<string | null>(null);
   const notifyIfCrisis = (...texts: (string | undefined)[]) => {
     if (texts.some(t => detectCrisis(t ?? ''))) setIsCrisisOpen(true);
   };
@@ -172,17 +194,25 @@ export default function App() {
 
   // Initialize Supabase Auth
   useEffect(() => {
+    const initialVersion = authTransitionVersion.current;
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (initialVersion !== authTransitionVersion.current) return;
+      if (recoveryCallbackAccessToken) {
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+      }
       if (session?.user) {
-        setShowWelcomeModal(false);
+        if (!emailCheckToken && !passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
+        if (recoveryCallbackAccessToken && session.access_token === recoveryCallbackAccessToken &&
+            !recoveryLinkExpired) setPasswordRecoveryReady(true);
         setShowLandingPage(false);
         setIsGuest(false);
+        authUserIdRef.current = session.user.id;
         setAuthUserId(session.user.id);
-        setUser(prev => ({
-          ...prev,
+        setUser({
+          ...makeDefaultUser(),
           id: session.user.id,
-          nickname: session.user.user_metadata?.nickname || prev.nickname,
-        }));
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
       } else if (!wasBrowsingAsGuest) {
         /*
           세션이 없어도 '둘러보는 중'이던 사람에게는 로그인 창을 다시 띄우지
@@ -195,18 +225,37 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        authTransitionVersion.current += 1;
+        if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        authUserIdRef.current = session.user.id;
         trackOnce(`login_success:${session.user.id}`, 'login_success');
-        setShowWelcomeModal(false);
+        if (!passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
         setShowLandingPage(false);
         setIsGuest(false);
         setAuthUserId(session.user.id);
-        setUser(prev => ({
-          ...prev,
+        setUser({
+          ...makeDefaultUser(),
           id: session.user.id,
-          nickname: session.user.user_metadata?.nickname || prev.nickname,
-        }));
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
+        loadMyVotes();
+      } else if (event === 'PASSWORD_RECOVERY' && session) {
+        authTransitionVersion.current += 1;
+        if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        authUserIdRef.current = session.user.id;
+        setPasswordRecoveryReady(true);
+        setShowWelcomeModal(true);
+        setShowLandingPage(false);
+        setIsGuest(false);
+        setAuthUserId(session.user.id);
+        setUser({
+          ...makeDefaultUser(),
+          id: session.user.id,
+          nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+        });
         loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
+        authTransitionVersion.current += 1;
         /*
           로그아웃하면 이 사람이 시작하지도 않은 대화가 목록에 남아서는 안 된다.
           닉네임도 마찬가지다. 예전에는 둘 다 남아서, 같은 브라우저에서 다른
@@ -215,16 +264,12 @@ export default function App() {
           로그인 전에는 게스트와 같은 제약(투표·AI 대화 차단)을 받아야 하므로
           isGuest도 함께 켠다.
         */
+        authUserIdRef.current = null;
         setAuthUserId(null);
-        setPersonas([]);
-        setActiveChatSession(null);
-        setActiveTab('feed');
+        clearAccountBoundViews();
         setIsGuest(true);
         setShowWelcomeModal(true);
-        localStorage.removeItem('nipyeon_user');
         setUser(makeDefaultUser());
-        setMyVoteRecords([]);
-        setStories(prev => prev.map(s => ({ ...s, userVoted: undefined, voteChanged: false })));
       }
     });
 
@@ -246,16 +291,50 @@ export default function App() {
   // 로그인 상태가 바뀌면 오늘 쓴 무료 횟수를 서버에서 다시 받아온다
   useEffect(() => {
     let alive = true;
-    fetchAiQuotaUsed().then(used => { if (alive) setAiQuotaUsed(used); });
+    if (!authUserId) {
+      setAiQuotaUsed(0);
+      return () => { alive = false; };
+    }
+    fetchAiQuotaUsed()
+      .then(used => { if (alive) setAiQuotaUsed(used); })
+      .catch(() => { if (alive) setAiQuotaUsed(DAILY_AI_QUOTA); });
     return () => { alive = false; };
-  }, [user.id]);
+  }, [authUserId]);
 
   // Main Feed State
   const [stories, setStories] = useState<Story[]>([]);
+  const [hiddenStoryIds, setHiddenStoryIds] = useState<string[]>([]);
+  const [hiddenStoryOwnerId, setHiddenStoryOwnerId] = useState<string | null>(null);
+  const [hiddenStoriesLoadError, setHiddenStoriesLoadError] = useState(false);
+  const [hiddenStoriesLoadNonce, setHiddenStoriesLoadNonce] = useState(0);
+  const hiddenStoriesReady = !authUserId || hiddenStoryOwnerId === authUserId;
 
   useEffect(() => {
+    let alive = true;
+    setHiddenStoryIds([]);
+    setHiddenStoryOwnerId(null);
+    setHiddenStoriesLoadError(false);
+    if (!authUserId) {
+      return () => { alive = false; };
+    }
+    supabase.from('story_hides').select('story_id').then(({ data, error }) => {
+      if (!alive) return;
+      if (error) {
+        setHiddenStoriesLoadError(true);
+      } else {
+        setHiddenStoryIds((data ?? []).map((row: { story_id: string }) => row.story_id));
+        setHiddenStoryOwnerId(authUserId);
+      }
+    }, () => { if (alive) setHiddenStoriesLoadError(true); });
+    return () => { alive = false; };
+  }, [authUserId, hiddenStoriesLoadNonce]);
+
+  useEffect(() => {
+    let active = true;
+    const accountId = authUserId;
     // Initial fetch
     supabase.from('stories').select('*').order('createdAt', { ascending: false }).then(({ data, error }) => {
+      if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         setStories(data);
         loadMyVotes();
@@ -264,8 +343,9 @@ export default function App() {
 
     // Realtime subscription
     const channel = supabase
-      .channel('public:stories')
+      .channel(`public:stories:${accountId ?? 'guest'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => {
           // Prevent duplicates if local insert happened first
           if (prev.some(s => s.id === payload.new.id)) return prev;
@@ -273,24 +353,53 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
         setSelectedStory(prev => prev?.id === payload.new.id ? { ...prev, ...payload.new } : prev);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setStories(prev => prev.filter(s => s.id !== payload.old.id));
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authUserId]);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
+  const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
+  const [likedCommentOwnerId, setLikedCommentOwnerId] = useState<string | null>(null);
+  const [likedCommentLoadNonce, setLikedCommentLoadNonce] = useState(0);
+  const [likePendingIds, setLikePendingIds] = useState<string[]>([]);
+  const pendingLikeRequests = useRef(new Set<string>());
+  const currentLikeOwner = useRef(authUserId);
+  currentLikeOwner.current = authUserId;
 
   useEffect(() => {
+    let alive = true;
+    setLikedCommentIds([]);
+    setLikedCommentOwnerId(null);
+    pendingLikeRequests.current.clear();
+    setLikePendingIds([]);
+    if (!authUserId) return () => { alive = false; };
+    supabase.from('comment_likes').select('comment_id').then(({ data, error }) => {
+      if (!alive) return;
+      if (error || !data) return;
+      setLikedCommentIds(data.map((row: { comment_id: string }) => row.comment_id));
+      setLikedCommentOwnerId(authUserId);
+    }, () => {});
+    return () => { alive = false; };
+  }, [authUserId, likedCommentLoadNonce]);
+
+  useEffect(() => {
+    let active = true;
+    const accountId = authUserId;
     // Initial fetch
     supabase.from('comments').select('*').order('createdAt', { ascending: true }).then(({ data, error }) => {
+      if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         const newMap: Record<string, Comment[]> = {};
         data.forEach(c => {
@@ -303,8 +412,9 @@ export default function App() {
 
     // Realtime subscription
     const channel = supabase
-      .channel('public:comments')
+      .channel(`public:comments:${accountId ?? 'guest'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const comment = payload.new as Comment;
           const storyComments = prev[comment.storyId] || [];
@@ -313,6 +423,7 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const comment = payload.new as Comment;
           const storyComments = prev[comment.storyId] || [];
@@ -323,6 +434,7 @@ export default function App() {
         });
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, payload => {
+        if (!active || authUserIdRef.current !== accountId) return;
         setCommentsMap(prev => {
           const updatedMap = { ...prev };
           let found = false;
@@ -339,9 +451,10 @@ export default function App() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authUserId]);
 
   /**
    * 로그인한 사람의 대화방만 담는다. 로그인 전에는 비어 있어야 한다.
@@ -349,45 +462,175 @@ export default function App() {
    */
   const [personas, setPersonas] = useState<AIPersona[]>([]);
 
+  // Check the schema itself: a fresh project may have zero visible stories.
+  // Before this migration, the button and invalidation channel stay disabled.
+  const [storyPrivateReady, setStoryPrivateReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.from('stories').select('visibility').limit(0).then(({ error }) => {
+      if (active) setStoryPrivateReady(!error);
+    });
+    return () => { active = false; };
+  }, [authUserId]);
+
+  useEffect(() => {
+    if (!storyPrivateReady) return;
+    let active = true;
+    let generation = 0;
+    const refreshVisibleStories = async () => {
+      const current = ++generation;
+      const [storyResult, commentResult] = await Promise.all([
+        supabase.from('stories').select('*').order('createdAt', { ascending: false }),
+        supabase.from('comments').select('*').order('createdAt', { ascending: true }),
+      ]);
+      if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
+      if (!storyResult.error && storyResult.data) {
+        const visible = storyResult.data as Story[];
+        setStories(visible);
+        setSelectedStory(prev => {
+          if (!prev || visible.some(s => s.id === prev.id)) return prev;
+          const url = new URL(window.location.href);
+          url.searchParams.delete('story');
+          window.history.replaceState(null, '', url.toString());
+          return null;
+        });
+      }
+      if (!commentResult.error && commentResult.data) {
+        const next: Record<string, Comment[]> = {};
+        for (const comment of commentResult.data as Comment[]) {
+          (next[comment.storyId] ??= []).push(comment);
+        }
+        setCommentsMap(next);
+      }
+    };
+    const channel = supabase.channel(`story-access-invalidations:${authUserId ?? 'guest'}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'story_access_invalidations',
+      }, async (payload) => {
+        if (!active || authUserIdRef.current !== authUserId) return;
+        const id = payload.new.story_id;
+        if (typeof id !== 'string') return;
+        const current = ++generation;
+        // Remove previously visible raw content before the fresh RLS read.
+        setStories(prev => prev.filter(s => s.id !== id || s.authorId === authUserId));
+        setCommentsMap(prev => { const next = { ...prev }; delete next[id]; return next; });
+        setSelectedStory(prev => {
+          if (prev?.id !== id || prev.authorId === authUserId) return prev;
+          const url = new URL(window.location.href);
+          url.searchParams.delete('story');
+          window.history.replaceState(null, '', url.toString());
+          return null;
+        });
+        const [storyResult, commentResult] = await Promise.all([
+          supabase.from('stories').select('*').eq('id', id).maybeSingle(),
+          supabase.from('comments').select('*').eq('storyId', id).order('createdAt', { ascending: true }),
+        ]);
+        if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
+        if (!storyResult.error && storyResult.data) {
+          const visible = storyResult.data as Story;
+          setStories(prev => prev.some(s => s.id === id)
+            ? prev.map(s => s.id === id ? visible : s) : [visible, ...prev]);
+          setSelectedStory(prev => prev?.id === id ? visible : prev);
+        }
+        if (!commentResult.error && commentResult.data) {
+          setCommentsMap(prev => ({ ...prev, [id]: commentResult.data as Comment[] }));
+        }
+      })
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED' && authUserIdRef.current === authUserId) void refreshVisibleStories();
+      });
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, [storyPrivateReady, authUserId]);
+
   // Filters & Tabs
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
   const [sortBy, setSortBy] = useState<'latest' | 'votes'>('latest');
   const [activeTab, setActiveTab] = useState<'feed' | 'ai-chat' | 'mypage'>('feed');
+  const analyticsConsent = useAnalyticsConsent();
+
+  useEffect(() => {
+    if (analyticsConsent === 'accepted') setupGA4();
+  }, [analyticsConsent]);
 
   // Active Modals & Selected Items
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  useEffect(() => {
+    if (selectedStory && (!hiddenStoriesReady || hiddenStoryIds.includes(selectedStory.id))) {
+      setSelectedStory(null);
+      syncStoryUrl(null);
+    }
+  }, [hiddenStoriesReady, hiddenStoryIds, selectedStory]);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
-  const [isAdultVerificationOpen, setIsAdultVerificationOpen] = useState(false);
   const [premiumModalStory, setPremiumModalStory] = useState<Story | null>(null);
+  const [myStoriesNavigationKey, setMyStoriesNavigationKey] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [undoHiddenStoryId, setUndoHiddenStoryId] = useState<string | null>(null);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
   const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
 
-  /** 한 번 쓰고 나면 서버가 세어준 숫자로 화면을 맞춘다 */
-  const spendAiQuota = (storyId: string) => {
+  // 새 서버 제한이 전환되기 전에는 기존 대화방 생성 시 차감을 유지한다.
+  const spendLegacyAiQuota = (storyId: string) => {
     setAiQuotaUsed(prev => prev + 1);
     consumeAiQuota(storyId).then(setAiQuotaUsed);
   };
+
   const [isExplainSettingsModalOpen, setIsExplainSettingsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [errorReportPersona, setErrorReportPersona] = useState<AIPersona | null>(null);
   const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
+  const [storyDeleting, setStoryDeleting] = useState(false);
 
   // Active AI Chat Session
   const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
 
   // My Activity Trackers — 투표 기록은 서버(votes 테이블)가 원본이다
   const [myVoteRecords, setMyVoteRecords] = useState<{ storyId: string; option: 'A' | 'B' }[]>([]);
+  const pendingVoteIds = useRef(new Set<string>());
 
-  // Save to LocalStorage
-  useEffect(() => {
-    localStorage.setItem('nipyeon_user', JSON.stringify(user));
-  }, [user]);
+  // A shared browser must drop the former account's in-memory content before
+  // any request under the next account can finish.
+  function clearAccountBoundViews() {
+    setStories([]);
+    setCommentsMap({});
+    setSelectedStory(null);
+    setPersonas([]);
+    setActiveChatSession(null);
+    setMyVoteRecords([]);
+    setHiddenStoryIds([]);
+    setHiddenStoryOwnerId(null);
+    setLikedCommentIds([]);
+    setLikedCommentOwnerId(null);
+    setAiQuotaUsed(0);
+    setPremiumModalStory(null);
+    setAiChatModeStory(null);
+    setAiExplainSettingsStory(null);
+    setEditingStory(null);
+    setErrorReportPersona(null);
+    setIsCreateStoryOpen(false);
+    setIsReportOpen(false);
+    setIsExplainSettingsModalOpen(false);
+    setReportTargetId(null);
+    setStoryToDelete(null);
+    setStoryDeleting(false);
+    setAppealTargetId(null);
+    setAppealSubmitting(false);
+    setAppealError(null);
+    setUndoHiddenStoryId(null);
+    setToastMessage(null);
+    setActiveTab('feed');
+    pendingVoteIds.current.clear();
+    pendingLikeRequests.current.clear();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('story')) {
+      url.searchParams.delete('story');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }
+  }
 
   // (Removed stories localStorage sync as it is now in Supabase)
 
@@ -400,12 +643,14 @@ export default function App() {
   const loadMyVotes = useCallback(async () => {
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.user) {
-      setMyVoteRecords([]);
+      if (!authUserIdRef.current) setMyVoteRecords([]);
       return;
     }
+    const accountId = session.session.user.id;
+    if (authUserIdRef.current !== accountId) return;
 
     const { data, error } = await supabase.from('votes').select('storyId, option, changeCount');
-    if (error || !data) return;
+    if (error || !data || authUserIdRef.current !== accountId) return;
 
     const voteByStory = new Map<string, { option: 'A' | 'B'; changeCount: number }>(
       data.map((v: any) => [v.storyId, { option: v.option, changeCount: v.changeCount }])
@@ -436,14 +681,14 @@ export default function App() {
   // 뒤에 한 번만 시도한다
   const deepLinkHandled = useRef(false);
   useEffect(() => {
-    if (deepLinkHandled.current || stories.length === 0) return;
+    if (deepLinkHandled.current || stories.length === 0 || !hiddenStoriesReady) return;
     const id = new URLSearchParams(window.location.search).get('story');
     if (!id) { deepLinkHandled.current = true; return; }
     const target = stories.find(s => s.id === id);
     deepLinkHandled.current = true;
-    if (target) openStoryDetail(target);
+    if (target && !hiddenStoryIds.includes(id) && !target.isHidden) openStoryDetail(target, 'shared_link');
     else syncStoryUrl(null);
-  }, [stories]);
+  }, [stories, hiddenStoriesReady, hiddenStoryIds]);
 
   /**
    * 열려 있는 사연 상세를 목록의 최신 값과 맞춰둔다.
@@ -485,28 +730,36 @@ export default function App() {
         setShowLandingPage(false);
   };
 
-  const handleVerifyAdult = () => {
-    setUser(prev => ({ ...prev, isAdultVerified: true }));
-  };
-
-  const handleUpdateNickname = (newNickname: string) => {
-    setUser(prev => ({ ...prev, nickname: newNickname }));
-  };
-
-  const handleGenerateRandomNickname = async () => {
+  const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
+    if (!authUserId) { blockedAction('nickname_update', 'not_ready'); return false; }
+    const task = beginTask('nickname_update');
     try {
-      const res = await fetch('/api/nickname/random');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(prev => ({ ...prev, nickname: data.nickname }));
-      }
+      const { data, error } = await supabase.auth.updateUser({ data: { nickname: newNickname } });
+      if (error || data.user?.id !== authUserId) { task.finish('error'); return false; }
+      setUser(prev => ({ ...prev, nickname: newNickname }));
+      task.finish('success'); return true;
     } catch {
-      setUser(prev => ({ ...prev, nickname: '사이다마신곰99' }));
+      task.finish('error'); return false;
     }
   };
 
-  const handleVote = async (storyId: string, option: 'A' | 'B') => {
-    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return;
+  const handleGenerateRandomNickname = async (): Promise<string | null> => {
+    const task = beginTask('nickname_generate');
+    try {
+      const res = await fetch('/api/nickname/random');
+      if (!res.ok) { task.finish('error'); return null; }
+      const data = await res.json();
+      task.finish(typeof data.nickname === 'string' ? 'success' : 'error');
+      return typeof data.nickname === 'string' ? data.nickname : null;
+    } catch {
+      task.finish('error');
+      return null;
+    }
+  };
+
+  const handleVote = async (storyId: string, option: 'A' | 'B'): Promise<boolean> => {
+    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) { blockedAction('vote', 'auth_required'); return false; }
+    if (pendingVoteIds.current.has(storyId)) { blockedAction('vote', 'busy'); return false; }
 
     /**
      * 판정을 먼저 하고, 그 다음에 화면을 바꾼다.
@@ -517,176 +770,204 @@ export default function App() {
      * 가지 않았다.** 새로고침하면 표가 사라졌다.
      */
     const story = stories.find(s => s.id === storyId);
-    if (!story) return;
-    if (story.userVoted === option) return; // 같은 쪽에 다시 누른 경우
+    if (!story) { blockedAction('vote', 'not_ready'); return false; }
+    if (story.userVoted === option) { blockedAction('vote', 'unchanged'); return false; } // 같은 쪽에 다시 누른 경우
 
     const isChange = Boolean(story.userVoted);
     if (isChange && story.voteChanged) {
       setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      blockedAction('vote', 'limit'); return false;
     }
 
-    const updated: Story = isChange
-      ? {
-          ...story,
-          userVoted: option,
-          votesA: option === 'A' ? story.votesA + 1 : story.votesA - 1,
-          votesB: option === 'B' ? story.votesB + 1 : story.votesB - 1,
-          voteChanged: true,
-        }
-      : {
-          ...story,
-          userVoted: option,
-          votesA: option === 'A' ? story.votesA + 1 : story.votesA,
-          votesB: option === 'B' ? story.votesB + 1 : story.votesB,
-        };
+    pendingVoteIds.current.add(storyId);
+    const task = beginTask('vote');
+    try {
+      const { data, error } = await supabase.rpc('vote_story', {
+        p_story_id: storyId,
+        p_option: option,
+      });
+      if (error || !data || data.id !== storyId) throw new Error('VOTE_RESULT_UNCONFIRMED');
 
-    setStories(prev => prev.map(s => (s.id === storyId ? updated : s)));
-    if (selectedStory?.id === storyId) setSelectedStory(updated);
-
-    if (isChange) {
-      setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-
-    // 중복·재투표 판정은 서버의 votes 테이블이 최종 결정한다.
-    // 화면은 먼저 바꿔두고, 거절당하면 서버 기준으로 되돌린다.
-    const { error } = await supabase.rpc('vote_story', {
-      p_story_id: storyId,
-      p_option: option,
-    });
-
-    if (error) {
-      setToastMessage(error.message || '투표를 처리하지 못했습니다.');
-      setTimeout(() => setToastMessage(null), 3000);
-
-      const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).single();
-      if (fresh) {
-        setStories(prev => prev.map(s => (s.id === storyId ? { ...s, ...(fresh as Story) } : s)));
+      // 투표 수는 추측해서 더하지 않고 DB 함수가 반환한 확정값으로 갱신한다.
+      const confirmed = { ...story, ...(data as Story), userVoted: option, voteChanged: isChange };
+      setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...confirmed } : s));
+      setSelectedStory(prev => prev?.id === storyId ? { ...prev, ...confirmed } : prev);
+      if (isChange) {
+        setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
+        setTimeout(() => setToastMessage(null), 3000);
       }
-    } else {
-      /*
-        서버가 받아준 투표만 센다. 화면에만 반영되고 거절당한 투표까지 세면
-        "투표는 잘 된다"는 잘못된 결론이 나온다.
-        마음을 바꿔 다시 누른 것은 같은 사연이므로 한 번으로 친다.
-      */
-      trackOnce(`vote_submit:${storyId}`, 'vote_submit', { storyId, option });
+      if (isChange) track('vote_change_success');
+      else trackOnce(`vote_submit:${authUserId}:${storyId}`, 'vote_submit', { storyId, option });
+      await loadMyVotes();
+      task.finish('success'); return true;
+    } catch {
+      // 응답을 못 받았다고 DB가 쓰지 않았다고 단정할 수 없다. 가능한 범위에서
+      // 서버의 사연·내 투표 기록을 다시 읽고 성공 이벤트는 보내지 않는다.
+      setToastMessage('투표 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).maybeSingle();
+        if (fresh) setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...(fresh as Story) } : s));
+        await loadMyVotes();
+      } catch {
+        // 재조회도 실패하면 기존 화면 상태를 유지한다.
+      }
+      task.finish('error'); return false;
+    } finally {
+      pendingVoteIds.current.delete(storyId);
     }
-
-    await loadMyVotes();
   };
 
-  // 화면에 즉시 보여줄 익명 표기. 최종 확정은 서버 트리거(assign_comment_anon_id)가 하고,
-  // 여기서는 같은 규칙으로 미리 계산해 낙관적 업데이트가 어긋나지 않게 한다.
-  const previewAnonymousId = (storyId: string): string => {
-    const story = stories.find(s => s.id === storyId);
-    if (story && story.authorId === user.id) return '글쓴이';
-
-    const storyComments = commentsMap[storyId] || [];
-
-    // 이 사연에 이미 단 적이 있으면 그때 번호를 유지한다
-    const mine = storyComments.find(c => c.authorId === user.id && /^익명 \d+$/.test(c.anonymousId));
-    if (mine) return mine.anonymousId;
-
-    // 없으면 현재 최대 번호 + 1 (댓글 '개수'가 아니라 '최대 번호' 기준)
-    const maxNo = storyComments.reduce((max, c) => {
-      const m = /^익명 (\d+)$/.exec(c.anonymousId);
-      return m ? Math.max(max, parseInt(m[1], 10)) : max;
-    }, 0);
-    return `익명 ${maxNo + 1}`;
-  };
-
-  const handleAddComment = async (storyId: string, content: string) => {
-    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.')) return;
+  const handleAddComment = async (storyId: string, content: string, commentId: string): Promise<boolean> => {
+    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.') || !authUserId) { blockedAction('comment_create', 'auth_required'); return false; }
 
     notifyIfCrisis(content);
 
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      storyId,
-      authorId: user.id,
-      anonymousId: previewAnonymousId(storyId),
-      content,
-      createdAt: new Date().toISOString(),
-      likeCount: 0,
-      reportsCount: 0,
-      isBlind: false,
-      isEdited: false
-    };
-
-    setCommentsMap(prev => ({
-      ...prev,
-      [storyId]: [...(prev[storyId] || []), newComment]
-    }));
-
-    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: s.commentCount + 1 } : s));
-
-    const { userLiked, ...dbComment } = newComment;
-    await supabase.from('comments').insert(dbComment);
+    const task = beginTask('comment_create');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || session.user.id !== authUserId) { task.finish('error'); return false; }
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id: commentId, storyId, content }),
+      });
+      if (!response.ok) { task.finish('error'); return false; }
+      const result = await response.json();
+      const saved = result?.comment as Comment | undefined;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
+      trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success');
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).some(comment => comment.id === commentId)
+          ? prev[storyId]
+          : [...(prev[storyId] || []), saved]
+      }));
+      try {
+        const { data: savedStory } = await supabase.from('stories')
+          .select('commentCount').eq('id', storyId).single();
+        if (typeof savedStory?.commentCount === 'number') {
+          setStories(prev => prev.map(s => s.id === storyId
+            ? { ...s, commentCount: savedStory.commentCount }
+            : s));
+        }
+      } catch {
+        // 댓글 저장 성공과 별개인 카운터 재조회는 다음 목록 새로고침에 맡긴다.
+      }
+      task.finish('success'); return true;
+    } catch {
+      task.finish('error'); return false;
+    }
   };
 
   const handleLikeComment = async (commentId: string) => {
-    if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) return;
-
-    /**
-     * 투표와 같은 이유로 판정을 먼저 한다.
-     *
-     * setCommentsMap 콜백은 렌더 시점에 실행되므로, 그 안에서 세운 값을 바로
-     * 아래에서 읽으면 늘 초기값이다. 그래서 **공감 수가 화면에만 오르고 서버로는
-     * 한 번도 가지 않았다.**
-     */
+    if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) { blockedAction('comment_like', 'auth_required'); return; }
+    if (!authUserId) {
+      setLoginPromptMessage('공감을 누르려면 로그인해 주세요.');
+      return;
+    }
+    if (likedCommentOwnerId !== authUserId) {
+      setToastMessage('공감 상태를 불러오지 못했습니다. 다시 눌러주세요.');
+      setLikedCommentLoadNonce(n => n + 1);
+      return;
+    }
+    const pendingKey = `${authUserId}:${commentId}`;
+    if (pendingLikeRequests.current.has(pendingKey)) return;
     const storyId = Object.keys(commentsMap).find(sid =>
       commentsMap[sid].some(c => c.id === commentId)
     );
     if (!storyId) return;
-
-    const target = commentsMap[storyId].find(c => c.id === commentId);
-    if (!target) return;
-
-    const userLiked = !target.userLiked;
-    const delta = userLiked ? 1 : -1;
-
-    setCommentsMap(prev => ({
-      ...prev,
-      [storyId]: prev[storyId].map(c =>
-        c.id === commentId
-          ? { ...c, userLiked, likeCount: Math.max(0, c.likeCount + delta) }
-          : c
-      ),
-    }));
-
-    // 남의 댓글을 수정하는 동작이라 서버 함수를 통해서만 증감한다
-    await supabase.rpc('like_comment', { p_comment_id: commentId, p_delta: delta });
-  };
-  const handleEditComment = async (storyId: string, commentId: string, newContent: string) => {
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      if (updatedMap[storyId]) {
-        updatedMap[storyId] = updatedMap[storyId].map(c => 
-          c.id === commentId ? { ...c, content: newContent, isEdited: true } : c
-        );
+    const requestedLiked = !likedCommentIds.includes(commentId);
+    const requestOwnerId = authUserId;
+    pendingLikeRequests.current.add(pendingKey);
+    setLikePendingIds(prev => [...prev, commentId]);
+    const task = beginTask('comment_like');
+    try {
+      // +1/-1은 서버에서 '원하는 상태'로 해석한다. 서버는 계정별 행을
+      // 중복 없이 저장하고 실제 개수를 반환하므로 낙관적으로 세지 않는다.
+      const { data, error } = await supabase.rpc('like_comment', {
+        p_comment_id: commentId,
+        p_delta: requestedLiked ? 1 : -1,
+      });
+      if (error || !data || data.id !== commentId || data.storyId !== storyId) {
+        throw new Error('comment like save failed');
       }
-      return updatedMap;
-    });
-    
-    await supabase.from('comments').update({ content: newContent, isEdited: true }).eq('id', commentId);
+      if (currentLikeOwner.current !== requestOwnerId) { task.finish('cancelled'); return; }
+      task.finish('success');
+      setLikedCommentIds(prev => requestedLiked
+        ? (prev.includes(commentId) ? prev : [...prev, commentId])
+        : prev.filter(id => id !== commentId));
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).map(c => c.id === commentId
+          ? { ...c, ...data, userLiked: requestedLiked }
+          : c),
+      }));
+    } catch {
+      task.finish('error');
+      if (currentLikeOwner.current === requestOwnerId) {
+        setToastMessage('공감을 저장하지 못했습니다. 다시 시도해 주세요.');
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } finally {
+      pendingLikeRequests.current.delete(pendingKey);
+      if (currentLikeOwner.current === requestOwnerId) {
+        setLikePendingIds(prev => prev.filter(id => id !== commentId));
+      }
+    }
+  };
+  const handleEditComment = async (storyId: string, commentId: string, newContent: string): Promise<boolean> => {
+    if (!authUserId) { blockedAction('comment_edit', 'not_ready'); return false; }
+    const task = beginTask('comment_edit');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || session.user.id !== authUserId) { task.finish('error'); return false; }
+      const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ storyId, content: newContent }),
+      });
+      if (!response.ok) { task.finish('error'); return false; }
+      const result = await response.json();
+      const saved = result?.comment as Comment | undefined;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).map(c => c.id === commentId ? saved : c),
+      }));
+      task.finish('success'); return true;
+    } catch {
+      task.finish('error'); return false;
+    }
   };
 
-  const handleDeleteComment = async (storyId: string, commentId: string) => {
-    setCommentsMap(prev => {
-      const updatedMap = { ...prev };
-      if (updatedMap[storyId]) {
-        updatedMap[storyId] = updatedMap[storyId].filter(c => c.id !== commentId);
+  const handleDeleteComment = async (storyId: string, commentId: string): Promise<boolean> => {
+    if (!authUserId) return false;
+    try {
+      const { data, error } = await supabase.from('comments').delete()
+        .eq('id', commentId).eq('authorId', authUserId).eq('storyId', storyId)
+        .select('id').maybeSingle();
+      if (error || !data) return false;
+      setCommentsMap(prev => ({
+        ...prev,
+        [storyId]: (prev[storyId] || []).filter(c => c.id !== commentId),
+      }));
+      try {
+        const { data: savedStory } = await supabase.from('stories')
+          .select('commentCount').eq('id', storyId).single();
+        if (typeof savedStory?.commentCount === 'number') {
+          setStories(prev => prev.map(s => s.id === storyId
+            ? { ...s, commentCount: savedStory.commentCount }
+            : s));
+        }
+      } catch {
+        // 댓글 삭제 성공과 별개인 카운터 재조회는 다음 목록 새로고침에 맡긴다.
       }
-      return updatedMap;
-    });
-    
-    // 화면에는 즉시 반영하고, DB의 commentCount는 트리거가 동기화한다
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, commentCount: Math.max(0, s.commentCount - 1) } : s));
-
-    await supabase.from('comments').delete().eq('id', commentId);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleEditStory = (storyId: string) => {
@@ -697,64 +978,150 @@ export default function App() {
     }
   };
 
-  const handleHideStory = async (storyId: string) => {
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, isHidden: true } : s));
-    if (selectedStory?.id === storyId) {
-      setSelectedStory(null);
+  const handleSetStoryVisibility = async (
+    storyId: string, visibility: 'public' | 'private',
+  ): Promise<boolean> => {
+    const existing = stories.find(s => s.id === storyId);
+    if (!authorPrivateLaunchEnabled || !storyPrivateReady || !authUserId ||
+        existing?.authorId !== authUserId) return false;
+    const { data, error } = await supabase.rpc('set_story_visibility', {
+      p_story_id: storyId, p_visibility: visibility,
+    });
+    if (authUserIdRef.current !== authUserId) return false;
+    if (error || !data || data.id !== storyId || data.authorId !== authUserId ||
+        data.visibility !== visibility) {
+      setToastMessage('공개 상태를 저장하지 못했습니다. 다시 시도해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return false;
     }
-    setToastMessage('해당 사연을 숨겼습니다.');
+    const saved = data as Story;
+    setStories(prev => prev.map(s => s.id === storyId ? saved : s));
+    setSelectedStory(prev => prev?.id === storyId ? saved : prev);
+    setToastMessage(visibility === 'private'
+      ? '사연을 비공개로 옮겼습니다.' : '사연을 다시 공개했습니다.');
     setTimeout(() => setToastMessage(null), 3000);
-    
-    await supabase.from('stories').update({ isHidden: true }).eq('id', storyId);
+    return true;
+  };
+
+  const handleHideStory = async (storyId: string): Promise<boolean> => {
+    if (!authUserId) {
+      setLoginPromptMessage('사연을 나에게만 숨기려면 로그인해 주세요.');
+      return false;
+    }
+    if (!hiddenStoriesReady) {
+      setToastMessage('숨긴 사연 목록을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+      return false;
+    }
+    const story = stories.find(s => s.id === storyId);
+    if (!story || story.authorId === authUserId) return false;
+    if (!hiddenStoryIds.includes(storyId)) {
+      let error: { code?: string } | null;
+      try {
+        ({ error } = await supabase.from('story_hides').insert({ user_id: authUserId, story_id: storyId }));
+      } catch {
+        error = { code: 'NETWORK_ERROR' };
+      }
+      if (error && error.code !== '23505') {
+        setToastMessage('사연을 숨기지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        setTimeout(() => setToastMessage(null), 3000);
+        return false;
+      }
+      setHiddenStoryIds(prev => prev.includes(storyId) ? prev : [...prev, storyId]);
+    }
+    setToastMessage('이 사연을 나에게만 숨겼습니다. 마이페이지에서 복원할 수 있어요.');
+    setUndoHiddenStoryId(storyId);
+    setTimeout(() => { setToastMessage(null); setUndoHiddenStoryId(null); }, 5000);
+    return true;
+  };
+
+  const handleRestoreStory = async (storyId: string): Promise<void> => {
+    if (!authUserId) return;
+    let error: unknown;
+    try {
+      ({ error } = await supabase.from('story_hides').delete()
+        .eq('user_id', authUserId).eq('story_id', storyId));
+    } catch (failure) {
+      error = failure;
+    }
+    if (error) {
+      setToastMessage('사연을 복원하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } else {
+      setHiddenStoryIds(prev => prev.filter(id => id !== storyId));
+      setToastMessage('사연을 다시 볼 수 있습니다.');
+    }
+    setUndoHiddenStoryId(null);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleDeleteStory = (storyId: string) => {
+    const story = stories.find(item => item.id === storyId);
+    if (!authUserId || !story || !ownsStory(authUserId, story.authorId, isGuest)) return;
     setStoryToDelete(storyId);
   };
 
   const confirmDeleteStory = async () => {
-    if (!storyToDelete) return;
+    if (!storyToDelete || !authUserId || isGuest || storyDeleting) return;
     const storyId = storyToDelete;
-
-    setStories(prev => prev.filter(s => s.id !== storyId));
-    if (selectedStory?.id === storyId) {
-      setSelectedStory(null);
+    const accountId = authUserId;
+    const accountVersion = authTransitionVersion.current;
+    const isCurrentAccount = () => authUserIdRef.current === accountId &&
+      authTransitionVersion.current === accountVersion;
+    setStoryDeleting(true);
+    try {
+      await deleteOwnedStory(supabase, storyId, accountId, isCurrentAccount);
+      setStories(prev => prev.filter(s => s.id !== storyId));
+      if (selectedStory?.id === storyId) setSelectedStory(null);
+      setStoryToDelete(null);
+      setToastMessage('사연이 삭제되었습니다.');
+    } catch {
+      if (isCurrentAccount()) setToastMessage('사연을 삭제하지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      if (isCurrentAccount()) {
+        setStoryDeleting(false);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
     }
-    setToastMessage('사연이 삭제되었습니다.');
-    setTimeout(() => setToastMessage(null), 3000);
-    
-    await supabase.from('stories').delete().eq('id', storyId);
-    setStoryToDelete(null);
   };
 
 
-  const handleTogglePinPersona = (personaId: string) => {
+  const handleTogglePinPersona = async (personaId: string) => {
     const next = !personas.find(p => p.id === personaId)?.isPinned;
-    setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isPinned: next } : p));
-    savePersona(personaId, { isPinned: next });
+    try {
+      const saved = await updateAiRoomPin(personaId, next);
+      setPersonas(prev => prev.map(p => p.id === personaId ? saved : p));
+    } catch {
+      setToastMessage('대화방 고정을 저장하지 못했습니다. 다시 시도해 주세요.');
+    }
   };
 
-  const handleDeletePersona = (personaId: string) => {
-    setPersonas(prev => prev.filter(p => p.id !== personaId));
-    if (activeChatSession?.personaId === personaId) setActiveChatSession(null);
-    deletePersona(personaId);
-    setToastMessage('AI 대화가 삭제되었습니다.');
+  const handleDeletePersona = async (personaId: string) => {
+    if (!window.confirm('이 AI 대화방과 저장된 대화를 삭제할까요? 삭제 후에는 복구할 수 없습니다.')) return false;
+    const deleted = await deletePersona(personaId);
+    if (deleted) {
+      setPersonas(prev => prev.filter(p => p.id !== personaId));
+      if (activeChatSession?.personaId === personaId) setActiveChatSession(null);
+    }
+    setToastMessage(deleted ? 'AI 대화가 삭제되었습니다.' : '대화를 삭제하지 못했습니다. 다시 시도해 주세요.');
     setTimeout(() => setToastMessage(null), 3000);
+    return deleted;
   };
 
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
-  const handleDeleteAllAiChats = async () => {
-    if (!authUserId) return;
-    const ok = await deleteAllPersonas(authUserId);
+  const handleDeleteAllAiChats = async (): Promise<boolean> => {
+    if (!authUserId) return false;
+    const accountId = authUserId;
+    const ok = await deleteAllPersonas(accountId);
+    if (authUserIdRef.current !== accountId) return false;
     if (!ok) {
       setToastMessage('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      return false;
     }
     setPersonas([]);
     setActiveChatSession(null);
     setToastMessage('AI 대화를 모두 지웠습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   const handleReportErrorPersona = (personaId: string) => {
@@ -764,11 +1131,17 @@ export default function App() {
     }
   };
 
-  const handleSubmitAIError = (personaId: string, errorContent: string) => {
-    console.log('Reported AI Error for Persona ID:', personaId, errorContent);
+  const handleSubmitAIError = async (personaId: string, errorContent: string): Promise<boolean> => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user || user.id !== authUserId ||
+        !personas.some(persona => persona.id === personaId)) return false;
+    const saved = await submitInquiry(user.id,
+      `대화방 ID: ${personaId}\n설명: ${errorContent.trim()}`, 'AI 오류');
+    if (!saved) return false;
     setErrorReportPersona(null);
-    setToastMessage('오류 신고가 접수되었습니다. 신속히 확인하겠습니다.');
+    setToastMessage('AI 오류 신고가 접수되었습니다. 내 문의 내역에서 확인할 수 있습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   const handleCreateStory = async (storyData: {
@@ -777,92 +1150,92 @@ export default function App() {
     body: string;
     opponentPersonality?: string;
     createAIPersona: boolean;
-    isAdult: boolean;
+    requestId: string;
   }) => {
+    if (!authUserId) throw new Error('AUTH_REQUIRED');
     notifyIfCrisis(storyData.title, storyData.body);
 
-    const cardColors: ('pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream')[] = ['pink', 'teal', 'lavender', 'peach', 'ochre'];
-    const randomColor = cardColors[Math.floor(Math.random() * cardColors.length)];
-
-    const newStory: Story = {
-      id: `story-${Date.now()}`,
-      authorId: user.id,
-      authorNickname: user.nickname,
-      title: storyData.title,
-      body: storyData.body,
-      category: storyData.category,
-      createdAt: new Date().toISOString(),
-      votesA: 0,
-      votesB: 0,
-      userVoted: undefined,
-      commentCount: 0,
-      viewCount: 1,
-      reportsCount: 0,
-      isBlind: false,
-      isAdult: storyData.isAdult,
-      cardColor: editingStory ? editingStory.cardColor : randomColor,
-      // 작성자가 적어둔 상대방 성격. 저장해 두어야 나중에 AI 대화를 열 때
-      // 그 성격대로 상대를 연기시킬 수 있다
-      personaInstruction: storyData.opponentPersonality || undefined,
-    };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || session.user.id !== authUserId) throw new Error('AUTH_REQUIRED');
+    const response = await fetch(editingStory
+      ? `/api/stories/${encodeURIComponent(editingStory.id)}`
+      : '/api/stories', {
+      method: editingStory ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        title: storyData.title,
+        body: storyData.body,
+        category: storyData.category,
+        opponentPersonality: storyData.opponentPersonality ?? '',
+        requestId: editingStory ? undefined : storyData.requestId,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'STORY_SAVE_FAILED');
+    const savedStory = result.story as Story | undefined;
+    if (!savedStory || typeof savedStory.id !== 'string' || savedStory.authorId !== authUserId) {
+      throw new Error('STORY_SAVE_FAILED');
+    }
 
     if (editingStory) {
-      const updatedStory = { ...newStory, id: editingStory.id, createdAt: editingStory.createdAt, votesA: editingStory.votesA, votesB: editingStory.votesB, userVoted: editingStory.userVoted, commentCount: editingStory.commentCount, viewCount: editingStory.viewCount };
+      const updatedStory = { ...editingStory, ...savedStory };
       setStories(prev => prev.map(s => s.id === editingStory.id ? updatedStory : s));
       setEditingStory(null);
       setToastMessage('사연이 성공적으로 수정되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      
-      const { userVoted, voteChanged, ...dbStory } = updatedStory;
-      await supabase.from('stories').update(dbStory).eq('id', updatedStory.id);
     } else {
-      setStories(prev => [newStory, ...prev]);
-      setToastMessage('사연 등록이 완료되었습니다.');
-      setTimeout(() => setToastMessage(null), 3000);
+      trackOnce(`story_publish_success:${authUserId}:${savedStory.id}`, 'story_publish_success');
+      setStories(prev => prev.some(s => s.id === savedStory.id)
+        ? prev.map(s => s.id === savedStory.id ? { ...s, ...savedStory } : s)
+        : [savedStory, ...prev]);
 
       // 등록한 사연을 바로 확인할 수 있도록 홈 피드 상세를 연다
       setActiveTab('feed');
-      setSelectedStory(newStory);
-
-      const { userVoted, voteChanged, ...dbStory } = newStory;
-      await supabase.from('stories').insert([dbStory]);
+      setSelectedStory(savedStory);
     }
 
     // If auto persona creation requested
-    if (storyData.createAIPersona) {
-      const newPersona: AIPersona = {
-        id: `persona-${Date.now()}`,
-        name: `사연 상대방 (${storyData.title.slice(0, 10)}...)`,
-        role: `${storyData.category} 갈등 상대`,
-        category: storyData.category,
-        avatarIcon: 'Bot',
-        description: `사연: "${storyData.title}" 의 상대방 AI 페르소나입니다.${storyData.opponentPersonality ? ` (성격: ${storyData.opponentPersonality})` : ''}`,
-        systemInstruction: buildSimulationPrompt({
-          storyBody: storyData.body,
-          opponentPersonality: storyData.opponentPersonality,
-        }),
-        cardColor: randomColor,
-        sampleFirstMessage: `너 나한테 사연 올린 거 진짜 너무하다... 내가 그렇게 잘못했다고 생각해?`
-      };
-      setPersonas(prev => [newPersona, ...prev]);
-      if (authUserId) createPersona(newPersona, authUserId);
+    let personaSaved = true;
+    if (storyData.createAIPersona && !editingStory) {
+      try {
+        const { persona: newPersona } = await openAiRoom(savedStory.id, { mode: 'simulation', opening: 'oblivious' });
+        if (authUserIdRef.current === authUserId) {
+          setPersonas(prev => prev.some(p => p.id === newPersona.id) ? prev : [newPersona, ...prev]);
+        }
+      } catch {
+        personaSaved = false;
+      }
+    }
+    if (!editingStory) {
+      setToastMessage(result.recovered === true
+        ? '이전에 저장된 사연을 확인했습니다. 내용이 다르면 수정하기에서 변경해 주세요.'
+        : personaSaved
+          ? '사연 등록이 완료되었습니다.'
+          : '사연은 저장됐지만 AI 대화 준비에 실패했습니다.');
+      setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
-  /**
-   * 대화 내용을 서버에 저장한다. 잦은 호출은 묶어서 한 번만 보낸다.
-   *
-   * AI 답변은 한 글자씩 흘러 들어오고 그때마다 이 경로가 불린다. 그대로
-   * 서버에 붙이면 글자 수만큼 DB 쓰기가 나간다.
-   */
-  const saveTimers = useRef<Record<string, number>>({});
-  const queuePersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]) => {
-    window.clearTimeout(saveTimers.current[personaId]);
-    saveTimers.current[personaId] = window.setTimeout(() => {
-      savePersona(personaId, { chatHistory });
-      delete saveTimers.current[personaId];
-    }, 800);
+  // 화면의 스트리밍 상태는 메모리에서만 갱신한다. 부분 답변이나 실패한
+  // 요청을 정상 저장된 대화로 복원하지 않도록 완료 시점에만 DB에 쓴다.
+  const pendingSaves = useRef<Record<string, Promise<boolean>>>({});
+  const runPersonaSave = useCallback((personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
+    // 이전 완료 턴의 저장이 끝난 뒤 다음 완료 턴을 쓴다.
+    const previous = pendingSaves.current[personaId] ?? Promise.resolve(true);
+    const next = previous.catch(() => false).then(() => savePersona(personaId, { chatHistory }));
+    pendingSaves.current[personaId] = next;
+    void next.finally(() => {
+      if (pendingSaves.current[personaId] === next) delete pendingSaves.current[personaId];
+    }).catch(() => {});
+    return next;
   }, []);
+
+  const saveCompletedTurn = useCallback(async (personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
+    return runPersonaSave(personaId, chatHistory);
+  }, [runPersonaSave]);
 
   const handleUpdateSession = useCallback((sessionId: string, personaId: string, updates: Partial<ChatSession>) => {
     setActiveChatSession(prev => {
@@ -881,56 +1254,73 @@ export default function App() {
         const chatHistory = updates.messages !== undefined ? updates.messages : p.chatHistory;
         if (p.chatHistory === chatHistory) return p;
         changed = true;
-        queuePersonaSave(personaId, chatHistory ?? []);
         return { ...p, chatHistory };
       });
       return changed ? next : prev;
     });
-  }, [queuePersonaSave]);
+  }, []);
 
-  const handleStartAIChatWithStory = async (story: Story, bypassPremium: boolean = false) => {
+  const aiEntryPoint = useRef<AnalyticsEntryPoint>('story_detail');
+
+  const handleStartAIChatWithStory = async (story: Story) => {
     /*
       AI로 가는 길목의 첫 걸음. 무료 횟수 판정보다 먼저 센다 —
       '눌렀는데 막혔다'도 눌렀다는 사실이다.
       이 뒤로 모드 선택·시작점 선택이 남아 있고, 그 사이 낙폭이 H2의 답이다.
     */
-    if (!bypassPremium) track('ai_entry_click', { storyId: story.id, category: story.category });
+    aiEntryPoint.current = selectedStory ? 'story_detail' : 'my_page';
+    track('ai_entry_click', { storyId: story.id, category: story.category, entry_point: aiEntryPoint.current });
 
     /*
       둘러보는 사람은 무료 횟수를 세지 않는다. 어차피 AI가 먼저 거는
       첫 마디까지만 보고 답장은 못 하므로 쓴 것이 없다. 여기서 세면
       답장도 못 하는 사람에게 결제 안내(프리미엄 모달)가 뜬다.
     */
-    if (story.authorId === user.id || bypassPremium || isGuest) {
+    if (story.authorId === user.id || isGuest) {
       setAiChatModeStory(story);
       setSelectedStory(null);
       return;
     }
 
-    // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 열기 직전에 다시 센다
-    const used = await fetchAiQuotaUsed();
+    if (!authUserId) {
+      setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+      return;
+    }
+    // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 다시 센다.
+    let used: number;
+    const quotaTask = beginTask('ai_quota_check');
+    try {
+      used = (await fetchAiQuotaStatus()).used;
+      quotaTask.finish('success');
+    } catch {
+      quotaTask.finish('error');
+      setToastMessage('AI 이용 횟수를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      return;
+    }
     setAiQuotaUsed(used);
 
-    if (used < DAILY_AI_QUOTA) {
+    if (used < DAILY_AI_QUOTA || personas.some(p => p.storyId === story.id)) {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
+      blockedAction('ai_room_create', 'limit');
       setPremiumModalStory(story);
     }
   };
 
-  const handleSelectAiChatMode = (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
+  const handleSelectAiChatMode = async (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
     const story = aiChatModeStory;
 
     /* 여기까지 오면 대화방이 실제로 열린다 = AI 진입 성공 */
-    track('ai_start_select', { storyId: story.id, mode, opening });
+    track('ai_start_select', { storyId: story.id, mode, opening, entry_point: aiEntryPoint.current });
 
     if (mode === 'simulation') {
       // 같은 사연을 같은 시작점으로 다시 열면 새로 만들지 않고 이어서 한다.
       // 매번 새로 만들면 AI 대화 탭이 똑같은 카드로 뒤덮인다.
       const existing = personas.find(p => p.storyId === story.id && p.opening === opening);
-      const persona: AIPersona = existing ?? {
+      let conversationType: ConversationType = existing ? 'continuation' : 'new';
+      let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: OPPONENT_LABELS[story.category] ?? '상대방',
         role: '상황',
@@ -950,16 +1340,41 @@ export default function App() {
       };
 
       if (!existing) {
-        setPersonas(prev => [persona, ...prev]);
-        if (authUserId) createPersona(persona, authUserId);
-        // 내 사연은 무료 횟수를 쓰지 않는다. 이어하기도 마찬가지다.
-        if (story.authorId !== user.id && !isGuest) spendAiQuota(story.id);
+        let recovered = false;
+        let quotaMode: 'legacy' | 'server' = 'legacy';
+        let legacyCharged = false;
+        if (!isGuest) {
+          if (!authUserId) {
+            setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+            return;
+          }
+          try {
+            const quota = await fetchAiQuotaStatus();
+            setAiQuotaUsed(quota.used);
+            if (story.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
+              setPremiumModalStory(story);
+              return;
+            }
+            ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(story.id, { mode: 'simulation', opening }));
+            if (recovered) conversationType = 'continuation';
+            if (authUserIdRef.current !== authUserId) return;
+          } catch {
+            if (authUserIdRef.current !== authUserId) return;
+            setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
+            return;
+          }
+        }
+        setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
+        if (!recovered && quotaMode === 'legacy' && !isGuest && story.authorId !== user.id) {
+          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          else spendLegacyAiQuota(story.id);
+        }
       }
 
       // AI가 먼저 말을 건다. 빈 입력창으로 시작하면 "뭐라고 하지"에서 멈춘다.
       const opener = OPENING_SCRIPTS[opening].first;
-      const messages = existing?.chatHistory?.length
-        ? existing.chatHistory
+      const messages = persona.chatHistory?.length
+        ? persona.chatHistory
         : opener
         ? [{
             id: `msg-${Date.now()}`,
@@ -979,8 +1394,11 @@ export default function App() {
         messages,
         createdAt: new Date().toISOString(),
         status: 'active',
-        chatMode: 'simulation'
+        chatMode: 'simulation',
+        analyticsEntryPoint: aiEntryPoint.current,
+        conversationType,
       });
+      if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
@@ -990,7 +1408,8 @@ export default function App() {
     }
   };
 
-  const handleConfirmExplainSettings = (ratio: ExplainRatio) => {
+  const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
+    track('ai_settings_confirm', { mode: 'explanation', entry_point: aiExplainSettingsStory ? aiEntryPoint.current : activeChatSession?.analyticsEntryPoint });
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
     const systemInstruction = buildEmpathyPrompt({
       storyBody: story?.body || '',
@@ -1007,7 +1426,8 @@ export default function App() {
       const target = aiExplainSettingsStory;
       // 같은 사연을 같은 비율로 다시 열면 이어서 한다
       const existing = personas.find(p => p.storyId === target.id && p.ratio === ratio);
-      const persona: AIPersona = existing ?? {
+      let conversationType: ConversationType = existing ? 'continuation' : 'new';
+      let persona: AIPersona = existing ?? {
         id: `persona-${Date.now()}`,
         name: personaName,
         role: roleLabel,
@@ -1023,14 +1443,40 @@ export default function App() {
       };
 
       if (!existing) {
-        setPersonas(prev => [persona, ...prev]);
-        if (authUserId) createPersona(persona, authUserId);
-        if (target.authorId !== user.id && !isGuest) spendAiQuota(target.id);
+        let recovered = false;
+        let quotaMode: 'legacy' | 'server' = 'legacy';
+        let legacyCharged = false;
+        if (!isGuest) {
+          if (!authUserId) {
+            setLoginPromptMessage('AI 대화를 하려면 로그인해 주세요.');
+            return;
+          }
+          try {
+            const quota = await fetchAiQuotaStatus();
+            setAiQuotaUsed(quota.used);
+            if (target.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
+              setPremiumModalStory(target);
+              return;
+            }
+            ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
+            if (recovered) conversationType = 'continuation';
+            if (authUserIdRef.current !== authUserId) return;
+          } catch {
+            if (authUserIdRef.current !== authUserId) return;
+            setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
+            return;
+          }
+        }
+        setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
+        if (!recovered && quotaMode === 'legacy' && !isGuest && target.authorId !== user.id) {
+          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          else spendLegacyAiQuota(target.id);
+        }
       }
 
       // 공감 모드도 AI가 먼저 말을 건다. 빈 화면에 대고 먼저 털어놓기는 어렵다.
-      const messages = existing?.chatHistory?.length
-        ? existing.chatHistory
+      const messages = persona.chatHistory?.length
+        ? persona.chatHistory
         : [{
             id: `msg-${Date.now()}`,
             sender: 'ai' as const,
@@ -1049,27 +1495,31 @@ export default function App() {
         createdAt: new Date().toISOString(),
         status: 'active',
         chatMode: 'explanation',
+        analyticsEntryPoint: aiEntryPoint.current,
+        conversationType,
         explanationRatio: ratio
       });
+      if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
-      // 기존 채팅 세션 진행 도중 비율만 변경한 경우
+      // 비공개 전환 뒤에도 저장된 방의 사연 맥락을 서버에서 보존해 관점만 바꾼다.
+      let saved: AIPersona;
+      try {
+        saved = await updateAiRoomRatio(activeChatSession.personaId, ratio);
+      } catch {
+        setToastMessage('공감 관점을 저장하지 못했습니다. 다시 시도해 주세요.');
+        return;
+      }
       setActiveChatSession(prev => prev ? {
         ...prev,
         explanationRatio: ratio,
-        personaName,
-        personaRole: roleLabel,
+        personaName: saved.name,
+        personaRole: saved.role,
       } : null);
-
       setPersonas(prev => prev.map(p =>
-        p.id === activeChatSession.personaId
-          ? { ...p, name: personaName, role: roleLabel, description: describe, systemInstruction, ratio }
-          : p
+        p.id === activeChatSession.personaId ? saved : p
       ));
-      savePersona(activeChatSession.personaId, {
-        name: personaName, role: roleLabel, description: describe, systemInstruction, ratio,
-      });
     }
 
     setIsExplainSettingsModalOpen(false);
@@ -1080,26 +1530,37 @@ export default function App() {
     setIsReportOpen(true);
   };
 
-  const handleSubmitReport = async (targetId: string, reason: string) => {
-    if (blockedForGuest('신고하려면 로그인이 필요해요.')) return;
+  const handleSubmitReport = async (targetId: string, reason: string): Promise<boolean> => {
+    if (blockedForGuest('신고하려면 로그인이 필요해요.')) return false;
 
     const isStory = stories.some(s => s.id === targetId);
 
     // 중복 신고 차단, 1일 한도, 블라인드 판정은 전부 서버가 결정한다.
     // 거절될 수 있으므로 화면을 먼저 바꾸지 않고 결과를 받아 반영한다.
-    const { data, error } = await supabase.rpc('submit_report', {
-      p_target_type: isStory ? 'story' : 'comment',
-      p_target_id: targetId,
-      p_reason: reason,
-    });
+    let data: unknown;
+    let error: { message?: string } | null;
+    try {
+      ({ data, error } = await supabase.rpc('submit_report', {
+        p_target_type: isStory ? 'story' : 'comment',
+        p_target_id: targetId,
+        p_reason: reason,
+      }));
+    } catch {
+      error = { message: '신고를 처리하지 못했습니다. 다시 시도해 주세요.' };
+    }
 
     if (error) {
       setToastMessage(error.message || '신고를 처리하지 못했습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      return;
+      return false;
     }
 
-    const result = data as { reports: number; blinded: boolean };
+    const result = data as { reports?: unknown; blinded?: unknown } | null;
+    if (!result || typeof result.reports !== 'number' || typeof result.blinded !== 'boolean') {
+      setToastMessage('신고 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return false;
+    }
 
     if (isStory) {
       setStories(prev => prev.map(s =>
@@ -1121,32 +1582,44 @@ export default function App() {
       ? '신고가 접수되었고, 검토를 위해 가려졌습니다.'
       : '신고가 접수되었습니다.');
     setTimeout(() => setToastMessage(null), 3000);
+    return true;
   };
 
   // 가려진 글의 작성자가 이의를 제기한다
-  const handleSubmitAppeal = async (targetId: string, text: string) => {
-    const { error } = await supabase.rpc('submit_appeal', {
-      p_target_type: 'story',
-      p_target_id: targetId,
-      p_text: text,
-    });
-
-    if (error) {
-      setToastMessage(error.message || '이의 제기를 접수하지 못했습니다.');
-    } else {
+  const handleSubmitAppeal = async (targetId: string, text: string): Promise<boolean> => {
+    const accountId = authUserIdRef.current;
+    setAppealSubmitting(true);
+    setAppealError(null);
+    try {
+      const { error } = await supabase.rpc('submit_appeal', {
+        p_target_type: 'story',
+        p_target_id: targetId,
+        p_text: text,
+      });
+      if (authUserIdRef.current !== accountId) return false;
+      if (error) throw error;
       setStories(prev => prev.map(s =>
         s.id === targetId ? { ...s, appealStatus: 'pending', appealText: text } : s
       ));
       setToastMessage('이의 제기가 접수되었습니다. 검토 후 안내드릴게요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return true;
+    } catch {
+      if (authUserIdRef.current === accountId) {
+        setAppealError('이의 제기를 접수하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.');
+      }
+      return false;
+    } finally {
+      if (authUserIdRef.current === accountId) setAppealSubmitting(false);
     }
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const baseFilteredStories = stories.filter(s => {
+    if (!hiddenStoriesReady) return false;
     // 가려진 글도 작성자에게는 보인다. 왜 가려졌는지 모르는 채로 사라지면
     // 이의를 제기할 방법이 없기 때문 — 본문 대신 상태 카드가 뜬다.
     if (s.isBlind && s.authorId !== user.id) return false;
-    if (s.isHidden) return false;
+    if (s.isHidden || s.isAdult || s.visibility === 'private' || hiddenStoryIds.includes(s.id)) return false;
     if (selectedCategory === '전체') return true;
     return s.category === selectedCategory;
   }).sort((a, b) => {
@@ -1187,10 +1660,10 @@ export default function App() {
     : baseFilteredStories;
 
   // 마이페이지에 보여줄 내 투표 목록 (제목은 현재 사연 목록에서 가져온다)
-  const myVotes = myVoteRecords.map(v => ({
+  const myVotes = myVoteRecords.filter(v => !hiddenStoryIds.includes(v.storyId)).map(v => ({
     storyId: v.storyId,
     option: v.option,
-    title: stories.find(s => s.id === v.storyId)?.title ?? '삭제된 사연',
+    title: stories.find(s => s.id === v.storyId)?.title ?? '볼 수 없는 사연',
   }));
 
   // Current week date calculation (Monday to Sunday)
@@ -1202,16 +1675,22 @@ export default function App() {
   currentMonday.setHours(0, 0, 0, 0);
 
   const weeklyTopStories = [...stories]
-    .filter(s => !s.isBlind && new Date(s.createdAt) >= currentMonday)
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !s.isAdult && s.visibility !== 'private' && !hiddenStoryIds.includes(s.id) && new Date(s.createdAt) >= currentMonday)
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   const realtimeTopStories = [...stories]
-    .filter(s => !s.isBlind)
+    .filter(s => hiddenStoriesReady && !s.isBlind && !s.isHidden && !s.isAdult && s.visibility !== 'private' && !hiddenStoryIds.includes(s.id))
     .sort((a, b) => (b.votesA + b.votesB) - (a.votesA + a.votesB));
 
   // My Written Stories & Comments
   const myStories = stories.filter(s => s.authorId === user.id);
-  const myComments = (Object.values(commentsMap) as Comment[][]).flat().filter(c => c.authorId === user.id);
+  const hiddenStories = stories.filter(s => hiddenStoryIds.includes(s.id));
+  const myComments = (Object.values(commentsMap) as Comment[][]).flat()
+    .filter(c => c.authorId === user.id && !hiddenStoryIds.includes(c.storyId));
+  // A delayed request must not display the former account's private detail.
+  const visibleSelectedStory = selectedStory &&
+    (selectedStory.visibility !== 'private' || selectedStory.authorId === authUserId)
+      ? selectedStory : null;
 
   // 게스트는 홈 피드 탐색만 가능하므로, 나머지 진입점은 로그인 안내로 대체한다
   /**
@@ -1230,7 +1709,10 @@ export default function App() {
     syncStoryUrl(null);
   };
 
-  const openStoryDetail = (story: Story) => {
+  const openStoryDetail = (story: Story, entryPoint: AnalyticsEntryPoint = activeTab === 'mypage' ? 'my_page' : 'feed') => {
+    if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id) ||
+        (story.isAdult && story.authorId !== user.id) ||
+        (story.visibility === 'private' && story.authorId !== user.id)) return;
     /*
       둘러보는 사람도 사연 본문과 댓글은 읽을 수 있다.
 
@@ -1241,8 +1723,10 @@ export default function App() {
     setSelectedStory(story);
     syncStoryUrl(story.id);
 
-    /* 사연마다 한 번씩 센다 — 뒤로 갔다 다시 들어와도 숫자가 부풀지 않게 */
-    trackOnce(`story_view:${story.id}`, 'story_view', { storyId: story.id, category: story.category });
+    /* 공개 사연만 분석한다. 비공개·운영 차단 사연의 조회는 외부 계측에서 뺀다. */
+    if (story.visibility !== 'private' && !story.isAdult && !story.isBlind && !story.isHidden) {
+      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category, entry_point: entryPoint });
+    }
 
     /*
       조회수는 신고 비율 판정의 분모라서 실제로 늘어나야 한다.
@@ -1268,13 +1752,13 @@ export default function App() {
   };
 
   const openCreateStory = () => {
-    if (blockedForGuest('사연을 등록하려면 로그인이 필요해요.')) return;
+    if (blockedForGuest('사연을 등록하려면 로그인이 필요해요.')) { blockedAction('story_publish', 'auth_required'); return; }
     setIsCreateStoryOpen(true);
   };
 
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
+    <div data-analytics-screen={activeTab === "feed" ? "feed" : activeTab === "ai-chat" ? "ai_list" : "my_page"} data-analytics-layer="0" className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
       
       {/* Header */}
       <Header
@@ -1291,11 +1775,25 @@ export default function App() {
         isGuest={isGuest}
       />
 
+      {/* Optional analytics choice stays in the page flow, so it cannot cover controls. */}
+      {!showWelcomeModal && <AnalyticsConsentBanner />}
+
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
         
         {/* TAB 1: FEED VIEW */}
-        {activeTab === 'feed' && (
+        {activeTab === 'feed' && !hiddenStoriesReady && (
+          <div className="rounded-lg border border-[#E5E7EB] bg-white p-6 text-sm text-[#1C1C1C]">
+            <p>{hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '사연 목록을 불러오는 중입니다.'}</p>
+            {hiddenStoriesLoadError && (
+              <button data-analytics-exclude="true" data-button-id="app-button-01" type="button" className="mt-3 text-[#A32E1D] font-bold underline"
+                onClick={() => setHiddenStoriesLoadNonce(n => n + 1)}>
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
+        {activeTab === 'feed' && hiddenStoriesReady && (
           <div className="space-y-8 pb-24 md:pb-44">
             
             {/* Today's Balance Game (Hot Logic Hero) */}
@@ -1313,7 +1811,7 @@ export default function App() {
             <WeeklyTopBanner
               weeklyTopStories={weeklyTopStories}
               realtimeTopStories={realtimeTopStories}
-              onSelectStory={openStoryDetail}
+              onSelectStory={(story) => openStoryDetail(story, 'weekly_top')}
             />
 
             {/* Feed Category & Search Controls */}
@@ -1321,7 +1819,7 @@ export default function App() {
               {/* Category Pills */}
               <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scroll-hide">
                 {CATEGORIES.map((cat) => (
-                  <button
+                  <button data-button-id="app-button-02"
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`whitespace-nowrap px-5 py-2 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
@@ -1337,7 +1835,7 @@ export default function App() {
 
               {/* Sort Switch */}
               <div className="flex items-center gap-2 font-mono text-xs shrink-0">
-                <button
+                <button data-button-id="app-button-03"
                   onClick={() => setSortBy('latest')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'latest'
@@ -1347,7 +1845,7 @@ export default function App() {
                 >
                   <Clock className="w-3.5 h-3.5" /> 최신순
                 </button>
-                <button
+                <button data-button-id="app-button-04"
                   onClick={() => setSortBy('votes')}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     sortBy === 'votes'
@@ -1369,7 +1867,7 @@ export default function App() {
                     등록된 사연이 없습니다.
                   </h3>
                   <p className="font-mono text-xs text-[#5f5e5e]">첫 번째 사연을 등록해 논리 대결을 시작해보세요!</p>
-                  <button
+                  <button data-button-id="app-button-05"
                     onClick={openCreateStory}
                     className="mt-2 px-6 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer"
                   >
@@ -1382,18 +1880,17 @@ export default function App() {
                     key={story.id}
                     story={story}
                     currentUser={user}
-                    isUserAdultVerified={user.isAdultVerified}
-                    onRequireAdultVerification={() => setIsAdultVerificationOpen(true)}
+                    isUserAdultVerified={false}
                     onSelect={openStoryDetail}
                     onVote={handleVote}
                     onStartAIChatWithStory={handleStartAIChatWithStory}
                     onReport={handleReport}
                     onEdit={handleEditStory}
                     onDelete={handleDeleteStory}
-                    onHide={handleHideStory}
+                    onHide={story.authorId === user.id ? undefined : handleHideStory}
                     comments={commentsMap[story.id] || []}
                     isGuest={isGuest}
-                    onAppeal={(id) => setAppealTargetId(id)}
+                    onAppeal={(id) => { setAppealError(null); setAppealTargetId(id); }}
                   />
                 ))
               )}
@@ -1444,13 +1941,17 @@ export default function App() {
                 createdAt: new Date().toISOString(),
                 status: 'active',
                 chatMode: isExplanation ? 'explanation' : 'simulation',
-                explanationRatio: ratio
+                explanationRatio: ratio,
+                analyticsEntryPoint: 'chat_list',
+                conversationType: 'continuation',
               };
               setActiveChatSession(newSession);
               setAiExplainSettingsStory(null);
             }}
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
+            onSaveTurn={saveCompletedTurn}
+            onQuotaChanged={() => { void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {}); }}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
@@ -1460,7 +1961,7 @@ export default function App() {
             onReturnToStory={(storyId) => {
               const target = stories.find(s => s.id === storyId);
               setActiveTab('feed');
-              if (target) openStoryDetail(target);
+              if (target) openStoryDetail(target, 'chat_return');
             }}
           />
         )}
@@ -1475,6 +1976,12 @@ export default function App() {
             }}
             user={user}
             myStories={myStories}
+            storiesNavigationKey={myStoriesNavigationKey}
+            hiddenStories={hiddenStories}
+            hiddenStoriesReady={hiddenStoriesReady}
+            hiddenStoriesLoadError={hiddenStoriesLoadError}
+            onRetryHiddenStories={() => setHiddenStoriesLoadNonce(n => n + 1)}
+            onRestoreStory={handleRestoreStory}
             myVotes={myVotes}
             myComments={myComments}
             onUpdateNickname={handleUpdateNickname}
@@ -1482,7 +1989,7 @@ export default function App() {
             /* 마이페이지에서 열 때도 피드와 같은 길로 연다. 여기만 따로
                setSelectedStory를 부르면 조회수·주소(?story=) 처리가 빠져,
                같은 사연인데 어디서 들어왔느냐에 따라 다르게 동작한다 */
-            onSelectStory={openStoryDetail}
+            onSelectStory={(story) => openStoryDetail(story)}
             aiChatCount={personas.length}
             onDeleteAllAiChats={handleDeleteAllAiChats}
           />
@@ -1514,7 +2021,7 @@ export default function App() {
                 <p className="text-[#5f5e5e] font-body-md text-xs">세상의 모든 갈등과 고민은 명확한 논리로 해답을 찾을 수 있습니다.</p>
               </div>
             </div>
-            <button
+            <button data-button-id="app-button-06"
               onClick={openCreateStory}
               className="shrink-0 bg-[#1C1C1C] text-white hover:bg-black px-8 py-3 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
             >
@@ -1525,7 +2032,7 @@ export default function App() {
       )}
 
       {activeTab === 'feed' && (
-        <button
+        <button data-button-id="app-button-07"
           onClick={openCreateStory}
           aria-label="익명 사연 쓰기"
           className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
@@ -1558,6 +2065,18 @@ export default function App() {
         onComplete={handleCompleteWelcome}
         onGuestBrowse={handleGuestBrowse}
         signupLinkExpired={signupLinkExpired}
+        emailCheckToken={emailCheckToken}
+        passwordRecoveryReturn={passwordRecoveryReturn}
+        passwordRecoveryReady={passwordRecoveryReady}
+        recoveryLinkExpired={recoveryLinkExpired}
+        onPasswordRecoveryComplete={() => {
+          passwordRecoveryFlowRef.current = false;
+          setPasswordRecoveryReady(false);
+          window.history.replaceState(window.history.state, '', window.location.pathname);
+          setShowWelcomeModal(false);
+          setShowLandingPage(false);
+          setIsGuest(false);
+        }}
       />
 
       <CrisisSupportModal
@@ -1567,7 +2086,7 @@ export default function App() {
 
       {/* 이의 제기 입력 */}
       {appealTargetId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div data-analytics-screen="excluded" data-analytics-layer="30" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 flex flex-col gap-3">
             <h2 className="text-base font-bold text-[#1C1C1C]">이의 제기</h2>
             <p className="text-xs text-[#5f5e5e] leading-relaxed">
@@ -1580,24 +2099,26 @@ export default function App() {
               placeholder="예: 특정인을 비방한 내용이 아니라 제 상황을 설명한 글입니다."
               className="w-full p-3 text-xs border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:border-[#FF6B5A]"
             />
+            {appealError && <p role="alert" className="text-xs text-[#A32E1D]">{appealError}</p>}
             <div className="flex gap-2">
-              <button
+              <button data-analytics-exclude="true" data-button-id="app-button-08"
+                disabled={appealSubmitting}
                 onClick={() => setAppealTargetId(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer disabled:opacity-50"
               >
                 취소
               </button>
-              <button
-                onClick={() => {
+              <button data-analytics-exclude="true" data-button-id="app-button-09"
+                disabled={appealSubmitting}
+                onClick={async () => {
                   const el = document.getElementById('appeal-text') as HTMLTextAreaElement | null;
                   const text = el?.value.trim() ?? '';
                   if (!text) return;
-                  handleSubmitAppeal(appealTargetId, text);
-                  setAppealTargetId(null);
+                  if (await handleSubmitAppeal(appealTargetId, text)) setAppealTargetId(null);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-[#1C1C1C] text-white text-sm font-bold hover:bg-black cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#1C1C1C] text-white text-sm font-bold hover:bg-black cursor-pointer disabled:opacity-50"
               >
-                제출하기
+                {appealSubmitting ? '제출 중…' : '제출하기'}
               </button>
             </div>
           </div>
@@ -1612,8 +2133,12 @@ export default function App() {
       />
 
       <StoryDetailModal 
-        story={selectedStory} 
-        comments={selectedStory ? (commentsMap[selectedStory.id] || []) : []}
+        story={hiddenStoriesReady ? visibleSelectedStory : null}
+        comments={visibleSelectedStory ? (commentsMap[visibleSelectedStory.id] || []).map(comment => ({
+          ...comment,
+          userLiked: likedCommentOwnerId === authUserId && likedCommentIds.includes(comment.id),
+        })) : []}
+        likePendingIds={likePendingIds}
         currentUser={user}
         onClose={closeStoryDetail} 
         onVote={handleVote}
@@ -1628,7 +2153,9 @@ export default function App() {
         onReportStory={handleReport}
         onEditStory={handleEditStory}
         onDeleteStory={handleDeleteStory}
-        onHideStory={handleHideStory}
+        onHideStory={visibleSelectedStory?.authorId === user.id ? undefined : handleHideStory}
+        onSetVisibility={authorPrivateLaunchEnabled && storyPrivateReady && visibleSelectedStory?.authorId === user.id
+          ? handleSetStoryVisibility : undefined}
         onReportComment={handleReport}
         onEditComment={handleEditComment}
         onDeleteComment={handleDeleteComment}
@@ -1652,16 +2179,11 @@ export default function App() {
         onSubmitReport={handleSubmitReport}
       />
 
-      <AdultVerificationModal
-        isOpen={isAdultVerificationOpen}
-        onClose={() => setIsAdultVerificationOpen(false)}
-        onVerify={handleVerifyAdult}
-      />
-
       <DeleteConfirmModal
         isOpen={!!storyToDelete}
-        onClose={() => setStoryToDelete(null)}
+        onClose={() => { if (!storyDeleting) setStoryToDelete(null); }}
         onConfirm={confirmDeleteStory}
+        isDeleting={storyDeleting}
         title="삭제 하시겠습니까?"
       />
 
@@ -1669,17 +2191,23 @@ export default function App() {
         isOpen={!!premiumModalStory}
         dailyQuota={DAILY_AI_QUOTA}
         onClose={() => setPremiumModalStory(null)}
-        onDemoClick={() => {
-          if (premiumModalStory) {
-            handleStartAIChatWithStory(premiumModalStory, true);
-            setPremiumModalStory(null);
-          }
+        hasExistingChats={personas.length > 0}
+        onOpenMyStories={() => {
+          setPremiumModalStory(null);
+          setMyStoriesNavigationKey(value => value + 1);
+          setActiveTab('mypage');
+        }}
+        onOpenExistingChats={() => {
+          setPremiumModalStory(null);
+          setActiveChatSession(null);
+          setActiveTab('ai-chat');
         }}
       />
 
       {/* AI Chat Mode Selection Modal */}
       {aiChatModeStory && (
         <AIChatModeSelectionModal
+          analyticsEntryPoint={aiEntryPoint.current}
           onClose={() => setAiChatModeStory(null)}
           onSelectMode={handleSelectAiChatMode}
           opponentLabel={OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방'}
@@ -1714,6 +2242,10 @@ export default function App() {
         <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-[#1C1C1C] text-white px-6 py-3 rounded-full shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2 text-sm font-bold">
           <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
           {toastMessage}
+          {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
+            <button data-analytics-exclude="true" data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
+              className="ml-2 text-[#FF6B5A] underline shrink-0">되돌리기</button>
+          )}
         </div>
       )}
     </div>

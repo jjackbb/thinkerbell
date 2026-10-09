@@ -1,3 +1,5 @@
+-- 2026-09-30: combined migration 20260929210710 applied after public server verification.
+-- Historical recipe below; do not reapply it independently.
 -- 니편내편 운영 DB 전환안. 현재 읽기 전용 MCP에서는 실행하지 않는다.
 -- 기존 숨김 버튼의 직접 stories UPDATE를 사용자별 숨김 저장으로 전환하고,
 -- 새 서버 버전 + SUPABASE_SECRET_KEY 배포·인증 저장 시험을 마친 뒤에만 적용한다.

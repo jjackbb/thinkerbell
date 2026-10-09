@@ -17,7 +17,7 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen="login_prompt" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col p-6 text-center">
         <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/15 flex items-center justify-center mx-auto mb-4">
           <Lock className="w-5 h-5 text-[#FF6B5A]" />
@@ -27,13 +27,13 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
         <p className="text-sm text-[#5f5e5e] leading-relaxed mb-6">{message}</p>
 
         <div className="flex flex-col gap-2">
-          <button
+          <button data-button-id="login-prompt-modal-button-01"
             onClick={onGoToLogin}
             className="w-full px-4 py-3 bg-[#1C1C1C] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md hover:bg-[#333333]"
           >
             로그인 하러가기
           </button>
-          <button
+          <button data-button-id="login-prompt-modal-button-02"
             onClick={onClose}
             className="w-full px-4 py-2.5 bg-white text-[#5f5e5e] font-bold rounded-xl active:scale-95 transition-all cursor-pointer hover:bg-[#f3f4f5]"
           >

@@ -35,8 +35,10 @@ NODE_ENV=production npm start
 
 `lint`는 TypeScript 타입 검사입니다. 빌드는 `dist/`에 화면과 `server.cjs`를 생성합니다. `frontend/`만 별도로 설치하거나 실행하지 않습니다.
 
-## 배포와 현재 구현의 한계
+## 배포와 현재 상태
 
-기존 Vercel 구조를 유지합니다. 루트 `api/index.ts` → `backend/app.ts`, 루트 `vercel.json`의 `/api/*` rewrite, 정적 출력 `dist/`를 사용합니다. 이번 폴더 정리는 원격 프로젝트 설정 변경이나 배포를 포함하지 않습니다.
+Vercel은 루트 `api/index.ts` → `backend/app.ts`, `vercel.json`의 `/api/*` rewrite, 정적 출력 `dist/`를 사용합니다. 프로젝트는 `jjackbb-projects/thinkerbell`, 공개 주소는 https://thinkerbell-eight.vercel.app/ 입니다.
 
-계획의 AI 공급자는 포텐스 단독입니다. 현재 코드에는 Gemini 예비 경로가 남아 있으며 제거는 기능 정상화 작업에서 수행해야 합니다. GA4 동의 처리도 아직 구현 전이므로 측정 ID 입력만으로 계획이 완료되었다고 보지 않습니다. 실제 가입·AI·DB·계측 검증 상태는 상세 기록에서 구분합니다.
+포텐스 단독 AI·서버 저장·권한 경계·메일·동의 기반 GA4의 운영 반영과 핵심 기술 검증 기록이 있습니다. 최신 상태와 이번 계측 복원 배포 범위는 [인수인계](docs/plan-execution/README.md)를 확인합니다. 과거 폴더 정리 시점의 미배포 안내로 현재 상태를 판단하지 않습니다.
+
+[현재 안내 정리 전 원본](archive/2026-09-30/current-docs-before-cleanup/README.md)은 이력입니다. [배포 절차](docs/plan-execution/2026-09-28-release-gates.md)와 [기술 근거](docs/plan-execution/2026-09-28-in-progress-release-preflight.md)를 구분합니다.

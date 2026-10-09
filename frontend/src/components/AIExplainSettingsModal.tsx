@@ -17,7 +17,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
   const [ratio, setRatio] = useState<ExplainRatio>(initialRatio);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen="ai_settings" data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-sm flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         
         {/* Header */}
@@ -26,7 +26,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
             <Settings2 className="w-4 h-4 text-[#FF6B5A]" />
             공감 비율 설정
           </h3>
-          <button 
+          <button data-button-id="ai-explain-settings-modal-button-01"
             onClick={onClose}
             className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1"
           >
@@ -86,7 +86,7 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
             </div>
           </div>
 
-          <button
+          <button data-button-id="ai-explain-settings-modal-button-02"
             onClick={() => onConfirm(ratio)}
             className="w-full bg-[#1C1C1C] text-[#FF6B5A] font-bold text-sm py-3 rounded-lg hover:bg-black transition-colors"
           >

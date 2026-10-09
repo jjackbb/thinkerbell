@@ -5,7 +5,7 @@ interface ReportModalProps {
   isOpen: boolean;
   targetId: string | null;
   onClose: () => void;
-  onSubmitReport: (targetId: string, reason: string) => void;
+  onSubmitReport: (targetId: string, reason: string) => Promise<boolean>;
 }
 
 /**
@@ -33,6 +33,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [reason, setReason] = useState<string>('');
   const [detail, setDetail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   if (!isOpen || !targetId) return null;
 
@@ -40,12 +42,24 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const needsDetail = reason === '기타';
   const canSubmit = Boolean(reason) && (!needsDetail || detail.trim().length > 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || isSubmitting) return;
 
     const body = detail.trim() ? `${reason}: ${detail.trim()}` : reason;
-    onSubmitReport(targetId, body);
+    setIsSubmitting(true);
+    setSubmitError(false);
+    let saved = false;
+    try {
+      saved = await onSubmitReport(targetId, body);
+    } catch {
+      saved = false;
+    }
+    setIsSubmitting(false);
+    if (!saved) {
+      setSubmitError(true);
+      return;
+    }
     setIsSubmitted(true);
     setTimeout(() => {
       setIsSubmitted(false);
@@ -56,7 +70,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen="excluded" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white border border-[#E5E7EB] rounded-lg w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
 
         {isSubmitted ? (
@@ -79,10 +93,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <ShieldAlert className="w-4 h-4 text-[#A32E1D]" aria-hidden="true" />
                 신고하기
               </h3>
-              <button
+              <button data-analytics-exclude="true" data-button-id="report-modal-button-01"
                 type="button"
                 aria-label="닫기"
                 onClick={onClose}
+                disabled={isSubmitting}
                 className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -132,20 +147,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 />
               </div>
 
+              {submitError && (
+                <p role="alert" className="text-xs text-[#A32E1D]">
+                  신고를 접수하지 못했습니다. 사유를 유지했으니 다시 시도해 주세요.
+                </p>
+              )}
               <div className="flex gap-2">
-                <button
+                <button data-analytics-exclude="true" data-button-id="report-modal-button-02"
                   type="button"
                   onClick={onClose}
+                  disabled={isSubmitting}
                   className="flex-1 px-4 py-3 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
                 >
                   취소
                 </button>
-                <button
+                <button data-analytics-exclude="true" data-button-id="report-modal-button-03"
                   type="submit"
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || isSubmitting}
                   className="flex-1 px-4 py-3 rounded-lg bg-[#A32E1D] text-white text-xs font-bold shadow-md transition-colors hover:bg-[#8d2718] disabled:bg-[#E5E7EB] disabled:text-[#5f5e5e] disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
                 >
-                  신고 제출하기
+                  {isSubmitting ? '접수 중…' : '신고 제출하기'}
                 </button>
               </div>
             </div>

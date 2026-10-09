@@ -1,9 +1,17 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 import { SessionSummaryCard } from './SessionSummaryCard';
 import { detectSimEnd, stripSimEnd } from '../lib/prompts';
-import { trackOnce } from '../lib/events';
+import { track, trackOnce } from '../lib/events';
+import { supabase } from '../lib/supabase';
+import { submitAiFeedback } from '../lib/aiFeedback';
+import { messagesBeforeRetry } from '../lib/chatRetry';
+
+const FEEDBACK_CHOICES = [
+  '전혀 도움 안 됨', '별로 도움 안 됨', '보통', '조금 도움 됨', '매우 도움 됨',
+] as const;
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -15,9 +23,11 @@ interface AIChatViewProps {
   onStartSession: (persona: AIPersona) => void;
   onEndSession: (sessionId: string) => void;
   onUpdateSession?: (sessionId: string, personaId: string, updates: Partial<ChatSession>) => void;
+  onSaveTurn?: (personaId: string, messages: ChatMessage[]) => Promise<boolean>;
+  onQuotaChanged?: () => void;
   onOpenSettings?: () => void;
   onTogglePinPersona?: (personaId: string) => void;
-  onDeletePersona?: (personaId: string) => void;
+  onDeletePersona?: (personaId: string) => Promise<boolean> | boolean;
   onReportErrorPersona?: (personaId: string) => void;
   /** 대화가 하나도 없을 때 사연을 보러 가는 길 */
   onGoToFeed?: () => void;
@@ -48,6 +58,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onStartSession,
   onEndSession,
   onUpdateSession,
+  onSaveTurn,
+  onQuotaChanged,
   onOpenSettings,
   onTogglePinPersona,
   onDeletePersona,
@@ -61,7 +73,6 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   // 아직 대화를 시작하지 않은 채 나갈 때, 지울지 남길지 사용자가 고르게 한다
   const [showExitChoice, setShowExitChoice] = useState(false);
   const [simEndResult, setSimEndResult] = useState<'success' | 'fail' | null>(null);
@@ -69,9 +80,22 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   /** 답장을 못 받아서 되돌려줄 내 말. 있으면 '다시 보내기'가 뜬다 */
   const [failedText, setFailedText] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackError, setFeedbackError] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const successfulTurns = useRef(0);
+  const episodeKey = useRef(crypto.randomUUID());
+  const pendingRequestId = useRef<string | null>(null);
+  const analyticsProps = {
+    mode: activeSession?.chatMode,
+    entry_point: activeSession?.analyticsEntryPoint,
+    conversation_type: activeSession?.conversationType,
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -85,7 +109,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
   useEffect(() => {
     if (activeSession) {
-      const persona = personas.find(p => p.id === activeSession.personaId) || personas[0];
+      const persona = personas.find(p => p.id === activeSession.personaId) ?? null;
       setSelectedPersona(persona);
     }
   }, [activeSession?.personaId, activeSession?.explanationRatio, personas]);
@@ -95,6 +119,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       setShowChat(true);
       setMessages(activeSession.messages || []);
       setSimEndResult(null);
+      setSaveFailed(false);
+      setShowFeedback(false);
+      setFeedbackError(false);
+      successfulTurns.current = 0;
+      episodeKey.current = crypto.randomUUID();
     }
   }, [activeSession?.id]);
 
@@ -121,7 +150,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 이미 열려 있는 대화방이면 그 화면으로 돌아가고, 아니면 새로 시작한다.
    */
   const openPersona = (persona: AIPersona) => {
+    if (!isGuest) track('ai_chat_open', {
+      mode: persona.opening ? 'simulation' : persona.ratio ? 'explanation' : 'legacy',
+      entry_point: 'chat_list', conversation_type: 'continuation',
+    });
     if (activeSession && activeSession.personaId === persona.id) {
+      onUpdateSession?.(activeSession.id, persona.id, { analyticsEntryPoint: 'chat_list', conversationType: 'continuation' });
+      successfulTurns.current = 0;
+      episodeKey.current = crypto.randomUUID();
       setShowChat(true);
     } else {
       onStartSession(persona);
@@ -133,7 +169,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     // 게스트에게는 입력창 자체를 내주지 않지만, 다른 길로 이 함수가 불려도
     // 대화가 나가지 않게 여기서 한 번 더 막는다
     if (isGuest) return;
-    if (!inputText.trim() || isLoading || !selectedPersona) return;
+    if (!inputText.trim() || isLoading || isSaving || failedText || !selectedPersona) return;
 
     const userMsgText = inputText.trim();
     setInputText('');
@@ -144,10 +180,16 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 실제로 한 마디를 보내는 곳. 입력창에서도, 실패 후 '다시 보내기'에서도
    * 같은 길을 쓰도록 분리해 두었다.
    */
-  const sendMessage = async (userMsgText: string) => {
-    if (!selectedPersona) return;
+  const sendMessage = async (userMsgText: string, retry = false) => {
+    if (!selectedPersona || isLoading || isSaving || (saveFailed && !retry) || (failedText && !retry)) return;
 
+    // 실패한 전송의 말풍선과 안내를 교체한다. 그대로 덧붙이면 재시도 한 번이
+    // 두 번의 사용자 발언처럼 저장되고 다음 AI 요청의 이력에도 중복된다.
+    const retryBase = retry ? messagesBeforeRetry(messages, userMsgText) : messages;
+    const requestId = pendingRequestId.current ?? crypto.randomUUID();
+    pendingRequestId.current = requestId;
     setFailedText(null);
+    setSaveFailed(false);
     onCrisisDetected?.(userMsgText);
 
     const newUserMsg: ChatMessage = {
@@ -157,43 +199,102 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const updatedMessages = [...messages, newUserMsg];
+    const updatedMessages = [...retryBase, newUserMsg];
     setMessages(updatedMessages);
     setIsLoading(true);
 
+    const task = beginTask('ai_response');
+    let aiMsgId: string | null = null;
+    let saveErrorOccurred = false;
+    let quotaReached = false;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        onRequireLogin?.('AI 대화를 하려면 로그인해 주세요.');
+        throw new Error('auth_required');
+      }
       const response = await fetch('/api/chat-stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           prompt: userMsgText,
-          model: 'claude-4-6-sonnet',
-          persona: selectedPersona.name,
-          systemInstruction: selectedPersona.systemInstruction,
-          history: messages.filter(m => m.sender !== 'system').slice(-8)
+          personaId: selectedPersona.id,
+          requestId,
         })
       });
 
       if (!response.ok || !response.body) {
-        throw new Error('Server response error');
+        const failure = await response.json().catch(() => ({}));
+        quotaReached = failure.error === 'AI_QUOTA_REACHED';
+        if (failure.error !== 'AI_REQUEST_IN_PROGRESS') pendingRequestId.current = null;
+        throw new Error(typeof failure.error === 'string' ? failure.error : 'Server response error');
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let aiResponseText = '';
+      let completed = false;
+      let persistedByServer = false;
+      let counted = false;
 
-      const aiMsgId = `ai-${Date.now()}`;
+      const markAnswerComplete = () => {
+        if (counted || !stripSimEnd(aiResponseText).trim()) return;
+        counted = true;
+        task.finish('success');
+        successfulTurns.current += 1;
+        if (successfulTurns.current === 1) {
+          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', analyticsProps);
+        }
+        if (successfulTurns.current === 3) {
+          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', analyticsProps);
+        }
+      };
+
+      aiMsgId = `ai-${Date.now()}`;
+      const aiTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setMessages(prev => [
         ...prev,
         {
           id: aiMsgId,
           sender: 'ai',
           text: '',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: aiTimestamp
         }
       ]);
 
       let buffer = '';
+      const handleStreamLine = (line: string) => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine.startsWith('data: ')) return;
+        if (trimmedLine === 'data: [DONE]') {
+          completed = true;
+          return;
+        }
+        let data: { type?: string; text?: string; error?: string; persisted?: boolean };
+        try { data = JSON.parse(trimmedLine.slice(6)); }
+        catch { throw new Error('invalid_stream_event'); }
+        if (data.type === 'error') {
+          saveErrorOccurred = data.error === 'ai_save_failed';
+          pendingRequestId.current = null;
+          throw new Error(data.error || 'ai_unavailable');
+        }
+        // Answer completion and persistence are separate analytics outcomes.
+        // Only the server's explicit provider completion counts a full answer;
+        // a later save error must not erase that completed-answer event.
+        if (data.type === 'provider_done') markAnswerComplete();
+        if (data.type === 'done') {
+          completed = true;
+          persistedByServer = data.persisted === true;
+        }
+        if (data.type === 'text' && data.text) {
+          aiResponseText += data.text;
+          const displayText = stripSimEnd(aiResponseText);
+          setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -205,68 +306,61 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         // Keep the last partial line in the buffer
         buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6));
-              if (data.type === 'error') {
-                // 서버가 "AI를 못 붙였다"고 알려온 경우다. 조용히 넘기지 않는다.
-                throw new Error(data.error || 'ai_unavailable');
-              }
-              if (data.type === 'text' && data.text) {
-                aiResponseText += data.text;
-                const ended = detectSimEnd(aiResponseText);
-                if (ended) setSimEndResult(ended);
-                const displayText = stripSimEnd(aiResponseText);
-                setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: displayText } : m));
-              }
-            } catch (err) {
-              // ignore parse error for incomplete JSON if any
-            }
-          }
-        }
+        for (const line of lines) handleStreamLine(line);
       }
+      buffer += decoder.decode();
+      if (buffer.trim()) handleStreamLine(buffer);
 
-      if (aiResponseText) {
+      if (completed && stripSimEnd(aiResponseText).trim()) {
+        // Compatibility fallback for completed streams without provider_done.
+        // counted prevents duplication when both completion signals arrive.
+        markAnswerComplete();
         const ended = detectSimEnd(aiResponseText);
-        if (ended) setSimEndResult(ended);
         const finalText = stripSimEnd(aiResponseText);
-        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: finalText } : m));
+        const finalMessages: ChatMessage[] = [...updatedMessages, { id: aiMsgId, sender: 'ai', text: finalText, timestamp: aiTimestamp, requestId }];
+        setMessages(finalMessages);
+        setIsLoading(false);
 
-        /*
-          한 턴 = 내가 한 마디 하고 답장을 받은 것. 답장을 못 받았으면 턴이
-          아니므로 이 안(성공 분기)에서만 센다. 실패했는데 3턴으로 찍히면
-          H3(3턴 도달률)이 그만큼 부풀어 답이 뒤집힌다.
-        */
-        const userTurns = updatedMessages.filter(m => m.sender === 'user').length;
-        if (userTurns === 1) {
-          trackOnce(`ai_chat_turn1:${selectedPersona.id}`, 'ai_chat_turn1', { personaId: selectedPersona.id });
+        pendingRequestId.current = null;
+        if (persistedByServer) onQuotaChanged?.();
+
+        let saved = persistedByServer;
+        if (!persistedByServer) {
+          setIsSaving(true);
+          try { saved = await onSaveTurn?.(selectedPersona.id, finalMessages) ?? false; }
+          catch { saved = false; }
+          setIsSaving(false);
         }
-        if (userTurns >= 3) {
-          trackOnce(`ai_chat_turn3:${selectedPersona.id}`, 'ai_chat_turn3', { personaId: selectedPersona.id, turns: userTurns });
-        }
+        setSaveFailed(!saved);
+        if (saved && ended) setSimEndResult(ended);
+        track(saved ? 'operation_success' : 'operation_error', {
+          ...analyticsProps,
+          operation: 'ai_reply_save',
+          ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
+        });
       } else {
-        /*
-          한 글자도 못 받았는데 페르소나가 말한 것처럼 채워 넣으면, AI가 죽은
-          날에도 화면은 멀쩡해 보이고 로그에는 정상 대화로 쌓인다.
-          빈 말풍선은 지우고 실패했다고 알린다.
-        */
-        setMessages(prev => prev.filter(m => m.id !== aiMsgId));
-        throw new Error('empty_response');
+        throw new Error(completed ? 'empty_response' : 'incomplete_response');
       }
 
     } catch (err) {
+      task.finish('error');
       /*
         예전에는 여기서 페르소나 대사를 하나 지어내 붙였다. 사용자는 AI가
         대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
       */
+      if (saveErrorOccurred) {
+        track('operation_error', { ...analyticsProps, operation: 'ai_reply_save', error_code: 'save_failed' });
+      }
       setMessages(prev => [
-        ...prev,
+        ...(saveErrorOccurred ? prev : prev.filter(m => m.id !== aiMsgId)),
         {
           id: `sys-${Date.now()}`,
           sender: 'system',
-          text: '답장을 받지 못했어요. 잠시 뒤 다시 보내주세요.',
+          text: saveErrorOccurred
+            ? '답변이 나왔지만 저장되지 않았어요. 입력은 남아 있어요. 다시 보내면 새 답변을 받습니다.'
+            : quotaReached
+              ? '오늘 새 AI 대화 이용 횟수를 모두 썼어요. 기존 대화는 이어갈 수 있습니다.'
+              : '답장을 받지 못했어요. 잠시 뒤 다시 보내주세요.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -276,8 +370,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     }
   };
 
-  const handleEndChat = () => {
-    setShowDeleteModal(true);
+  const retrySave = () => {
+    if (!saveFailed || isLoading || isSaving) return;
+    const lastInput = [...messages].reverse().find(m => m.sender === 'user')?.text;
+    if (lastInput) void sendMessage(lastInput, true);
   };
 
   /**
@@ -313,9 +409,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   };
 
   /** 세션과 페르소나를 지우고 닫는다 */
-  const discardAndClose = () => {
+  const discardAndClose = async () => {
+    if (!onDeletePersona || !selectedPersona) return;
+    const deleted = await onDeletePersona(selectedPersona.id);
+    if (!deleted) return;
     setShowExitChoice(false);
-    if (onDeletePersona && selectedPersona) onDeletePersona(selectedPersona.id);
     if (activeSession) onEndSession(activeSession.id);
     setShowChat(false);
   };
@@ -331,6 +429,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 카드 ⋮ 메뉴의 '삭제'가 따로 있고, 그쪽은 확인 창이 뜬다.
    */
   const finishAndKeep = () => {
+    setShowFeedback(false);
     setSimEndResult(null);
     setShowChat(false);
 
@@ -339,20 +438,55 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     if (storyId && onReturnToStory) onReturnToStory(storyId);
   };
 
-  const confirmEndChat = () => {
-    if (activeSession) {
-      if (onDeletePersona && selectedPersona) {
-        onDeletePersona(selectedPersona.id);
-      }
-      onEndSession(activeSession.id);
+  // A historical bubble has no reliable completion marker. It qualifies after
+  // this room receives a new, server-saved answer with a request ID.
+  const latestCompletedAnswer = [...messages].reverse().find(
+    m => m.sender === 'ai' && Boolean(m.requestId) && Boolean(m.text.trim()),
+  );
+  // Two historical rooms have neither mode field. They can still be finished
+  // and kept, but a rating must not be attributed to an invented AI mode.
+  const feedbackModeKnown = Boolean(selectedPersona?.opening || selectedPersona?.ratio);
+  const canFinish = !isGuest && !isLoading && !isSaving && !failedText && !saveFailed &&
+    Boolean(latestCompletedAnswer);
+
+  const beginFinish = () => {
+    if (!canFinish) return;
+    track('ai_chat_finish', analyticsProps);
+    if (!feedbackModeKnown) {
+      finishAndKeep();
+      return;
     }
-    setShowDeleteModal(false);
+    track('ai_feedback_view', analyticsProps);
+    setFeedbackError(false);
+    setShowFeedback(true);
+  };
+
+  const finishWithFeedback = async (score: 1 | 2 | 3 | 4 | 5 | null) => {
+    if (!selectedPersona || !feedbackModeKnown ||
+        !latestCompletedAnswer?.requestId || feedbackSaving) return;
+    const task = beginTask('ai_feedback');
+    setFeedbackSaving(true);
+    setFeedbackError(false);
+    try {
+      await submitAiFeedback(selectedPersona.id, latestCompletedAnswer.requestId, score);
+      task.finish('success');
+      track('ai_feedback_submit', {
+        ...analyticsProps,
+        outcome: score === null ? 'skipped' : 'submitted',
+      });
+      finishAndKeep();
+    } catch {
+      task.finish('error');
+      setFeedbackError(true);
+    } finally {
+      setFeedbackSaving(false);
+    }
   };
 
   // Persona Selection View
   if (!activeSession || !selectedPersona || !showChat) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 pb-24">
+      <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-4xl mx-auto space-y-8 pb-24">
         {/* Banner */}
         <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
           <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
@@ -408,7 +542,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 )}
               </p>
               {onGoToFeed && (
-                <button
+                <button data-button-id="ai-chat-view-button-01"
                   onClick={onGoToFeed}
                   className="mt-5 px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
                 >
@@ -420,7 +554,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {personas.map((persona) => (
-              <div
+              <div data-action-id="a-i-chat-view-action-01"
                 key={persona.id}
                 onClick={() => openPersona(persona)}
                 className="bg-white border border-[#E5E7EB] hover:border-[#FF6B5A] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
@@ -441,7 +575,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                     <div className="flex items-center gap-2 relative">
                       <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
                       <div ref={openMenuId === persona.id ? menuRef : null}>
-                        <button 
+                        <button data-button-id="ai-chat-view-button-02"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(openMenuId === persona.id ? null : persona.id);
@@ -460,17 +594,17 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                               삭제는 이 자리에서 카드가 실제로 사라지므로 남긴다.
                             */}
                             {!isGuest && onTogglePinPersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
+                              <button data-button-id="ai-chat-view-button-03" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onTogglePinPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer">
                                 <Pin className="w-3.5 h-3.5" /> {persona.isPinned ? '고정 해제' : '고정'}
                               </button>
                             )}
                             {!isGuest && onReportErrorPersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-04" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <ShieldAlert className="w-3.5 h-3.5" /> 오류 신고
                               </button>
                             )}
                             {onDeletePersona && (
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-05" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); void onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <Trash2 className="w-3.5 h-3.5" /> 삭제
                               </button>
                             )}
@@ -494,7 +628,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   카드 쪽에 stopPropagation이 하나 생기는 순간 조용히 죽는 버튼이다.
                   AI 대화는 이 서비스의 핵심 경로라 그런 우연에 기대면 안 된다.
                 */}
-                <button
+                <button data-button-id="ai-chat-view-button-06"
                   onClick={(e) => { e.stopPropagation(); openPersona(persona); }}
                   className="w-full py-3 bg-[#1C1C1C] group-hover:bg-[#FF6B5A] text-white group-hover:text-[#1C1C1C] font-mono font-bold text-xs rounded transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
@@ -520,11 +654,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * dvh를 쓰는 건 모바일에서 주소창이 접히고 펴져도 맞추기 위해서다.
    */
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
+    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
-          <button aria-label="대화창 나가기" onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
+          <button data-button-id="ai-chat-view-button-07" aria-label="대화창 나가기" onClick={handleLeave} className="material-symbols-outlined text-[#FF6B5A] cursor-pointer hover:opacity-80">
             arrow_back
           </button>
           <div>
@@ -540,13 +674,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           {/* 공감 비율은 다음 답장부터 반영되는 값이다. 답장을 보낼 수 없는
               게스트에게는 바꿔도 달라지는 게 없어 감춘다 */}
           {!isGuest && (activeSession.chatMode === 'explanation' || ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(selectedPersona.role)) && onOpenSettings && (
-            <button aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
+            <button data-button-id="ai-chat-view-button-08" aria-label="공감 비율 설정 변경" onClick={onOpenSettings} className="material-symbols-outlined text-[#5f5e5e] hover:text-[#FF6B5A] cursor-pointer transition-colors" title="공감 비율 설정 변경">
               settings
             </button>
           )}
-          <button
-            aria-label="대화 끝내기"
-            onClick={() => (notStartedYet ? setShowExitChoice(true) : setShowDeleteModal(true))}
+          <button data-button-id="ai-chat-view-button-09"
+            aria-label="대화창 닫기"
+            onClick={handleLeave}
             className="material-symbols-outlined text-[#5f5e5e] hover:text-white cursor-pointer"
           >
             close
@@ -600,9 +734,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   </p>
                 </div>
                 {failedText && msg.id === messages[messages.length - 1]?.id && (
-                  <button
+                  <button data-button-id="ai-chat-view-button-10"
                     type="button"
-                    onClick={() => { const t = failedText; setFailedText(null); sendMessage(t); }}
+                    onClick={() => { void sendMessage(failedText, true); }}
                     disabled={isLoading}
                     className="font-mono text-xs font-bold text-[#FF6B5A] border border-[#FF6B5A] rounded-lg px-4 py-2 hover:bg-[#FF6B5A] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
                   >
@@ -651,14 +785,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             충분한 대화가 오갔어요. 여기서 한번 정리해볼까요?
           </span>
           <div className="flex items-center gap-2">
-            <button
+            <button data-button-id="ai-chat-view-button-11"
               type="button"
               onClick={() => setSimEndResult('success')}
               className="px-3 py-1.5 bg-[#FF6B5A] text-[#1C1C1C] text-xs font-bold font-mono rounded hover:bg-[#FF6B5A]/90 transition-all cursor-pointer shadow-2xs"
             >
               🤝 화해로 끝내기
             </button>
-            <button
+            <button data-button-id="ai-chat-view-button-12"
               type="button"
               onClick={() => setSimEndResult('fail')}
               className="px-3 py-1.5 bg-[#1C1C1C] text-white text-xs font-bold font-mono rounded hover:bg-[#1C1C1C]/90 transition-all cursor-pointer shadow-2xs"
@@ -677,7 +811,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           supporterCount={supporterCount}
           onJumpToMessage={jumpToMessage}
           onContinue={() => setSimEndResult(null)}
-          onFinish={finishAndKeep}
+          onFinish={beginFinish}
         />
       ) : isGuest ? (
         /*
@@ -695,7 +829,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             {/* 로그인 안내를 띄울 길이 없으면 버튼도 내지 않는다. 눌러도 아무
                 일 없는 버튼을 만드느니 안내 문구만 두는 게 낫다 */}
             {onRequireLogin && (
-              <button
+              <button data-button-id="ai-chat-view-button-13"
                 type="button"
                 onClick={() => onRequireLogin('AI와 대화를 이어가려면 로그인이 필요해요.')}
                 className="shrink-0 bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer"
@@ -707,6 +841,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </footer>
       ) : (
         <footer className="bg-white border-t border-[#E5E7EB] p-4">
+          {canFinish && (
+            <button data-button-id="ai-chat-view-button-14" type="button" onClick={beginFinish}
+              className="mb-3 w-full rounded-lg border border-[#FF6B5A] px-4 py-2.5 text-xs font-bold text-[#1C1C1C] hover:bg-[#FF6B5A]/10 cursor-pointer">
+              대화 마무리
+            </button>
+          )}
+          {isSaving && <p className="mb-2 text-xs text-[#5f5e5e]" role="status">대화를 저장하는 중입니다…</p>}
+          {saveFailed && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3" role="alert">
+              <p className="text-xs font-bold text-[#A32E1D]">답변은 받았지만 대화를 저장하지 못했습니다. 입력은 이 화면에 남아 있습니다. 다시 요청하면 새 답변을 받습니다.</p>
+              <button data-button-id="ai-chat-view-button-15" type="button" onClick={retrySave} disabled={isSaving || isLoading} className="rounded-lg border border-[#A32E1D] px-3 py-1.5 text-xs font-bold text-[#A32E1D] cursor-pointer disabled:opacity-50">새 답변 요청</button>
+            </div>
+          )}
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             <input
               type="text"
@@ -715,9 +862,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               placeholder="메시지를 입력하세요"
               className="flex-1 bg-[#f8f9fa] border border-[#E5E7EB] rounded-lg px-4 py-3 font-body-sm text-xs sm:text-sm focus:outline-none focus:border-[#FF6B5A]"
             />
-            <button
+            <button data-button-id="ai-chat-view-button-16"
               type="submit"
-              disabled={!inputText.trim() || isLoading}
+              disabled={!inputText.trim() || isLoading || isSaving || saveFailed || Boolean(failedText)}
               className="bg-[#1C1C1C] hover:bg-black text-[#FF6B5A] px-5 py-3 rounded-lg font-mono font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               보내기
@@ -728,13 +875,13 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
       {/* 대화를 시작하기 전에 나갈 때: 지울지 남길지 고르게 한다 */}
       {showExitChoice && (
-        <div
+        <div data-action-id="a-i-chat-view-action-02"
           className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setShowExitChoice(false)}
         >
-          <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+          <div data-analytics-ignore="true" className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
             {/* 취소는 우측 상단 X 로 처리한다 */}
-            <button
+            <button data-button-id="ai-chat-view-button-17"
               onClick={() => setShowExitChoice(false)}
               className="absolute top-3 right-3 text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
               aria-label="취소"
@@ -753,14 +900,14 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
               </p>
 
               <div className="flex flex-col gap-2">
-                <button
+                <button data-button-id="ai-chat-view-button-18"
                   onClick={keepAndClose}
                   className="w-full py-3 bg-[#1C1C1C] text-white rounded-lg font-bold text-sm hover:bg-black transition-colors cursor-pointer"
                 >
                   남겨두고 닫기
                 </button>
-                <button
-                  onClick={discardAndClose}
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-19"
+                  onClick={() => { void discardAndClose(); }}
                   className="w-full py-3 bg-white border border-[#E5E7EB] text-[#ba1a1a] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
                 >
                   대화 삭제하고 닫기
@@ -771,41 +918,34 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-lg font-bold text-[#1C1C1C] font-headline-md">삭제 하시겠습니까?</h2>
-                <button onClick={() => setShowDeleteModal(false)} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors cursor-pointer p-1">
-                  <X className="w-5 h-5" />
+      {showFeedback && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+          role="dialog" aria-modal="true" aria-labelledby="ai-feedback-title">
+          <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl">
+            <h2 id="ai-feedback-title" className="text-lg font-bold text-[#1C1C1C]">이 AI 대화가 도움이 되었나요?</h2>
+            <p className="mt-2 text-xs text-[#5f5e5e]">평가를 남겨도 대화는 보관됩니다. 답변 내용은 평가에 저장하지 않습니다.</p>
+            <div className="mt-5 grid gap-2">
+              {FEEDBACK_CHOICES.map((label, index) => (
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-20" key={label} type="button" disabled={feedbackSaving}
+                  onClick={() => { void finishWithFeedback((index + 1) as 1 | 2 | 3 | 4 | 5); }}
+                  className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-left text-sm hover:border-[#FF6B5A] cursor-pointer disabled:opacity-50">
+                  {label}
                 </button>
-              </div>
-              <p className="text-sm text-[#5f5e5e] mb-6 font-body-sm">
-                지금까지 대화한 내용이 전부 삭제됩니다
-              </p>
-              
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 py-2.5 bg-white border border-[#E5E7EB] text-[#1C1C1C] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
-                >
-                  취소
-                </button>
-                <button 
-                  onClick={confirmEndChat}
-                  className="flex-1 py-2.5 bg-[#ba1a1a] text-white rounded-lg font-bold text-sm hover:bg-[#ba1a1a]/90 transition-colors cursor-pointer"
-                >
-                  삭제
-                </button>
-              </div>
+              ))}
+            </div>
+            {feedbackError && <p role="alert" className="mt-3 text-xs text-[#A32E1D]">평가를 저장하지 못했습니다. 다시 시도하거나 평가 없이 닫을 수 있습니다.</p>}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button data-button-id="ai-chat-view-button-21" type="button" disabled={feedbackSaving} onClick={() => { void finishWithFeedback(null); }}
+                className="text-xs text-[#5f5e5e] underline cursor-pointer disabled:opacity-50">건너뛰기</button>
+              {feedbackError && <button data-button-id="ai-chat-view-button-22" type="button" onClick={finishAndKeep}
+                className="text-xs text-[#5f5e5e] underline cursor-pointer">평가 없이 닫기</button>}
+              <button data-button-id="ai-chat-view-button-23" type="button" disabled={feedbackSaving} onClick={() => setShowFeedback(false)}
+                className="text-xs text-[#1C1C1C] underline cursor-pointer disabled:opacity-50">대화로 돌아가기</button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
-
-

@@ -4,23 +4,21 @@ import { X, Sparkles } from 'lucide-react';
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDemoClick?: () => void;
+  onOpenMyStories: () => void;
+  onOpenExistingChats: () => void;
+  hasExistingChats: boolean;
   /** 하루에 주어지는 무료 체험 횟수 */
   dailyQuota?: number;
 }
 
-/**
- * 무료 횟수를 다 썼을 때 뜨는 안내.
- *
- * 색은 서비스 토큰(잉크 #1C1C1C · 코랄 #FF6B5A · 경계 #E5E7EB)을 그대로 쓴다.
- * 예전에는 이 모달만 크림/골드였는데, 결제를 권하는 화면이 다른 서비스처럼
- * 보이면 그 순간 신뢰가 깎인다. 파는 화면일수록 나머지와 같아 보여야 한다.
- */
-export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onDemoClick, dailyQuota = 3 }) => {
+/** 무료 횟수를 다 썼을 때 뜨는 안내. 구독 기능은 아직 준비 중이다. */
+export const PremiumModal: React.FC<PremiumModalProps> = ({
+  isOpen, onClose, onOpenMyStories, onOpenExistingChats, hasExistingChats, dailyQuota = 3,
+}) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen="quota_notice" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white border border-[#E5E7EB] rounded-lg w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
 
         <div className="px-4 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
@@ -28,7 +26,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
             <Sparkles className="w-4 h-4 text-[#FF6B5A]" aria-hidden="true" />
             AI 대화 무료 체험
           </h2>
-          <button
+          <button data-button-id="premium-modal-button-01"
             aria-label="닫기"
             onClick={onClose}
             className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer"
@@ -58,26 +56,22 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({ isOpen, onClose, onD
           </div>
 
           <div className="space-y-2">
-            <button
-              onClick={onClose}
+            <p className="text-center text-xs text-[#5f5e5e]">구독 기능은 준비 중입니다.</p>
+            <button data-button-id="premium-modal-button-02"
+              onClick={onOpenMyStories}
               className="w-full px-5 py-3 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer shadow-md"
             >
-              구독 알아보기
+              내 사연 보기
             </button>
-            {onDemoClick && (
-              <button
-                onClick={onDemoClick}
-                className="w-full px-5 py-3 bg-white border border-[#E5E7EB] text-[#1C1C1C] font-bold text-xs rounded-lg hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-colors cursor-pointer"
+            {hasExistingChats && (
+              <button data-button-id="premium-modal-button-03"
+                onClick={onOpenExistingChats}
+                className="w-full px-5 py-3 bg-white border border-[#E5E7EB] text-[#1C1C1C] font-bold text-xs rounded-lg hover:border-[#FF6B5A] transition-colors cursor-pointer"
               >
-                지금 한 번 둘러보기
+                기존 대화 이어가기
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="w-full px-5 py-3 bg-transparent text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer"
-            >
-              나중에 하기
-            </button>
+            <button data-button-id="premium-modal-button-04" onClick={onClose} className="w-full px-5 py-2 text-[#5f5e5e] font-bold text-xs cursor-pointer">닫기</button>
           </div>
         </div>
       </div>

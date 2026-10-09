@@ -89,7 +89,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
-        <div
+        <div data-action-id="weekly-top-banner-action-01" data-analytics-exclude={story.visibility === "private" || story.isAdult || story.isBlind || story.isHidden ? "true" : undefined}
           key={`${bannerType}-${story.id}`}
           onClick={() => onSelectStory(story)}
           className="bg-white border border-[#B87514] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"
@@ -208,14 +208,14 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         {/* 넘길 칸이 둘 이상일 때만 화살표를 낸다 */}
         {paneCount > 1 && (
           <div className="flex items-center gap-1">
-            <button
+            <button data-button-id="weekly-top-banner-button-01"
               onClick={toggleBanner}
               className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
               aria-label="이전 배너 보기"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button
+            <button data-button-id="weekly-top-banner-button-02"
               onClick={toggleBanner}
               className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
               aria-label="다음 배너 보기"
@@ -260,7 +260,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         <div className="flex justify-center mt-4">
           <div className="flex items-center gap-1.5">
             {panes.map((pane, idx) => (
-              <button
+              <button data-button-id="weekly-top-banner-self-button-01"
                 key={`dot-${pane.key}`}
                 onClick={() => setActiveIndex(idx)}
                 className={`w-2 h-2 rounded-full transition-all cursor-pointer ${

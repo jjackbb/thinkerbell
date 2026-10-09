@@ -214,3 +214,11 @@ ${RATIO_STANCE[ratio]}
 ${BASE_RULES}
 4. ${KAKAO_LENGTH_RULE}`;
 }
+
+const EMPATHY_RATIO_OVERRIDE_MARKER = '\n\n[현재 공감 관점 변경 — 아래 지침이 앞선 스탠스 설명보다 우선함]\n';
+
+/** 기존 방의 저장된 사연 맥락을 다시 조회하지 않고 관점만 바꾼다. */
+export function changeEmpathyRatio(instruction: string, ratio: ExplainRatio): string {
+  const original = instruction.split(EMPATHY_RATIO_OVERRIDE_MARKER)[0];
+  return `${original}${EMPATHY_RATIO_OVERRIDE_MARKER}${ratioLabel(ratio)}\n${RATIO_STANCE[ratio]}`;
+}

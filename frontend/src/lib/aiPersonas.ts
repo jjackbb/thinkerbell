@@ -1,3 +1,4 @@
+import { measuredTask } from './taskAnalytics';
 import { supabase } from './supabase';
 import type { AIPersona } from '../types';
 
@@ -12,7 +13,7 @@ import type { AIPersona } from '../types';
  * - 내 것이 안 보였다: 같은 계정이어도 휴대폰과 PC가 서로 다른 대화방을
  *   갖고 있었고, 브라우저 저장소를 지우면 통째로 사라졌다.
  *
- * 이제 브라우저에는 아무것도 남기지 않는다. 읽고 쓰는 창구는 이 파일뿐이다.
+ * 이제 브라우저에는 아무것도 남기지 않는다. 새 대화방은 서버 API가 만든다.
  */
 
 /** DB 컬럼과 화면에서 쓰는 모양을 맞춘다 */
@@ -34,23 +35,34 @@ const toPersona = (row: any): AIPersona => ({
   createdAt: row.createdAt,
 });
 
-const toRow = (p: AIPersona, userId: string) => ({
-  id: p.id,
-  userId,
-  name: p.name,
-  role: p.role,
-  category: p.category,
-  avatarIcon: p.avatarIcon,
-  description: p.description,
-  systemInstruction: p.systemInstruction,
-  cardColor: p.cardColor,
-  sampleFirstMessage: p.sampleFirstMessage,
-  isPinned: p.isPinned ?? false,
-  chatHistory: p.chatHistory ?? [],
-  storyId: p.storyId ?? null,
-  opening: p.opening ?? null,
-  ratio: p.ratio ?? null,
-});
+/** 서버가 사연 권한과 실제 내용을 확인하고 새 대화방을 만든다. */
+async function openAiRoomImpl(
+  storyId: string,
+  choice: { mode: 'simulation'; opening: 'apology' | 'oblivious' | 'meFirst' } |
+    { mode: 'explanation'; ratio: 'High' | 'Middle' | 'Low' },
+): Promise<{ persona: AIPersona; recovered: boolean; quotaMode: 'legacy' | 'server'; legacyCharged: boolean }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('AUTH_REQUIRED');
+  const response = await fetch('/api/ai/rooms', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ requestId: crypto.randomUUID(), storyId, ...choice }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.room || typeof result.room.id !== 'string' ||
+      (result.quotaMode !== 'legacy' && result.quotaMode !== 'server')) {
+    throw new Error(typeof result.error === 'string' ? result.error : 'CHAT_ROOM_SAVE_FAILED');
+  }
+  return {
+    persona: toPersona(result.room), recovered: result.recovered === true,
+    quotaMode: result.quotaMode, legacyCharged: result.legacyCharged === true,
+  };
+}
+
+export const openAiRoom: typeof openAiRoomImpl = (...args) => measuredTask('ai_room_create', () => openAiRoomImpl(...args));
 
 /** 이 계정의 대화방 전부. 로그인 전이면 빈 배열 */
 export async function fetchPersonas(): Promise<AIPersona[]> {
@@ -63,12 +75,6 @@ export async function fetchPersonas(): Promise<AIPersona[]> {
   return data.map(toPersona);
 }
 
-/** 새 대화방을 만든다 */
-export async function createPersona(persona: AIPersona, userId: string): Promise<boolean> {
-  const { error } = await supabase.from('ai_personas').insert(toRow(persona, userId));
-  return !error;
-}
-
 /**
  * 대화 내용이나 설정을 덮어쓴다.
  *
@@ -77,13 +83,41 @@ export async function createPersona(persona: AIPersona, userId: string): Promise
  */
 export async function savePersona(
   personaId: string,
-  patch: Partial<Pick<AIPersona, 'chatHistory' | 'isPinned' | 'name' | 'role' | 'description' | 'systemInstruction' | 'ratio'>>,
+  patch: Pick<AIPersona, 'chatHistory'>,
 ): Promise<boolean> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('ai_personas')
     .update({ ...patch, updatedAt: new Date().toISOString() })
-    .eq('id', personaId);
-  return !error;
+    .eq('id', personaId)
+    .select('id')
+    .maybeSingle();
+  return !error && data?.id === personaId;
+}
+
+async function patchRoom(personaId: string, action: 'pin' | 'ratio', body: object): Promise<AIPersona> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('AUTH_REQUIRED');
+  const response = await fetch(`/api/ai/rooms/${encodeURIComponent(personaId)}/${action}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.room) {
+    throw new Error(typeof result.error === 'string' ? result.error : 'CHAT_ROOM_SAVE_FAILED');
+  }
+  return toPersona(result.room);
+}
+
+export function updateAiRoomPin(personaId: string, isPinned: boolean): Promise<AIPersona> {
+  return measuredTask('ai_room_pin', () => patchRoom(personaId, 'pin', { isPinned }));
+}
+
+export function updateAiRoomRatio(personaId: string, ratio: 'High' | 'Middle' | 'Low'): Promise<AIPersona> {
+  return measuredTask('ai_room_ratio', () => patchRoom(personaId, 'ratio', { ratio }));
 }
 
 /** 대화방을 지운다. 내가 털어놓은 이야기는 내가 지울 수 있어야 한다 */

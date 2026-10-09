@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, MessageSquare, ListTree, ChevronLeft } from 'lucide-react';
 import { track } from '../lib/events';
+import type { AnalyticsEntryPoint } from '../lib/analyticsContext';
 
 /** 상황 모드에서 대화를 어느 지점부터 시작할지 */
 export type ChatOpening = 'apology' | 'oblivious' | 'meFirst';
@@ -28,23 +29,25 @@ interface AIChatModeSelectionModalProps {
   onSelectMode: (mode: 'simulation' | 'explanation', opening?: ChatOpening) => void;
   /** 대화 상대 호칭 (예: 직장 상대) */
   opponentLabel?: string;
+  analyticsEntryPoint?: AnalyticsEntryPoint;
 }
 
 export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> = ({
   onClose,
   onSelectMode,
   opponentLabel = '상대방',
+  analyticsEntryPoint,
 }) => {
   const [step, setStep] = useState<'mode' | 'opening'>('mode');
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen={step === "opening" ? "ai_opening_selection" : "ai_mode_selection"} data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-sm flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
 
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <div className="flex items-center gap-2">
             {step === 'opening' && (
-              <button onClick={() => setStep('mode')} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 cursor-pointer">
+              <button data-button-id="ai-chat-mode-selection-modal-button-01" onClick={() => setStep('mode')} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 cursor-pointer">
                 <ChevronLeft className="w-4 h-4" />
               </button>
             )}
@@ -52,7 +55,7 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
               {step === 'mode' ? 'AI 시뮬레이션 모드 선택' : '어디서부터 시작할까요?'}
             </h3>
           </div>
-          <button onClick={onClose} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer">
+          <button data-button-id="ai-chat-mode-selection-modal-button-02" onClick={onClose} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -61,8 +64,8 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
           <div className="p-6 space-y-4">
             {/* 모드를 고른 순간을 센다. 여기서 시작점 선택까지 얼마나 빠지는지가
                 9/4에 알아낼 숫자다 — AI 자체가 아니라 AI로 가는 길목의 문제인지 */}
-            <button
-              onClick={() => { track('ai_mode_select', { mode: 'simulation' }); setStep('opening'); }}
+            <button data-button-id="ai-chat-mode-selection-modal-button-03"
+              onClick={() => { track('ai_mode_select', { mode: 'simulation', entry_point: analyticsEntryPoint }); setStep('opening'); }}
               className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start cursor-pointer"
             >
               <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
@@ -76,8 +79,8 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
               </div>
             </button>
 
-            <button
-              onClick={() => { track('ai_mode_select', { mode: 'explanation' }); onSelectMode('explanation'); }}
+            <button data-button-id="ai-chat-mode-selection-modal-button-04"
+              onClick={() => { track('ai_mode_select', { mode: 'explanation', entry_point: analyticsEntryPoint }); onSelectMode('explanation'); }}
               className="w-full text-left p-4 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all group flex gap-4 items-start cursor-pointer"
             >
               <div className="w-10 h-10 rounded-full bg-[#f3f4f5] group-hover:bg-[#FF6B5A]/20 flex items-center justify-center shrink-0">
@@ -101,7 +104,7 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
             </p>
 
             {OPENINGS.map(o => (
-              <button
+              <button data-button-id="ai-chat-mode-selection-modal-button-05"
                 key={o.id}
                 onClick={() => onSelectMode('simulation', o.id)}
                 className="w-full text-left p-3.5 rounded-lg border-2 border-[#E5E7EB] hover:border-[#FF6B5A] hover:bg-[#FF6B5A]/5 transition-all cursor-pointer"

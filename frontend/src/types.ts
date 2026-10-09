@@ -1,3 +1,5 @@
+import type { AnalyticsEntryPoint, ConversationType } from './lib/analyticsContext';
+
 export type StoryCategory = '전체' | '연애' | '직장' | '친구' | '가족' | '기타';
 
 export interface UserProfile {
@@ -36,6 +38,8 @@ export interface Story {
   appealText?: string;
   /** 사연을 다 읽지 않고도 투표할 수 있게 AI가 뽑은 양측 논점 */
   isHidden?: boolean;
+  /** 작성자만 볼 수 있는 비공개 상태. 이전 DB에는 컬럼이 없다. */
+  visibility?: 'public' | 'private';
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
 
@@ -80,9 +84,13 @@ export interface ChatMessage {
   sender: 'user' | 'ai' | 'system';
   text: string;
   timestamp: string;
+  /** 정상 완료한 서버 답변과 재시도를 연결한다. 과거 메시지에는 없다. */
+  requestId?: string;
 }
 
 export interface ChatSession {
+  analyticsEntryPoint?: AnalyticsEntryPoint;
+  conversationType?: ConversationType;
   id: string;
   personaId: string;
   personaName: string;
