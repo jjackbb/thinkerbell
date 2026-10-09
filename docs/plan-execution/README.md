@@ -10,7 +10,9 @@
 - 검증: 정책/정제 테스트 6개 PASS. 이후 허용 목록의 객체 상속 키 차단 보강에 관련 2개만 재검사 PASS. 타입 검사·QA 환경 빌드 PASS. 로컬 브라우저의 화면/카드·클릭·동의·민감 화면·결과 중복/소급 차단, 가상 가입/로그인 결과를 확인했다. 전 버튼 조건부 실행·실제 신규 가입/메일/DB 저장·GA4 신규 이벤트 수신 PASS로 확대하지 않는다.
 - 시험에서는 별도 가상 계정·데이터와 QA ID를 사용하고 외부 Auth/메일/DB·Google 요청을 가로챘다. 검사 도구의 잘못된 아이콘 locator·이메일 확인 feature flag 누락을 교정했다. 가로챈 WebSocket의 초기 종료 오류가 검사환경에 남았으며 가입·계측 결과 실패로 세지 않는다. 성공한 동작 검사는 반복하지 않았다.
 - 사용자 추가 결정: 기존 가입 계정은 테스트·팀원 계정이므로 별도 재동의 전환을 생략한다. 기존 동의·거부 선택과 저장 키를 유지하고 확대 안내를 적용한다. 현재 코드는 아직 운영에 배포하지 않았다.
-- 이후 기존 작업 브랜치 커밋·푸시/QA Preview의 실제 GA4 수신·맞춤 측정기준 button_id/element_type/reason 등록·운영 반영을 진행한다. 이전 배포를 새 확장 계측의 운영 검증으로 쓰지 않는다.
+- 구현 `6d45674`와 표식 교정 `fbd093f`를 기존 브랜치에 푸시했다. 최종 QA Preview `thinkerbell-l5m9c6x1z-jjackbb-projects.vercel.app` / `dpl_FMPyn9awvVcu3vBhn6yq8An2Wyq2`가 READY다. 실제 GA4 수신·맞춤 측정기준 button_id/element_type/reason 등록·운영 반영을 진행한다. 이전 배포를 새 확장 계측의 운영 검증으로 쓰지 않는다.
+- 배포 구성 확인: 앞선 QA 후보에서 브라우저용 VITE_SUPABASE_URL 누락을 발견해 Preview에 니편내편 공개 프로젝트 URL을 추가하고 재배포했다. 최종 배포 JS의 QA ID·니편내편 Supabase 대상·신규 이벤트 코드 존재를 확인했다. 운영 변수 이름은 이미 존재함을 확인했다. 공개 운영 HTML은 200·기존 index-CC3w_CjS.js 그대로다.
+- 현재 중단 지점: 브라우저 도구가 권한 대기 뒤 네이티브 연결 오류로 실패했다. 사용자 요청으로 초기화·재시도해도 같은 오류다. GA4 화면은 읽지 못했다. [연결 복구 선택지](2026-10-09-analytics-scope.html)에 추천·대안·기타 입력을 두었다. 복구 후 QA Preview → QA/운영 맞춤 측정기준 → QA 신규 이벤트 수신 → 운영 후보 배포/공개 반영 순서로 이어간다.
 - 근거: [전체 계측 목록](2026-10-09-analytics-inventory.md), [현재 계약](../release-improvement/02-events-and-buttons.md), [확정 범위](2026-10-09-analytics-scope.html). PLAN은 정책, 이 README는 현황, HTML은 현황 표시 역할이다.
 
 ## 9월 30일 운영 기준과 앞선 완료 기록

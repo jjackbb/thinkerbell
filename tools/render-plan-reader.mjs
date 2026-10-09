@@ -119,7 +119,7 @@ const statusGroups = [
     ['현재 문서·이력 분리와 커밋·운영 배포', '원본 15개 보존, fee5ea5 푸시·운영 READY·공개 주소 확인', 'README.md'],
     ['Chrome 기기 모드 확인', '390×844·터치 기술 확인, 실물 Safari 아님', '2026-09-28-two-account-browser-checklist.md'],
   ]},
-  { id: 'in-progress', title: '작업 중', note: '2026-10-09 전체 이벤트 확대', items: [['전체 화면·행동·기능 결과 계측', '로컬 구현·검증 완료. 기존 동의 전환 생략 확정. QA/운영 실제 수신·반영 대기', 'README.md']] },
+  { id: 'in-progress', title: '작업 중', note: '2026-10-09 전체 이벤트 확대', items: [['전체 화면·행동·기능 결과 계측', '구현 푸시·QA Preview READY. 브라우저 도구 연결 오류로 GA4 실제 수신·운영 반영 대기', 'README.md']] },
   { id: 'not-started', title: '작업 전', note: '게시 이후 또는 별도 보류', items: [
     ['커뮤니티·SNS 실제 게시', '소개 글·링크 초안 준비, 게시 경로/시각 기록 필요', '2026-09-28-release-blockers-questions.html'],
     ['처리 보고서·기준선 대조', '실제 유입 후 기술 시험 제외·기간/버전/분모 기록', '../../PLAN.md'],
