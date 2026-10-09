@@ -2,6 +2,14 @@
 
 최신 정책은 [PLAN.md](../PLAN.md)입니다. 아래 PATCH-001~042는 [기존 PRD 원본](../archive/2026-09-22/legacy/PRD.md)의 §7을 보존한 과거 기록입니다. 당시 PASS·운영 상태·경로를 현재 검증으로 해석하지 않습니다. `src/` → `frontend/src/`, API 구현 → `backend/app.ts`, `supabase/` → `backend/supabase/`로 이동했습니다.
 
+## 2026-10-09 팀원 랜딩 수신·경로/계측 연결 보완
+
+- 요약/무엇을: `5aa097b`를 받아 팀원 랜딩과 삭제 수정 보존 확인. 로컬 `/landing`·`/landing/` 라우트와 Vercel `/landing` rewrite, 새 소개 링크 2개 계측 ID를 연결했다.
+- 왜: 실제 로컬 응답은 앱 fallback, 운영 `/landing`은 404였고 행동 목록 생성은 미분류 링크로 실패했다.
+- 확인: 타입/빌드·정제 6개·목록 192개/제외54개·로컬 3경로 PASS. 가상 DOM 예시 동작 PASS. 로컬/운영 무토큰·무효 API 48건 401. 운영 rewrite·화면 전수·DB 유효 역할·GA4 수신 미검증, 전체 70%.
+- 파일: backend/server, vercel.json, MyPageView, analyticsControls/목록, PLAN·인수인계·실행/진행 HTML. 팀원 랜딩 디자인과 예시 내용은 변경하지 않았다. 별도 배포 미실행.
+
+
 ## 2026-10-09 삭제 소유권·세션 경계 보강
 
 - 요약/무엇을: 누락·빈 ID 및 게스트의 작성자 오판을 차단하고 삭제 전 세션/계정 전환 버전, 응답 사연 ID를 검증한다. 전환 뒤 이전 삭제 결과 표시를 막는다.

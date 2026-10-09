@@ -2,20 +2,20 @@
 
 정책은 PLAN §3. 현재 코드의 정적 목록이며 조건부 노출·기능 작동·GA4 수신 판정과 구분한다. 민감 화면/영역의 모든 하위 행동은 아래 개별 허용 여부와 관계없이 제외된다. 전파 제어만 하는 컨테이너는 행동으로 세지 않는다. 반복 카드는 동일한 행동 ID를 사용하며 원문·대상 ID·링크 주소를 보내지 않는다.
 
-생성: `node tools/generate-analytics-inventory.mjs`. 총 190개, 개별 제외 54개.
+생성: `node tools/generate-analytics-inventory.mjs`. 총 192개, 개별 제외 54개.
 
 | ID | 종류 | 개별 정책 | 코드 |
 | --- | --- | --- | --- |
-| `app-button-01` | button | 제외 | [frontend/src/App.tsx:1782](../../frontend/src/App.tsx) |
-| `app-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1815](../../frontend/src/App.tsx) |
-| `app-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1831](../../frontend/src/App.tsx) |
-| `app-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1841](../../frontend/src/App.tsx) |
-| `app-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1863](../../frontend/src/App.tsx) |
-| `app-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2017](../../frontend/src/App.tsx) |
-| `app-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2028](../../frontend/src/App.tsx) |
-| `app-button-08` | button | 제외 | [frontend/src/App.tsx:2097](../../frontend/src/App.tsx) |
-| `app-button-09` | button | 제외 | [frontend/src/App.tsx:2104](../../frontend/src/App.tsx) |
-| `app-button-10` | button | 제외 | [frontend/src/App.tsx:2239](../../frontend/src/App.tsx) |
+| `app-button-01` | button | 제외 | [frontend/src/App.tsx:1789](../../frontend/src/App.tsx) |
+| `app-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1822](../../frontend/src/App.tsx) |
+| `app-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1838](../../frontend/src/App.tsx) |
+| `app-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1848](../../frontend/src/App.tsx) |
+| `app-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:1870](../../frontend/src/App.tsx) |
+| `app-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2024](../../frontend/src/App.tsx) |
+| `app-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/App.tsx:2035](../../frontend/src/App.tsx) |
+| `app-button-08` | button | 제외 | [frontend/src/App.tsx:2104](../../frontend/src/App.tsx) |
+| `app-button-09` | button | 제외 | [frontend/src/App.tsx:2111](../../frontend/src/App.tsx) |
+| `app-button-10` | button | 제외 | [frontend/src/App.tsx:2246](../../frontend/src/App.tsx) |
 | `ai-chat-mode-selection-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:50](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
 | `ai-chat-mode-selection-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:58](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
 | `ai-chat-mode-selection-modal-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/AIChatModeSelectionModal.tsx:67](../../frontend/src/components/AIChatModeSelectionModal.tsx) |
@@ -83,43 +83,45 @@
 | `login-prompt-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/LoginPromptModal.tsx:36](../../frontend/src/components/LoginPromptModal.tsx) |
 | `my-page-view-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:229](../../frontend/src/components/MyPageView.tsx) |
 | `my-page-view-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:325](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:341](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-action-02` | link | 제외 | [frontend/src/components/MyPageView.tsx:359](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:381](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:389](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:397](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:405](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:422](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:444](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:468](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-10` | button | 제외 | [frontend/src/components/MyPageView.tsx:478](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-11` | button | 제외 | [frontend/src/components/MyPageView.tsx:513](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-12` | button | 제외 | [frontend/src/components/MyPageView.tsx:516](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-13` | button | 제외 | [frontend/src/components/MyPageView.tsx:546](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-14` | button | 제외 | [frontend/src/components/MyPageView.tsx:593](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-15` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:623](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-19` | button | 제외 | [frontend/src/components/MyPageView.tsx:640](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-20` | button | 제외 | [frontend/src/components/MyPageView.tsx:653](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-21` | button | 제외 | [frontend/src/components/MyPageView.tsx:679](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-22` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:767](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-23` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:774](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-24` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:795](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-25` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:840](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-26` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:848](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-27` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:856](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-28` | button | 제외 | [frontend/src/components/MyPageView.tsx:869](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-29` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:884](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-30` | button | 제외 | [frontend/src/components/MyPageView.tsx:903](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-31` | button | 제외 | [frontend/src/components/MyPageView.tsx:911](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-32` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:919](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-33` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:923](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-34` | button | 제외 | [frontend/src/components/MyPageView.tsx:927](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-35` | button | 제외 | [frontend/src/components/MyPageView.tsx:934](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-action-03` | link | 제외 | [frontend/src/components/MyPageView.tsx:942](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-36` | button | 제외 | [frontend/src/components/MyPageView.tsx:974](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-37` | button | 제외 | [frontend/src/components/MyPageView.tsx:981](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-38` | button | 제외 | [frontend/src/components/MyPageView.tsx:1001](../../frontend/src/components/MyPageView.tsx) |
-| `my-page-view-button-39` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:1014](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-action-04` | link | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:334](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:347](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-action-02` | link | 제외 | [frontend/src/components/MyPageView.tsx:365](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:387](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-04` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:395](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-05` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:403](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-06` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:411](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:428](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:450](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:474](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-10` | button | 제외 | [frontend/src/components/MyPageView.tsx:484](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-11` | button | 제외 | [frontend/src/components/MyPageView.tsx:519](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-12` | button | 제외 | [frontend/src/components/MyPageView.tsx:522](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-13` | button | 제외 | [frontend/src/components/MyPageView.tsx:552](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-14` | button | 제외 | [frontend/src/components/MyPageView.tsx:599](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-15` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:629](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-19` | button | 제외 | [frontend/src/components/MyPageView.tsx:646](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-20` | button | 제외 | [frontend/src/components/MyPageView.tsx:659](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-21` | button | 제외 | [frontend/src/components/MyPageView.tsx:685](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-22` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:773](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-23` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:780](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-24` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:801](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-25` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:846](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-26` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:854](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-27` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:862](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-28` | button | 제외 | [frontend/src/components/MyPageView.tsx:875](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-29` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:890](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-30` | button | 제외 | [frontend/src/components/MyPageView.tsx:909](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-31` | button | 제외 | [frontend/src/components/MyPageView.tsx:917](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-32` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:925](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-33` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:929](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-34` | button | 제외 | [frontend/src/components/MyPageView.tsx:933](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-action-05` | link | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:937](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-35` | button | 제외 | [frontend/src/components/MyPageView.tsx:944](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-action-03` | link | 제외 | [frontend/src/components/MyPageView.tsx:952](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-36` | button | 제외 | [frontend/src/components/MyPageView.tsx:984](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-37` | button | 제외 | [frontend/src/components/MyPageView.tsx:991](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-38` | button | 제외 | [frontend/src/components/MyPageView.tsx:1011](../../frontend/src/components/MyPageView.tsx) |
+| `my-page-view-button-39` | button | 허용 (민감 영역 제외) | [frontend/src/components/MyPageView.tsx:1024](../../frontend/src/components/MyPageView.tsx) |
 | `navbar-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/Navbar.tsx:15](../../frontend/src/components/Navbar.tsx) |
 | `navbar-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/Navbar.tsx:27](../../frontend/src/components/Navbar.tsx) |
 | `navbar-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/Navbar.tsx:39](../../frontend/src/components/Navbar.tsx) |
@@ -137,45 +139,45 @@
 | `share-result-bar-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/ShareResultBar.tsx:67](../../frontend/src/components/ShareResultBar.tsx) |
 | `share-result-bar-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/ShareResultBar.tsx:78](../../frontend/src/components/ShareResultBar.tsx) |
 | `share-result-bar-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/ShareResultBar.tsx:88](../../frontend/src/components/ShareResultBar.tsx) |
-| `story-card-button-01` | button | 제외 | [frontend/src/components/StoryCard.tsx:129](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:142](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:181](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:194](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-04` | button | 제외 | [frontend/src/components/StoryCard.tsx:199](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-05` | button | 제외 | [frontend/src/components/StoryCard.tsx:203](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-06` | button | 제외 | [frontend/src/components/StoryCard.tsx:207](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:227](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:260](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:283](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:329](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:369](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:375](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:381](../../frontend/src/components/StoryCard.tsx) |
-| `story-card-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:388](../../frontend/src/components/StoryCard.tsx) |
-| `story-detail-modal-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:283](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:299](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:311](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-03` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:316](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-04` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:331](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-05` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:335](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-06` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:339](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:346](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-08` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:401](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-action-02` | link | 제외 | [frontend/src/components/StoryDetailModal.tsx:407](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:436](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:450](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:509](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:569](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:581](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:586](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-15` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:587](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-16` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:604](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-17` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:619](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-18` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:620](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-19` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:663](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-20` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:688](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-action-03` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:716](../../frontend/src/components/StoryDetailModal.tsx) |
-| `story-detail-modal-button-21` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:727](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-card-button-01` | button | 제외 | [frontend/src/components/StoryCard.tsx:130](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:143](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:182](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-03` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:195](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-04` | button | 제외 | [frontend/src/components/StoryCard.tsx:200](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-05` | button | 제외 | [frontend/src/components/StoryCard.tsx:204](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-06` | button | 제외 | [frontend/src/components/StoryCard.tsx:208](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:228](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-08` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:261](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:284](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:330](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:370](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:376](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:382](../../frontend/src/components/StoryCard.tsx) |
+| `story-card-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryCard.tsx:389](../../frontend/src/components/StoryCard.tsx) |
+| `story-detail-modal-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:284](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:300](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:312](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-03` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:317](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-04` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:332](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-05` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:336](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-06` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:340](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-07` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:347](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-08` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:402](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-action-02` | link | 제외 | [frontend/src/components/StoryDetailModal.tsx:408](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-09` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:437](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-10` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:451](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-11` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:510](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-12` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:570](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-13` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:582](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-14` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:587](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-15` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:588](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-16` | button | 제외 | [frontend/src/components/StoryDetailModal.tsx:605](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-17` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:620](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-18` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:621](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-19` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:664](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-20` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:689](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-action-03` | card | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:717](../../frontend/src/components/StoryDetailModal.tsx) |
+| `story-detail-modal-button-21` | button | 허용 (민감 영역 제외) | [frontend/src/components/StoryDetailModal.tsx:728](../../frontend/src/components/StoryDetailModal.tsx) |
 | `weekly-top-banner-action-01` | card | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:92](../../frontend/src/components/WeeklyTopBanner.tsx) |
 | `weekly-top-banner-button-01` | button | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:211](../../frontend/src/components/WeeklyTopBanner.tsx) |
 | `weekly-top-banner-button-02` | button | 허용 (민감 영역 제외) | [frontend/src/components/WeeklyTopBanner.tsx:218](../../frontend/src/components/WeeklyTopBanner.tsx) |

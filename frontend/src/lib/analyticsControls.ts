@@ -308,6 +308,10 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
     "kind": "button",
     "excluded": false
   },
+  "my-page-view-action-04": {
+    "kind": "link",
+    "excluded": false
+  },
   "my-page-view-button-02": {
     "kind": "button",
     "excluded": false
@@ -431,6 +435,10 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
   "my-page-view-button-34": {
     "kind": "button",
     "excluded": true
+  },
+  "my-page-view-action-05": {
+    "kind": "link",
+    "excluded": false
   },
   "my-page-view-button-35": {
     "kind": "button",

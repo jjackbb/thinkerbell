@@ -2,6 +2,43 @@
 
 정책은 [PLAN.md](../../PLAN.md), 검증의 시점·환경·결과는 [실행 기록](2026-09-28-in-progress-release-preflight.md)을 기준으로 합니다. 이 문서는 현재 상태와 다음 행동만 안내합니다. 이전의 미실행·승인 대기·0/7 표는 [정리 전 원본](../../archive/2026-09-30/current-docs-before-cleanup/docs/plan-execution/README.md)에 보존했습니다.
 
+## 2026-10-09 랜딩페이지 수신 후 검증 — 최신 체크포인트
+
+- 팀원 `de6711a`(랜딩페이지 생성)를 포함한 main `5aa097b0ec1e02d03c5c70a5ad36f45251979636`을 fast-forward로 수신했다. `d06ad1b`가 조상임을 확인해 앞선 삭제 방어를 보존했다. 사용자가 같은 커밋으로 pull했다고 알려준 뒤 추가 pull/되돌리기는 하지 않았다. 아래 이전 수신 대기 상태는 해소됐다.
+- **항목 기준 진행률 70% (7/10)**. 시간·코드량 추정이 아니라 아래 완료 산출물 수다. 역할별 실제 화면·운영 DB 권한·GA4 수신이 남아 있어 전체 완료나 출시 완료가 아니다.
+
+| 완료 항목 | 상태 | 근거/남은 범위 |
+|---|---|---|
+| 1 필수 문서·Git 기준/기존 변경 보호 | PASS | main과 원격/사용자 지시 대조, 팀원 변경·d06ad1b 보존 |
+| 2 화면·기능·권한별 검증 목록 | PASS | 기존 버튼 지도와 실행 기록의 환경·역할·PASS/FAIL/미검증/차단 표 |
+| 3 삭제 소유자/세션/계정 전환 코드 보강 | PASS | d06ad1b, 삭제 회귀 5개; 제보 해결을 의미하지 않음 |
+| 4 격리 REST/DB 권한·동시성 | PASS | 삭제 REST 1개 및 비공개/AI/메일/통합 SQL; 운영 DB 아님 |
+| 5 기존 가상 회귀/타입/빌드 | PASS | 기존 33개, 변경 뒤 타입/빌드; 큰 번들 경고 유지 |
+| 6 팀원 랜딩 수신·기술 검증/명백한 결함 보완 | PASS | 로컬 3경로·계측 ID/정제 6개·가상 DOM·정적 앵커. 실브라우저 렌더는 7번 |
+| 7 전체 화면·역할별 브라우저·모바일/실패 UI | 차단/미검증 | Chrome 사용자 조작 변경 감지 2회, IAB 사용 불가. 로그인 세션을 바꾸지 않음 |
+| 8 운영 DB 현재 정책·작성자/타인/운영자 실제 권한·제보 재현 | 미검증 | 무토큰/무효 API 48건 거부는 확인; 직접 DB DELETE와 유효 역할 전체 검증은 아님 |
+| 9 QA/운영 GA4 실제 수신·맞춤 측정기준 | 차단/미검증 | QA URL 302 Vercel SSO, 전용 사용 가능한 브라우저 세션 확보 필요 |
+| 10 기존 문서/HTML/질문·이동 후 재개 상태 | PASS | 이 기록·PLAN·README·생성기/HTML·포트폴리오 및 최종 보고 |
+
+### 새 기준의 발견·수정·검증
+
+- **FAIL → 로컬 PASS, 중간 심각도:** 새 소개 링크 `/landing`은 로컬 Production에서 앱 HTML을 반환했고 공개 운영에서 404였다. `/landing.html`은 로컬·공개 운영 200이었다. backend의 `/landing`·`/landing/` 명시 라우트와 Vercel `/landing → /landing.html` rewrite를 추가했다. 수정 뒤 로컬 `/landing`·`/landing/`·`/landing.html` 모두 200/실제 랜딩 본문/앱 root 없음. Vercel rewrite의 실제 배포 결과는 아직 미검증이다.
+- **FAIL → 정적 PASS, 중간 심각도:** MyPageView 새 소개 링크 2개가 미분류여서 목록 생성 실패. `my-page-view-action-04/05`로 연결해 TSX 행동 192개·개별 제외 54개, ID 중복/누락 검사 PASS. 기존 동의/민감 영역/내부 DB 9종 정책은 유지했다. `frontend/landing.html` 내부 예시 행동은 현재 TSX 목록 밖이며 독립 계측이 없다. 실제 첫 방문 진입·CTA 및 예시 행동 분류 결정은 질문에 보류한다.
+- 새 기준 타입/앱·서버 빌드 PASS. 계측 변경 뒤 기존 정책 검사 6개 PASS. 마지막 서버 경로 조정 뒤 서버 번들·타입·실제 로컬 HTTP 3경로 PASS. 이미 통과한 삭제/AI/메일 시험은 무관한 랜딩 변경 뒤 반복하지 않았다.
+- 가상 DOM에서 랜딩 예시 투표/공감 취소/랭킹 탭/밸런스 선택·유일 ID·로컬 앵커 PASS. 검사 fixture의 DOM dataset 문자열 변환 가정 오류를 수정했다. 이는 실제 브라우저·DB·GA4 시험이 아니다. 새 제품 테스트 파일은 추가하지 않았다.
+- 로컬 Production과 실제 공개 운영에 API 12개(사연 생성/수정·댓글 생성/수정·AI 생성/고정/관점/평가·chat/chat-stream·입력 검사·quota)를 무토큰/무효 토큰으로 요청한 총 48건은 모두 401 AUTH_REQUIRED였다. 요청은 가상 입력/존재하지 않는 대상이며 인증 전에 거부됐다. 운영 기존 데이터 DELETE·유효 계정 쓰기·포텐스 성공 호출은 수행하지 않았다.
+- 로컬 .env 서버/브라우저 URL은 니편내편 대상 일치 확인. .env.local은 URL override 없음. 값·토큰·메일·사연 원문은 기록하지 않았다.
+- 공개 운영은 `/assets/main-C9gIw4xI.js`, release 표식 `thinkerbell-3yq5sbf2s-jjackbb-projects.vercel.app`, 니편내편 Supabase·운영 GA4 ID 있고 QA ID 없음. 삭제 방어 코드·팀원 랜딩 링크와 `/landing.html` 노출을 확인했다. 과거 `index-CC3w_CjS.js` 운영 상태는 현재가 아니다. 별도 배포는 실행하지 않았다. 정확한 Git 자동 배포 연결/Deployment ID는 대시보드에서 미확인이다.
+- 기존 QA 주소는 redirect를 그대로 보면 302/Vercel SSO다. 자동 redirect 후 나온 Vercel 웹 페이지의 200을 QA 앱 PASS로 세지 않는다. 초기 수집이 리다이렉트를 따라 플랫폼 번들을 읽은 뒤 이를 식별해 중단했다. 신규 GA4 수신·등록·운영 완료 판정은 하지 않았다.
+
+### 이동 후 재개
+
+1. `git status --short --branch`와 `git log -5 --oneline` 확인. 사용자/팀원 추가 변경이 있으면 덮어쓰기·자동 stash·강제 reset 없이 작성 주체/차이를 확인한다.
+2. 로컬 체크포인트 자료는 `/Users/b/Documents/Codex/2026-10-09/task/thinkerbell-checkpoint/`에 있고 실제 원격 쓰기/이용자 성과 근거가 아니다. 로컬 서버를 다시 쓰려면 루트 `npm run dev`, Production 확인은 `npm run build` 뒤 `NODE_ENV=production PORT=39117 npm start`. 기존 포트 점유를 먼저 확인한다.
+3. 사용 가능한 전용 브라우저에서 QA SSO·GA4·Supabase 현재 정책 읽기를 확보하고 역할별 가상 데이터 검증을 이어간다. 운영 기존 사연 삭제는 하지 않는다. 사용자 이동/잠자기 뒤 이 작업이 자동 진행된다고 약속하지 않는다. 전원·잠자기 설정은 변경하지 않았다.
+4. [진행 HTML](2026-09-28-plan-reader.html)의 미해결 질문만 확인한다. 랜딩 수신 질문은 제거했고 이미 합의한 main/동의/GA4 범위는 반복 질문하지 않는다.
+
+
 ## 2026-10-09 Dots 삭제 조사 — 랜딩페이지 수신 대기
 
 - 시작 기준 `f36038c`: main 깨끗함, 원격 `jjackbb/thinkerbell` fetch/pull 최신. 이후 팀원 랜딩페이지 수신 지시로 소스 작업을 멈췄고, 재조회에서도 origin/main은 같은 커밋이었다. 새 원격 브랜치/커밋은 확인되지 않았다. 사용자 후속 요청으로 현재 변경의 main 커밋·푸시를 먼저 수행하며 별도 배포는 실행하지 않는다.

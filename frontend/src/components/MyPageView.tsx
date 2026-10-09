@@ -331,7 +331,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         </section>
 
         {/* 처음 온 사람이 서비스를 한눈에 볼 수 있는 소개 페이지 */}
-        <a href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <a data-action-id="my-page-view-action-04" href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>니편내편 소개 보기</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </a>
@@ -934,7 +934,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <span>도움말 및 문의</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
-        <a href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+        <a data-action-id="my-page-view-action-05" href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
           <span>니편내편 소개</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </a>
