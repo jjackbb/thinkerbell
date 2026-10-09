@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -105,14 +106,19 @@ export const BalanceGameSection: React.FC<BalanceGameSectionProps> = ({ onRequir
     });
   }, []);
 
-  const loadState = useCallback(async () => {
-    const { data, error } = await supabase.rpc('balance_game_state');
-    if (error) {
-      // 실패를 삼키면 화면은 '0표'로 남는다. 모른다는 걸 모른다고 말한다
-      setLoadFailed(true);
-      return;
-    }
-    applyState(data);
+  const loadState = useCallback(async (userRequested = false) => {
+    const task = userRequested ? beginTask('balance_reload') : null;
+    try {
+      const { data, error } = await supabase.rpc('balance_game_state');
+      if (error) {
+        task?.finish('error');
+        // 실패를 삼키면 화면은 '0표'로 남는다. 모른다는 걸 모른다고 말한다
+        setLoadFailed(true);
+        return;
+      }
+      task?.finish('success');
+      applyState(data);
+    } catch { task?.finish('error'); setLoadFailed(true); }
   }, [applyState]);
 
   useEffect(() => {
@@ -185,13 +191,15 @@ export const BalanceGameSection: React.FC<BalanceGameSectionProps> = ({ onRequir
   const handleVote = async (gameId: number, option: 'A' | 'B') => {
     // 사연 투표와 같은 규칙: userId 없이는 표를 받을 수 없다
     if (!userId) {
+      blockedAction('balance_vote', 'auth_required');
       onRequireLogin('밸런스 게임에 투표하려면 로그인이 필요해요.');
       return;
     }
 
     const before = tallies[gameId] ?? EMPTY_TALLY;
-    if (before.myOption === option) return; // 같은 쪽을 다시 누른 경우
+    if (before.myOption === option) { blockedAction('balance_vote', 'unchanged'); return; } // 같은 쪽을 다시 누른 경우
     if (before.myOption && before.changed) {
+      blockedAction('balance_vote', 'limit');
       notify('투표는 최대 1번만 변경할 수 있습니다.');
       return;
     }
@@ -216,19 +224,28 @@ export const BalanceGameSection: React.FC<BalanceGameSectionProps> = ({ onRequir
       notify('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
     }
 
-    const { data, error } = await supabase.rpc('vote_balance_game', {
-      p_game_id: gameId,
-      p_option: option,
-    });
+    const task = beginTask('balance_vote');
+    try {
+      const { data, error } = await supabase.rpc('vote_balance_game', {
+        p_game_id: gameId,
+        p_option: option,
+      });
 
-    if (error) {
-      notify(error.message || '투표를 처리하지 못했습니다.');
+      if (error) {
+        task.finish('error');
+        notify(error.message || '투표를 처리하지 못했습니다.');
+        setTallies(prev => ({ ...prev, [gameId]: before }));
+        void loadState();
+        return;
+      }
+
+      task.finish(data ? 'success' : 'error');
+      applyState(data);
+    } catch {
+      task.finish('error');
       setTallies(prev => ({ ...prev, [gameId]: before }));
-      void loadState();
-      return;
+      notify('투표를 처리하지 못했습니다. 다시 시도해 주세요.');
     }
-
-    applyState(data);
   };
 
   return (
@@ -289,7 +306,7 @@ export const BalanceGameSection: React.FC<BalanceGameSectionProps> = ({ onRequir
                   <div className="mb-3 py-2 text-center">
                     <p className="text-[11px] text-white/60">지금은 결과를 불러올 수 없어요</p>
                     <button data-button-id="balance-game-section-button-03"
-                      onClick={() => void loadState()}
+                      onClick={() => void loadState(true)}
                       className="mt-1 text-[11px] font-bold text-white underline underline-offset-2 cursor-pointer"
                     >
                       다시 불러오기

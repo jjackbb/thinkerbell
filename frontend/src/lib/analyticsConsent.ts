@@ -6,6 +6,11 @@ const CONSENT_KEY = 'nipyeon_analytics_consent_v1';
 const measurementId = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim();
 export const ANALYTICS_CONSENT_CHANGED = 'nipyeon:analytics-consent-changed';
 let memoryConsent: AnalyticsConsent = 'unknown';
+let consentRevision = 0;
+export const getAnalyticsConsentRevision = () => consentRevision;
+if (typeof window !== 'undefined') window.addEventListener('storage', event => {
+  if (event.key === CONSENT_KEY) consentRevision += 1;
+});
 
 function disableGA4(disabled: boolean): void {
   if (measurementId && /^G-[A-Z0-9]+$/.test(measurementId)) {
@@ -47,6 +52,7 @@ export function enforceAnalyticsRefusal(): void {
 }
 
 export function setAnalyticsConsent(consent: Exclude<AnalyticsConsent, 'unknown'>): void {
+  consentRevision += 1;
   disableGA4(consent === 'refused');
   memoryConsent = consent;
   try {

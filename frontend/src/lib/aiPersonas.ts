@@ -1,3 +1,4 @@
+import { measuredTask } from './taskAnalytics';
 import { supabase } from './supabase';
 import type { AIPersona } from '../types';
 
@@ -35,7 +36,7 @@ const toPersona = (row: any): AIPersona => ({
 });
 
 /** 서버가 사연 권한과 실제 내용을 확인하고 새 대화방을 만든다. */
-export async function openAiRoom(
+async function openAiRoomImpl(
   storyId: string,
   choice: { mode: 'simulation'; opening: 'apology' | 'oblivious' | 'meFirst' } |
     { mode: 'explanation'; ratio: 'High' | 'Middle' | 'Low' },
@@ -60,6 +61,8 @@ export async function openAiRoom(
     quotaMode: result.quotaMode, legacyCharged: result.legacyCharged === true,
   };
 }
+
+export const openAiRoom: typeof openAiRoomImpl = (...args) => measuredTask('ai_room_create', () => openAiRoomImpl(...args));
 
 /** 이 계정의 대화방 전부. 로그인 전이면 빈 배열 */
 export async function fetchPersonas(): Promise<AIPersona[]> {
@@ -110,11 +113,11 @@ async function patchRoom(personaId: string, action: 'pin' | 'ratio', body: objec
 }
 
 export function updateAiRoomPin(personaId: string, isPinned: boolean): Promise<AIPersona> {
-  return patchRoom(personaId, 'pin', { isPinned });
+  return measuredTask('ai_room_pin', () => patchRoom(personaId, 'pin', { isPinned }));
 }
 
 export function updateAiRoomRatio(personaId: string, ratio: 'High' | 'Middle' | 'Low'): Promise<AIPersona> {
-  return patchRoom(personaId, 'ratio', { ratio });
+  return measuredTask('ai_room_ratio', () => patchRoom(personaId, 'ratio', { ratio }));
 }
 
 /** 대화방을 지운다. 내가 털어놓은 이야기는 내가 지울 수 있어야 한다 */

@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
@@ -202,6 +203,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     setMessages(updatedMessages);
     setIsLoading(true);
 
+    const task = beginTask('ai_response');
     let aiMsgId: string | null = null;
     let saveErrorOccurred = false;
     let quotaReached = false;
@@ -241,6 +243,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       const markAnswerComplete = () => {
         if (counted || !stripSimEnd(aiResponseText).trim()) return;
         counted = true;
+        task.finish('success');
         successfulTurns.current += 1;
         if (successfulTurns.current === 1) {
           trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', analyticsProps);
@@ -340,6 +343,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       }
 
     } catch (err) {
+      task.finish('error');
       /*
         예전에는 여기서 페르소나 대사를 하나 지어내 붙였다. 사용자는 AI가
         대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
@@ -460,16 +464,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   const finishWithFeedback = async (score: 1 | 2 | 3 | 4 | 5 | null) => {
     if (!selectedPersona || !feedbackModeKnown ||
         !latestCompletedAnswer?.requestId || feedbackSaving) return;
+    const task = beginTask('ai_feedback');
     setFeedbackSaving(true);
     setFeedbackError(false);
     try {
       await submitAiFeedback(selectedPersona.id, latestCompletedAnswer.requestId, score);
+      task.finish('success');
       track('ai_feedback_submit', {
         ...analyticsProps,
         outcome: score === null ? 'skipped' : 'submitted',
       });
       finishAndKeep();
     } catch {
+      task.finish('error');
       setFeedbackError(true);
     } finally {
       setFeedbackSaving(false);
@@ -479,7 +486,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   // Persona Selection View
   if (!activeSession || !selectedPersona || !showChat) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 pb-24">
+      <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-4xl mx-auto space-y-8 pb-24">
         {/* Banner */}
         <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
           <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
@@ -547,7 +554,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {personas.map((persona) => (
-              <div
+              <div data-action-id="a-i-chat-view-action-01"
                 key={persona.id}
                 onClick={() => openPersona(persona)}
                 className="bg-white border border-[#E5E7EB] hover:border-[#FF6B5A] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
@@ -592,12 +599,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                               </button>
                             )}
                             {!isGuest && onReportErrorPersona && (
-                              <button data-button-id="ai-chat-view-button-04" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-04" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onReportErrorPersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#1C1C1C] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <ShieldAlert className="w-3.5 h-3.5" /> 오류 신고
                               </button>
                             )}
                             {onDeletePersona && (
-                              <button data-button-id="ai-chat-view-button-05" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); void onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                              <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-05" onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); void onDeletePersona(persona.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                                 <Trash2 className="w-3.5 h-3.5" /> 삭제
                               </button>
                             )}
@@ -647,7 +654,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * dvh를 쓰는 건 모바일에서 주소창이 접히고 펴져도 맞추기 위해서다.
    */
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
+    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
@@ -868,11 +875,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
 
       {/* 대화를 시작하기 전에 나갈 때: 지울지 남길지 고르게 한다 */}
       {showExitChoice && (
-        <div
+        <div data-action-id="a-i-chat-view-action-02"
           className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setShowExitChoice(false)}
         >
-          <div className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+          <div data-analytics-ignore="true" className="bg-white rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
             {/* 취소는 우측 상단 X 로 처리한다 */}
             <button data-button-id="ai-chat-view-button-17"
               onClick={() => setShowExitChoice(false)}
@@ -899,7 +906,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 >
                   남겨두고 닫기
                 </button>
-                <button data-button-id="ai-chat-view-button-19"
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-19"
                   onClick={() => { void discardAndClose(); }}
                   className="w-full py-3 bg-white border border-[#E5E7EB] text-[#ba1a1a] rounded-lg font-bold text-sm hover:bg-[#f3f4f5] transition-colors cursor-pointer"
                 >
@@ -919,7 +926,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             <p className="mt-2 text-xs text-[#5f5e5e]">평가를 남겨도 대화는 보관됩니다. 답변 내용은 평가에 저장하지 않습니다.</p>
             <div className="mt-5 grid gap-2">
               {FEEDBACK_CHOICES.map((label, index) => (
-                <button data-button-id="ai-chat-view-button-20" key={label} type="button" disabled={feedbackSaving}
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-20" key={label} type="button" disabled={feedbackSaving}
                   onClick={() => { void finishWithFeedback((index + 1) as 1 | 2 | 3 | 4 | 5); }}
                   className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-left text-sm hover:border-[#FF6B5A] cursor-pointer disabled:opacity-50">
                   {label}

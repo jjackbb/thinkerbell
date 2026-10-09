@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from './lib/taskAnalytics';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession, ChatMessage } from './types';
 import { INITIAL_STORIES, INITIAL_COMMENTS } from './data/mockData';
@@ -728,31 +729,35 @@ export default function App() {
   };
 
   const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
-    if (!authUserId) return false;
+    if (!authUserId) { blockedAction('nickname_update', 'not_ready'); return false; }
+    const task = beginTask('nickname_update');
     try {
       const { data, error } = await supabase.auth.updateUser({ data: { nickname: newNickname } });
-      if (error || data.user?.id !== authUserId) return false;
+      if (error || data.user?.id !== authUserId) { task.finish('error'); return false; }
       setUser(prev => ({ ...prev, nickname: newNickname }));
-      return true;
+      task.finish('success'); return true;
     } catch {
-      return false;
+      task.finish('error'); return false;
     }
   };
 
   const handleGenerateRandomNickname = async (): Promise<string | null> => {
+    const task = beginTask('nickname_generate');
     try {
       const res = await fetch('/api/nickname/random');
-      if (!res.ok) return null;
+      if (!res.ok) { task.finish('error'); return null; }
       const data = await res.json();
+      task.finish(typeof data.nickname === 'string' ? 'success' : 'error');
       return typeof data.nickname === 'string' ? data.nickname : null;
     } catch {
+      task.finish('error');
       return null;
     }
   };
 
   const handleVote = async (storyId: string, option: 'A' | 'B'): Promise<boolean> => {
-    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) return false;
-    if (pendingVoteIds.current.has(storyId)) return false;
+    if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) { blockedAction('vote', 'auth_required'); return false; }
+    if (pendingVoteIds.current.has(storyId)) { blockedAction('vote', 'busy'); return false; }
 
     /**
      * 판정을 먼저 하고, 그 다음에 화면을 바꾼다.
@@ -763,17 +768,18 @@ export default function App() {
      * 가지 않았다.** 새로고침하면 표가 사라졌다.
      */
     const story = stories.find(s => s.id === storyId);
-    if (!story) return false;
-    if (story.userVoted === option) return false; // 같은 쪽에 다시 누른 경우
+    if (!story) { blockedAction('vote', 'not_ready'); return false; }
+    if (story.userVoted === option) { blockedAction('vote', 'unchanged'); return false; } // 같은 쪽에 다시 누른 경우
 
     const isChange = Boolean(story.userVoted);
     if (isChange && story.voteChanged) {
       setToastMessage('투표는 최대 1번만 변경할 수 있습니다.');
       setTimeout(() => setToastMessage(null), 3000);
-      return false;
+      blockedAction('vote', 'limit'); return false;
     }
 
     pendingVoteIds.current.add(storyId);
+    const task = beginTask('vote');
     try {
       const { data, error } = await supabase.rpc('vote_story', {
         p_story_id: storyId,
@@ -792,7 +798,7 @@ export default function App() {
       if (isChange) track('vote_change_success');
       else trackOnce(`vote_submit:${authUserId}:${storyId}`, 'vote_submit', { storyId, option });
       await loadMyVotes();
-      return true;
+      task.finish('success'); return true;
     } catch {
       // 응답을 못 받았다고 DB가 쓰지 않았다고 단정할 수 없다. 가능한 범위에서
       // 서버의 사연·내 투표 기록을 다시 읽고 성공 이벤트는 보내지 않는다.
@@ -805,29 +811,30 @@ export default function App() {
       } catch {
         // 재조회도 실패하면 기존 화면 상태를 유지한다.
       }
-      return false;
+      task.finish('error'); return false;
     } finally {
       pendingVoteIds.current.delete(storyId);
     }
   };
 
   const handleAddComment = async (storyId: string, content: string, commentId: string): Promise<boolean> => {
-    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.') || !authUserId) return false;
+    if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.') || !authUserId) { blockedAction('comment_create', 'auth_required'); return false; }
 
     notifyIfCrisis(content);
 
+    const task = beginTask('comment_create');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token || session.user.id !== authUserId) return false;
+      if (!session?.access_token || session.user.id !== authUserId) { task.finish('error'); return false; }
       const response = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ id: commentId, storyId, content }),
       });
-      if (!response.ok) return false;
+      if (!response.ok) { task.finish('error'); return false; }
       const result = await response.json();
       const saved = result?.comment as Comment | undefined;
-      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) return false;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
       trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success');
       setCommentsMap(prev => ({
         ...prev,
@@ -846,14 +853,14 @@ export default function App() {
       } catch {
         // 댓글 저장 성공과 별개인 카운터 재조회는 다음 목록 새로고침에 맡긴다.
       }
-      return true;
+      task.finish('success'); return true;
     } catch {
-      return false;
+      task.finish('error'); return false;
     }
   };
 
   const handleLikeComment = async (commentId: string) => {
-    if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) return;
+    if (blockedForGuest('공감을 누르려면 로그인이 필요해요.')) { blockedAction('comment_like', 'auth_required'); return; }
     if (!authUserId) {
       setLoginPromptMessage('공감을 누르려면 로그인해 주세요.');
       return;
@@ -873,6 +880,7 @@ export default function App() {
     const requestOwnerId = authUserId;
     pendingLikeRequests.current.add(pendingKey);
     setLikePendingIds(prev => [...prev, commentId]);
+    const task = beginTask('comment_like');
     try {
       // +1/-1은 서버에서 '원하는 상태'로 해석한다. 서버는 계정별 행을
       // 중복 없이 저장하고 실제 개수를 반환하므로 낙관적으로 세지 않는다.
@@ -883,7 +891,8 @@ export default function App() {
       if (error || !data || data.id !== commentId || data.storyId !== storyId) {
         throw new Error('comment like save failed');
       }
-      if (currentLikeOwner.current !== requestOwnerId) return;
+      if (currentLikeOwner.current !== requestOwnerId) { task.finish('cancelled'); return; }
+      task.finish('success');
       setLikedCommentIds(prev => requestedLiked
         ? (prev.includes(commentId) ? prev : [...prev, commentId])
         : prev.filter(id => id !== commentId));
@@ -894,6 +903,7 @@ export default function App() {
           : c),
       }));
     } catch {
+      task.finish('error');
       if (currentLikeOwner.current === requestOwnerId) {
         setToastMessage('공감을 저장하지 못했습니다. 다시 시도해 주세요.');
         setTimeout(() => setToastMessage(null), 3000);
@@ -906,26 +916,27 @@ export default function App() {
     }
   };
   const handleEditComment = async (storyId: string, commentId: string, newContent: string): Promise<boolean> => {
-    if (!authUserId) return false;
+    if (!authUserId) { blockedAction('comment_edit', 'not_ready'); return false; }
+    const task = beginTask('comment_edit');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token || session.user.id !== authUserId) return false;
+      if (!session?.access_token || session.user.id !== authUserId) { task.finish('error'); return false; }
       const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ storyId, content: newContent }),
       });
-      if (!response.ok) return false;
+      if (!response.ok) { task.finish('error'); return false; }
       const result = await response.json();
       const saved = result?.comment as Comment | undefined;
-      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) return false;
+      if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
       setCommentsMap(prev => ({
         ...prev,
         [storyId]: (prev[storyId] || []).map(c => c.id === commentId ? saved : c),
       }));
-      return true;
+      task.finish('success'); return true;
     } catch {
-      return false;
+      task.finish('error'); return false;
     }
   };
 
@@ -1270,9 +1281,12 @@ export default function App() {
     }
     // 다른 기기에서 썼거나 탭을 켜둔 채 자정을 넘겼을 수 있으므로 다시 센다.
     let used: number;
+    const quotaTask = beginTask('ai_quota_check');
     try {
       used = (await fetchAiQuotaStatus()).used;
+      quotaTask.finish('success');
     } catch {
+      quotaTask.finish('error');
       setToastMessage('AI 이용 횟수를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
       return;
     }
@@ -1282,6 +1296,7 @@ export default function App() {
       setAiChatModeStory(story);
       setSelectedStory(null);
     } else {
+      blockedAction('ai_room_create', 'limit');
       setPremiumModalStory(story);
     }
   };
@@ -1730,13 +1745,13 @@ export default function App() {
   };
 
   const openCreateStory = () => {
-    if (blockedForGuest('사연을 등록하려면 로그인이 필요해요.')) return;
+    if (blockedForGuest('사연을 등록하려면 로그인이 필요해요.')) { blockedAction('story_publish', 'auth_required'); return; }
     setIsCreateStoryOpen(true);
   };
 
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
+    <div data-analytics-screen={activeTab === "feed" ? "feed" : activeTab === "ai-chat" ? "ai_list" : "my_page"} data-analytics-layer="0" className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
       
       {/* Header */}
       <Header
@@ -1764,7 +1779,7 @@ export default function App() {
           <div className="rounded-lg border border-[#E5E7EB] bg-white p-6 text-sm text-[#1C1C1C]">
             <p>{hiddenStoriesLoadError ? '숨긴 사연 목록을 불러오지 못했습니다.' : '사연 목록을 불러오는 중입니다.'}</p>
             {hiddenStoriesLoadError && (
-              <button data-button-id="app-button-01" type="button" className="mt-3 text-[#A32E1D] font-bold underline"
+              <button data-analytics-exclude="true" data-button-id="app-button-01" type="button" className="mt-3 text-[#A32E1D] font-bold underline"
                 onClick={() => setHiddenStoriesLoadNonce(n => n + 1)}>
                 다시 시도
               </button>
@@ -2064,7 +2079,7 @@ export default function App() {
 
       {/* 이의 제기 입력 */}
       {appealTargetId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div data-analytics-screen="excluded" data-analytics-layer="30" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 flex flex-col gap-3">
             <h2 className="text-base font-bold text-[#1C1C1C]">이의 제기</h2>
             <p className="text-xs text-[#5f5e5e] leading-relaxed">
@@ -2079,14 +2094,14 @@ export default function App() {
             />
             {appealError && <p role="alert" className="text-xs text-[#A32E1D]">{appealError}</p>}
             <div className="flex gap-2">
-              <button data-button-id="app-button-08"
+              <button data-analytics-exclude="true" data-button-id="app-button-08"
                 disabled={appealSubmitting}
                 onClick={() => setAppealTargetId(null)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer disabled:opacity-50"
               >
                 취소
               </button>
-              <button data-button-id="app-button-09"
+              <button data-analytics-exclude="true" data-button-id="app-button-09"
                 disabled={appealSubmitting}
                 onClick={async () => {
                   const el = document.getElementById('appeal-text') as HTMLTextAreaElement | null;
@@ -2221,7 +2236,7 @@ export default function App() {
           <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
           {toastMessage}
           {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
-            <button data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
+            <button data-analytics-exclude="true" data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
               className="ml-2 text-[#FF6B5A] underline shrink-0">되돌리기</button>
           )}
         </div>

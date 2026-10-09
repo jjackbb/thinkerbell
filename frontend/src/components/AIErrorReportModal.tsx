@@ -28,8 +28,8 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-[#E5E7EB]">
+    <div data-analytics-screen="excluded" data-analytics-layer="20" data-action-id="a-i-error-report-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+      <div data-analytics-ignore="true" onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-[#E5E7EB]">
         
         {/* Header */}
         <div className="bg-[#1C1C1C] text-white px-5 py-4 flex items-center justify-between border-b border-[#1C1C1C]">
@@ -37,7 +37,7 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
             <ShieldAlert className="w-5 h-5 text-[#ba1a1a]" />
             <h2 className="font-headline-md text-base font-bold">오류 신고</h2>
           </div>
-          <button data-button-id="ai-error-report-modal-button-01" onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
+          <button data-analytics-exclude="true" data-button-id="ai-error-report-modal-button-01" onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -65,14 +65,14 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
 
           {/* Action Buttons */}
           <div className="flex gap-3 mt-6">
-            <button data-button-id="ai-error-report-modal-button-02"
+            <button data-analytics-exclude="true" data-button-id="ai-error-report-modal-button-02"
               type="button"
               onClick={onClose}
               className="flex-1 py-3 px-4 border border-[#E5E7EB] text-[#5f5e5e] rounded font-mono font-bold text-xs hover:bg-[#f3f4f5] transition-colors cursor-pointer"
             >
               취소
             </button>
-            <button data-button-id="ai-error-report-modal-button-03"
+            <button data-analytics-exclude="true" data-button-id="ai-error-report-modal-button-03"
               type="submit"
               disabled={!errorContent.trim() || sending}
               className="flex-1 py-3 px-4 bg-[#ba1a1a] text-white rounded font-mono font-bold text-xs hover:bg-[#93000a] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"

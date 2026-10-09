@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -66,6 +67,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     if (!emailCheckEnabled || !emailCheckToken || verificationStarted.current) return;
     verificationStarted.current = true;
     void (async () => {
+      const task = beginTask('email_check_verify');
       try {
         const response = await fetch('/api/auth/email-check/verify', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -79,11 +81,13 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             (result.status === 'available' && typeof result.signupToken !== 'string')) {
           throw new Error('EMAIL_CHECK_UNAVAILABLE');
         }
+        task.finish('success');
         setEmail(result.email);
         setSignupToken(result.status === 'available' ? result.signupToken : null);
         setEmailCheckPhase(result.status);
         setIsLoginMode(result.status === 'registered');
       } catch (error) {
+        task.finish('error');
         setEmailCheckPhase('failed');
         setEmailCheckError(error instanceof Error && error.message === 'EMAIL_CHECK_LINK_UNAVAILABLE'
           ? '확인 링크가 만료됐거나 이미 사용됐습니다. 이메일을 다시 확인해 주세요.'
@@ -97,19 +101,23 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     setEmailCheckLoading(true);
     setEmailCheckError('');
     setSignupToken(null);
+    const task = beginTask('email_check_request');
     try {
       const response = await fetch('/api/auth/email-check/request', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
       if (!response.ok) {
+        task.finish('error');
         setEmailCheckError(response.status === 429
           ? '요청이 많아 잠시 뒤 다시 시도할 수 있습니다.'
           : '확인 메일을 요청하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
         return;
       }
+      task.finish('success');
       setEmailCheckPhase('sent');
     } catch {
+      task.finish('error');
       setEmailCheckError('확인 메일을 요청하지 못했습니다. 연결을 확인해 주세요.');
     } finally {
       setEmailCheckLoading(false);
@@ -120,13 +128,16 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     event.preventDefault();
     setRecoveryError('');
     setRecoveryLoading(true);
+    const task = beginTask('password_reset_request');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/?auth=recovery`,
       });
       if (error) throw error;
+      task.finish('success');
       setRecoveryPhase('sent');
     } catch {
+      task.finish('error');
       setRecoveryError('재설정 메일을 요청하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     } finally {
       setRecoveryLoading(false);
@@ -135,20 +146,24 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
 
   const handleRecoveryUpdate = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!passwordRecoveryReady) return;
+    if (!passwordRecoveryReady) { blockedAction('password_reset', 'not_ready'); return; }
     if (recoveryPassword.length < 6 || recoveryPassword !== recoveryPasswordConfirm) {
+      blockedAction('password_reset', 'validation');
       setRecoveryError('새 비밀번호를 6자 이상 입력하고 확인란에도 똑같이 입력해 주세요.');
       return;
     }
     setRecoveryError('');
     setRecoveryLoading(true);
+    const task = beginTask('password_reset');
     try {
       const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
       if (error) throw error;
       setRecoveryPassword('');
       setRecoveryPasswordConfirm('');
+      task.finish('success');
       setRecoveryPhase('done');
     } catch {
+      task.finish('error');
       setRecoveryError('비밀번호를 변경하지 못했습니다. 다시 시도하거나 새 재설정 메일을 요청해 주세요.');
     } finally {
       setRecoveryLoading(false);
@@ -186,6 +201,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     setErrorMsg('');
     setIsLoading(true);
 
+    const task = beginTask(isLoginMode ? 'login' : 'signup');
     try {
       if (isLoginMode) {
         const { error } = await supabase.auth.signInWithPassword({
@@ -193,6 +209,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           password
         });
         if (error) throw error;
+        task.finish('success');
       } else {
         if (emailCheckEnabled && emailCheckPhase !== 'available') {
           throw new Error('이메일 소유 확인을 먼저 완료해 주세요.');
@@ -208,6 +225,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           });
           const result = await response.json().catch(() => ({}));
           if (response.status === 409 && ['registered', 'pending'].includes(result.status)) {
+            task.finish('error');
             setEmailCheckPhase(result.status);
             setIsLoginMode(result.status === 'registered');
             setSignupToken(null);
@@ -215,6 +233,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             return;
           }
           if (response.status === 410) {
+            task.finish('error');
             setEmailCheckPhase('failed');
             setSignupToken(null);
             setEmailCheckError('확인 시간이 지났습니다. 이메일 소유 확인을 다시 요청해 주세요.');
@@ -222,6 +241,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           }
           if (!response.ok || result.created !== true) {
             if (response.status === 400) throw new Error('가입 정보를 다시 확인해 주세요.');
+            task.finish('error');
             setSignupToken(null);
             setEmailCheckPhase('entry');
             setIsLoginMode(true);
@@ -229,7 +249,10 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
             return;
           }
           setSignupToken(null);
+          task.finish('success');
+          const autoLogin = beginTask('login');
           const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+          autoLogin.finish(loginError ? 'error' : 'success');
           if (loginError) {
             setEmailCheckPhase('registered');
             setIsLoginMode(true);
@@ -247,12 +270,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
           }
         });
         if (error) throw error;
+        task.finish('success');
         if (!data.session) {
           setConfirmationEmail(email.trim());
           setPassword('');
         }
       }
     } catch (error: any) {
+      task.finish('error');
       if (error.message === '닉네임을 입력해주세요.' ||
           error.message === '가입 정보를 다시 확인해 주세요.' ||
           error.message === '이메일 소유 확인을 먼저 완료해 주세요.') {
@@ -269,15 +294,18 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
     setErrorMsg('');
     setResendMessage('');
     setIsResending(true);
+    const task = beginTask('email_resend');
     try {
       const { error } = await supabase.auth.resend({ type: 'signup', email: address });
       if (error) throw error;
+      task.finish('success');
       setConfirmationEmail(address);
       setShowExpiredLink(false);
       setResendMessage(emailCheckEnabled && emailCheckPhase === 'pending'
         ? '가입 확인 메일 재요청을 접수했습니다. 받은편지함과 스팸함을 확인해 주세요.'
         : '요청을 접수했습니다. 새 가입 대상인 주소라면 받은편지함이나 스팸함에 확인 메일이 도착합니다.');
     } catch (error) {
+      task.finish('error');
       setErrorMsg(getKoreanErrorMessage(error));
     } finally {
       setIsResending(false);
@@ -287,7 +315,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
+    <div data-analytics-screen={recoveryPhase !== "idle" ? "password_recovery" : confirmationEmail ? "email_pending" : isLoginMode ? "login" : emailCheckPhase !== "available" ? "email_check" : "signup"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
         
         {/* Header Branding */}

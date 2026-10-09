@@ -89,7 +89,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
-        <div
+        <div data-action-id="weekly-top-banner-action-01"
           key={`${bannerType}-${story.id}`}
           onClick={() => onSelectStory(story)}
           className="bg-white border border-[#B87514] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"

@@ -28,7 +28,7 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
   const { primary, secondary, youth } = CRISIS_CONTACTS;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen="excluded" data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
         <div className="px-6 pt-6 pb-4 text-center">
           <h2 className="text-lg font-bold text-[#1C1C1C] mb-2 leading-snug">
@@ -41,7 +41,7 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
         </div>
 
         <div className="px-6 pb-2 flex flex-col gap-2">
-          <a
+          <a data-action-id="crisis-support-modal-action-01"
             href={`tel:${primary.number}`}
             className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[#FF6B5A] text-white font-bold hover:bg-[#e85a4a] transition-colors"
           >
@@ -52,7 +52,7 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
             <span className="font-mono text-lg">{primary.number}</span>
           </a>
 
-          <a
+          <a data-action-id="crisis-support-modal-action-02"
             href={`sms:${primary.number}`}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#f3f4f5] text-[#1C1C1C] text-sm font-bold hover:bg-[#e8eaec] transition-colors"
           >
@@ -61,14 +61,14 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
           </a>
 
           <div className="flex gap-2">
-            <a
+            <a data-action-id="crisis-support-modal-action-03"
               href={`tel:${secondary.number}`}
               className="flex-1 text-center px-3 py-2 rounded-lg bg-[#f3f4f5] hover:bg-[#e8eaec] transition-colors"
             >
               <span className="block text-[11px] text-[#5f5e5e]">{secondary.label}</span>
               <span className="block font-mono text-xs font-bold text-[#1C1C1C]">{secondary.number}</span>
             </a>
-            <a
+            <a data-action-id="crisis-support-modal-action-04"
               href={`tel:${youth.number}`}
               className="flex-1 text-center px-3 py-2 rounded-lg bg-[#f3f4f5] hover:bg-[#e8eaec] transition-colors"
             >
@@ -84,14 +84,14 @@ export const CrisisSupportModal: React.FC<CrisisSupportModalProps> = ({
 
         <div className="border-t border-[#E5E7EB] p-3 flex flex-col gap-1">
           {onContinue && (
-            <button data-button-id="crisis-support-modal-button-01"
+            <button data-analytics-exclude="true" data-button-id="crisis-support-modal-button-01"
               onClick={onContinue}
               className="w-full py-2.5 text-sm font-bold text-[#1C1C1C] rounded-xl hover:bg-[#f3f4f5] transition-colors cursor-pointer"
             >
               {continueLabel}
             </button>
           )}
-          <button data-button-id="crisis-support-modal-button-02"
+          <button data-analytics-exclude="true" data-button-id="crisis-support-modal-button-02"
             onClick={onClose}
             className="w-full py-2 text-xs text-[#5f5e5e] rounded-xl hover:bg-[#f3f4f5] transition-colors cursor-pointer"
           >

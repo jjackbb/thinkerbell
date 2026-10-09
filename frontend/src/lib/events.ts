@@ -5,6 +5,11 @@ import { shouldSendToGA4 } from './ga4EventPolicy';
 import { safeEventProps } from './analyticsContext';
 
 export type EventName =
+  | 'page_view'
+  | 'ui_click'
+  | 'operation_start'
+  | 'operation_cancelled'
+  | 'action_blocked'
   | 'app_open'
   | 'login_success'
   | 'story_view'

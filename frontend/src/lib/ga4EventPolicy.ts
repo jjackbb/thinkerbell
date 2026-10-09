@@ -1,7 +1,10 @@
 import type { EventName } from './events';
+import { ANALYTICS_SCREENS, analyticsSurfaceBlocked } from './analyticsSurface';
+import { getAnalyticsControl } from './analyticsControls';
+import { ANALYTICS_OPERATIONS } from './analyticsOperations';
 
-// Only the agreed core task funnel and confirmed save outcomes go to GA4.
-// Authentication, account, report and crisis-support behavior stays out.
+// General UI and fixed task outcomes are eligible. Sensitive surfaces/controls
+// and arbitrary operation names remain fail-closed.
 const CORE_TASK_EVENTS = new Set<EventName>([
   'story_view',
   'story_publish_success',
@@ -21,8 +24,14 @@ const CORE_TASK_EVENTS = new Set<EventName>([
 ]);
 
 export function shouldSendToGA4(name: EventName, props: Record<string, unknown>): boolean {
-  if (name === 'operation_success' || name === 'operation_error') {
-    return props.operation === 'ai_reply_save';
+  if (analyticsSurfaceBlocked()) return false;
+  if (name === 'page_view') return typeof props.screen === 'string' && ANALYTICS_SCREENS.has(props.screen);
+  if (name === 'ui_click') {
+    const control = getAnalyticsControl(props.button_id);
+    return !!control && !control.excluded && typeof props.screen === 'string' && ANALYTICS_SCREENS.has(props.screen);
+  }
+  if (['operation_start', 'operation_success', 'operation_error', 'operation_cancelled', 'action_blocked'].includes(name)) {
+    return typeof props.operation === 'string' && ANALYTICS_OPERATIONS.has(props.operation);
   }
   return CORE_TASK_EVENTS.has(name);
 }

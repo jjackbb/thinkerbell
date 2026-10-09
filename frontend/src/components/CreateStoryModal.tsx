@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
 import { StoryCategory, Story } from '../types';
 import { X, Sparkles, AlertTriangle } from 'lucide-react';
@@ -47,21 +48,25 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitPendingRef.current) return;
+    if (submitPendingRef.current) { blockedAction(initialData ? 'story_edit' : 'story_publish', 'busy'); return; }
 
     if (!title.trim()) {
+      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
       setErrorMessage('제목을 입력해 주세요.');
       return;
     }
     if (title.length > 30) {
+      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
       setErrorMessage('제목은 최대 30자까지 입력할 수 있습니다.');
       return;
     }
     if (body.trim().length < 20) {
+      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
       setErrorMessage('사연 본문은 최소 20자 이상 작성해 주세요.');
       return;
     }
     if (body.length > 1000) {
+      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
       setErrorMessage('사연 본문은 최대 1,000자까지 작성할 수 있습니다.');
       return;
     }
@@ -70,6 +75,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     submitPendingRef.current = true;
     setIsSubmitting(true);
 
+    const task = beginTask(initialData ? 'story_edit' : 'story_publish');
     try {
       await onSubmit({
         title: title.trim(),
@@ -80,6 +86,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         requestId: requestIdRef.current,
       });
 
+      task.finish('success');
       // Reset Form
       setTitle('');
       setBody('');
@@ -87,6 +94,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
       onClose();
 
     } catch (error) {
+      task.finish('error');
       const code = error instanceof Error ? error.message : '';
       setErrorMessage(code === 'ADULT_CONTENT_BLOCKED'
         ? '성인 콘텐츠는 첫 공개에서 등록할 수 없습니다. 내용을 수정한 뒤 다시 검사해 주세요.'
@@ -104,7 +112,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const isSubmitDisabled = isSubmitting;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen={initialData?.visibility === "private" || initialData?.isAdult || initialData?.isBlind ? "excluded" : initialData ? "story_edit" : "story_editor"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
         
         {/* Modal Header */}

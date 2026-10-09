@@ -18,19 +18,19 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen="excluded" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col p-6 text-center">
         <h2 className="text-xl font-bold text-[#1C1C1C] mb-6 mt-4">{title}</h2>
         
         <div className="flex gap-3">
-          <button data-button-id="delete-confirm-modal-button-01"
+          <button data-analytics-exclude="true" data-button-id="delete-confirm-modal-button-01"
             onClick={onClose}
             disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-white text-[#5f5e5e] font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-[#E5E7EB] hover:bg-[#f3f4f5]"
           >
             취소
           </button>
-          <button data-button-id="delete-confirm-modal-button-02"
+          <button data-analytics-exclude="true" data-button-id="delete-confirm-modal-button-02"
             onClick={onConfirm}
             disabled={isDeleting}
             className="flex-1 px-4 py-3 bg-[#ba1a1a] text-white font-bold rounded-xl active:scale-95 transition-all cursor-pointer shadow-md hover:bg-[#901414]"

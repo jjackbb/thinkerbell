@@ -41,7 +41,7 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
   const [step, setStep] = useState<'mode' | 'opening'>('mode');
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen={step === "opening" ? "ai_opening_selection" : "ai_mode_selection"} data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-sm flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
 
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">

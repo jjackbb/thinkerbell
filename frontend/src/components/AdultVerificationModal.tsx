@@ -11,13 +11,13 @@ export const AdultVerificationModal: React.FC<AdultVerificationModalProps> = ({ 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen="excluded" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-[#fffaf0] border border-[#e8e2d0] rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col relative">
         <div className="px-5 py-4 border-b border-[#ebe6d6] flex items-center justify-between bg-[#faf5e8]">
           <h2 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-red-500" /> 성인 인증 필요
           </h2>
-          <button data-button-id="adult-verification-modal-button-01"
+          <button data-analytics-exclude="true" data-button-id="adult-verification-modal-button-01"
             onClick={onClose}
             className="p-1.5 rounded-xl hover:bg-[#e8e2d0] text-[#0a0a0a] transition-colors cursor-pointer"
           >
@@ -40,7 +40,7 @@ export const AdultVerificationModal: React.FC<AdultVerificationModalProps> = ({ 
 
           <div className="pt-4">
             {/* 인증 시뮬레이션 버튼 */}
-            <button data-button-id="adult-verification-modal-button-02"
+            <button data-analytics-exclude="true" data-button-id="adult-verification-modal-button-02"
               onClick={() => {
                 onVerify();
                 onClose();

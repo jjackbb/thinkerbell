@@ -18,7 +18,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div data-analytics-screen="quota_notice" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
       <div className="bg-white border border-[#E5E7EB] rounded-lg w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
 
         <div className="px-4 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">

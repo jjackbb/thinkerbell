@@ -126,7 +126,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           {appealed ? (
             <span className="text-xs font-bold text-[#4553C4]">이의 제기 검토 중</span>
           ) : (
-            <button data-button-id="story-card-button-01"
+            <button data-analytics-exclude="true" data-button-id="story-card-button-01"
               onClick={(e) => { e.stopPropagation(); onAppeal?.(story.id); }}
               className="px-3 py-1.5 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
             >
@@ -139,7 +139,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   }
 
   return (
-    <article
+    <article data-action-id="story-card-action-01"
       ref={cardRef}
       onClick={() => {
         if (isBlurRequired && onRequireAdultVerification) {
@@ -196,15 +196,15 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                   </button>
                 )}
                 {onHide && (
-                  <button data-button-id="story-card-button-04" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onHide(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                  <button data-analytics-exclude="true" data-button-id="story-card-button-04" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onHide(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                     <EyeOff className="w-3.5 h-3.5" /> 숨기기
                   </button>
                 )}
-                <button data-button-id="story-card-button-05" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onReport(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                <button data-analytics-exclude="true" data-button-id="story-card-button-05" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onReport(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
                   <ShieldAlert className="w-3.5 h-3.5" /> 신고
                 </button>
                 {isMyStory && onDelete && (
-                  <button data-button-id="story-card-button-06" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
+                  <button data-analytics-exclude="true" data-button-id="story-card-button-06" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#f3f4f5] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#E5E7EB]">
                     <Trash2 className="w-3.5 h-3.5" /> 삭제
                   </button>
                 )}
@@ -246,7 +246,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
         </div>
 
         {/* Live Vote Gauge */}
-        <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+        <div data-analytics-ignore="true" className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
 
           <VoteResult
             votesA={story.votesA}
@@ -363,7 +363,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
       
       {/* Unified Top 3 Comments Tabs */}
       {activeCommentTab && (
-        <div className="bg-[#f9fafb] p-4 border-t border-[#E5E7EB] space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div data-analytics-ignore="true" className="bg-[#f9fafb] p-4 border-t border-[#E5E7EB] space-y-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2">
             <div className="flex gap-4 text-xs font-bold font-mono">
               <button data-button-id="story-card-button-11"

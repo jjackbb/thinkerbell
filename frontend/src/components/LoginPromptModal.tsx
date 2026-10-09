@@ -17,7 +17,7 @@ export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div data-analytics-screen="login_prompt" data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col p-6 text-center">
         <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/15 flex items-center justify-center mx-auto mb-4">
           <Lock className="w-5 h-5 text-[#FF6B5A]" />

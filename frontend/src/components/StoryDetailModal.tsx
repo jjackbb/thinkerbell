@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
@@ -200,15 +201,21 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   // 공유하기 전에 무엇이 나가는지 눈으로 확인시켜 준다. 익명 서비스라
   // "내 닉네임이 같이 나가나?"를 확인할 방법이 필요하다
   const handlePreview = async () => {
-    if (isPreviewLoading) return;
+    if (isPreviewLoading) { blockedAction('share_preview', 'busy'); return; }
     setIsPreviewLoading(true);
+    const task = beginTask('share_preview');
     try {
       const blob = await renderShareCard(shareInput);
       if (!blob) {
+        task.finish('error');
         showToast('미리보기를 만들지 못했어요.');
         return;
       }
+      task.finish('success');
       setPreviewUrl(URL.createObjectURL(blob));
+    } catch {
+      task.finish('error');
+      showToast('미리보기를 만들지 못했어요.');
     } finally {
       setIsPreviewLoading(false);
     }
@@ -216,12 +223,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
   const handleVote = async (option: 'A' | 'B') => {
     if (isPrivate) return;
-    if (voteSubmittingRef.current || votedOption === option) return;
+    if (voteSubmittingRef.current || votedOption === option) { blockedAction('vote', voteSubmittingRef.current ? 'busy' : 'unchanged'); return; }
     if (isMyStory) {
+      blockedAction('vote', 'limit');
       showToast('사연 작성자는 투표할 수 없으며, 여론 확인만 가능합니다.');
       return;
     }
     if (votedOption && story.voteChanged) {
+      blockedAction('vote', 'limit');
       showToast('투표는 최대 1번만 변경할 수 있습니다.');
       return;
     }
@@ -271,8 +280,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isZeroVotes = totalVotes === 0;
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
-      <div onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
+    <div data-analytics-screen={isPrivate || story.isAdult || story.isBlind || story.isHidden ? "excluded" : "story_detail"} data-analytics-layer="20" data-action-id="story-detail-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
+      <div data-analytics-ignore="true" onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         {/* Toast Alert */}
         {toastMessage && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1C1C1C] text-[#FF6B5A] px-4 py-2 rounded border border-[#FF6B5A]/40 font-mono text-xs font-bold shadow-md">
@@ -304,7 +313,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   )}
                   {isMyStory && onSetVisibility && (
-                    <button data-button-id="story-detail-modal-button-03" disabled={isVisibilitySaving} onClick={async () => {
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-03" disabled={isVisibilitySaving} onClick={async () => {
                       const next = isPrivate ? 'public' : 'private';
                       if (next === 'private' && !window.confirm(
                         '사연을 비공개로 옮길까요? 다른 이용자는 원문과 댓글을 볼 수 없지만, 이미 만든 다른 사람의 AI 대화에는 사연 내용이 남아 있을 수 있습니다.'
@@ -319,15 +328,15 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   )}
                   {onHideStory && (
-                    <button data-button-id="story-detail-modal-button-04" onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-04" onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
                       <EyeOff className="w-3.5 h-3.5" /> 숨기기
                     </button>
                   )}
-                  {!isPrivate && <button data-button-id="story-detail-modal-button-05" onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                  {!isPrivate && <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-05" onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
                     <ShieldAlert className="w-3.5 h-3.5" /> 신고
                   </button>}
                   {isMyStory && onDeleteStory && (
-                    <button data-button-id="story-detail-modal-button-06" onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-06" onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
                       <Trash2 className="w-3.5 h-3.5" /> 삭제
                     </button>
                   )}
@@ -389,13 +398,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     24시간 익명으로 이야기할 수 있습니다.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <button data-button-id="story-detail-modal-button-08"
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-08"
                       onClick={() => setShowSensitiveBody(true)}
                       className="px-4 py-2 rounded-lg bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
                     >
                       사연 보기
                     </button>
-                    <a
+                    <a data-analytics-exclude="true" data-action-id="story-detail-modal-action-02"
                       href="tel:109"
                       className="px-4 py-2 rounded-lg bg-[#FF6B5A] text-white text-xs font-bold hover:bg-[#e85a4a] transition-colors"
                     >
@@ -424,7 +433,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
                 {/* 사연 피드 카드와 동일한 투표 버튼 — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button data-button-id="story-detail-modal-button-09"
+                  <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-09"
                     onClick={() => handleVote('B')}
                     disabled={isPrivate || isMyStory || isVoteSubmitting || (!!votedOption && !!story.voteChanged)}
                     aria-busy={isVoteSubmitting}
@@ -575,7 +584,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                               {commentMenuOpenId === c.id && (
                                 <div className="absolute right-0 mt-1 w-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10 text-xs overflow-hidden">
                                   {!isPrivate && <button data-button-id="story-detail-modal-button-14" onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); setCommentMenuOpenId(null); }} className="w-full text-left px-3 py-2 hover:bg-[#f9fafb] text-[#1C1C1C] cursor-pointer">수정</button>}
-                                  <button data-button-id="story-detail-modal-button-15"
+                                  <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-15"
                                     disabled={commentMutationId === c.id}
                                     onClick={async () => {
                                       if (!onDeleteComment || commentMutationId) return;
@@ -592,7 +601,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                               )}
                             </div>
                           ) : !isPrivate ? (
-                            <button data-button-id="story-detail-modal-button-16" onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
+                            <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-16" onClick={() => onReportComment(c.id)} className="text-[#5f5e5e] hover:text-red-500 p-0.5 rounded cursor-pointer" title="신고">
                               <ShieldAlert className="w-4 h-4" />
                             </button>
                           ) : null}
@@ -704,11 +713,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         {/* 공유 카드 미리보기. 사연 위에 덮어서 띄운다 —
             새 창을 띄우면 읽던 자리를 잃는다 */}
         {previewUrl && (
-          <div
+          <div data-analytics-screen="share_preview" data-analytics-layer="30" data-action-id="story-detail-modal-action-03"
             onClick={closePreview}
             className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
           >
-            <div
+            <div data-analytics-ignore="true"
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm bg-white rounded-lg overflow-hidden border border-[#E5E7EB] shadow-2xl"
             >

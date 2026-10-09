@@ -1,3 +1,6 @@
+import { ANALYTICS_SCREENS } from './analyticsSurface';
+import { getAnalyticsControl } from './analyticsControls';
+import { ANALYTICS_OPERATIONS } from './analyticsOperations';
 /** Only fixed categories enter analytics; query strings and user input never do. */
 export type AnalyticsEntryPoint = 'feed' | 'weekly_top' | 'my_page' | 'story_detail' | 'shared_link' | 'chat_list' | 'chat_return';
 export type ConversationType = 'new' | 'continuation';
@@ -34,14 +37,21 @@ const screens: Record<string, string> = {
 const entryPoints = new Set(['feed', 'weekly_top', 'my_page', 'story_detail', 'shared_link', 'chat_list', 'chat_return']);
 
 export function safeEventProps(name: string, props: Record<string, unknown>): Record<string, string | number | boolean> {
-  const result: Record<string, string | number | boolean> = { event_schema_version: 3 };
+  const result: Record<string, string | number | boolean> = { event_schema_version: 4 };
   if (screens[name]) result.screen = screens[name];
   if (typeof props.entry_point === 'string' && entryPoints.has(props.entry_point)) result.entry_point = props.entry_point;
   if (name === 'ai_entry_click' && props.entry_point === 'my_page') result.screen = 'my_page';
   if (props.conversation_type === 'new' || props.conversation_type === 'continuation') result.conversation_type = props.conversation_type;
   if (props.mode === 'simulation' || props.mode === 'explanation') result.mode = props.mode;
-  if (props.operation === 'ai_reply_save') result.operation = props.operation;
-  if (props.error_code === 'save_failed') result.error_code = props.error_code;
+  if (typeof props.screen === 'string' && ANALYTICS_SCREENS.has(props.screen)) result.screen = props.screen;
+  const control = getAnalyticsControl(props.button_id);
+  if (name === 'ui_click' && control && !control.excluded) {
+    result.button_id = props.button_id as string;
+    result.element_type = control.kind;
+  }
+  if (typeof props.operation === 'string' && ANALYTICS_OPERATIONS.has(props.operation)) result.operation = props.operation;
+  if (props.error_code === 'save_failed' || props.error_code === 'unconfirmed') result.error_code = props.error_code;
+  if (name === 'action_blocked' && typeof props.reason === 'string' && ['auth_required', 'validation', 'busy', 'limit', 'not_ready', 'unchanged'].includes(props.reason)) result.reason = props.reason;
   if (props.outcome === 'completed' || props.outcome === 'submitted' || props.outcome === 'skipped') result.outcome = props.outcome;
   return result;
 }

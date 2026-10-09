@@ -1,3 +1,4 @@
+import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState } from 'react';
 import { Share2, ImageDown, Check } from 'lucide-react';
 import { shareResult, downloadShareCard, ShareCardInput } from '../lib/shareCard';
@@ -28,10 +29,12 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
   };
 
   const handleShare = async () => {
-    if (busy) return;
+    if (busy) { blockedAction('share', 'busy'); return; }
     setBusy(true);
+    const task = beginTask('share');
     try {
       const outcome = await shareResult(input, url);
+      task.finish(outcome === 'failed' ? 'error' : outcome === 'cancelled' ? 'cancelled' : 'success');
       if (outcome === 'copied') flash('링크를 복사했어요');
       else if (outcome === 'failed') flash('공유에 실패했어요');
     } finally {
@@ -42,8 +45,10 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
   const handleDownload = async () => {
     if (busy) return;
     setBusy(true);
+    const task = beginTask('share_download');
     try {
       const outcome = await downloadShareCard(input);
+      task.finish(outcome === 'downloaded' ? 'success' : 'error');
       flash(outcome === 'downloaded' ? '이미지를 저장했어요' : '이미지를 만들지 못했어요');
     } finally {
       setBusy(false);
