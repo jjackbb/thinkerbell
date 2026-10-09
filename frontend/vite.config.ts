@@ -11,6 +11,13 @@ export default defineConfig(() => {
     build: {
       outDir: path.resolve(__dirname, '../dist'),
       emptyOutDir: true,
+      // 랜딩페이지 시안(/landing)을 앱과 별도 페이지로 함께 만든다
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          landing: path.resolve(__dirname, 'landing.html'),
+        },
+      },
     },
     resolve: {
       alias: {

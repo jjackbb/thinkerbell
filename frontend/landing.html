@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<!-- 랜딩페이지 시안 (로컬 전용, 미배포). 화면 속 사연·숫자·대화는 예시다. -->
+<title>니편내편</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=swap" rel="stylesheet">
+<style>
+/* Layout: 1120px 한 축 위에 모든 섹션의 왼쪽 끝을 맞춘다.
+   기능 소개(사연 쓰기·투표·댓글·랭킹·밸런스 게임)는 같은 '글 | 예시 화면' 틀을 좌우로 번갈아 쓰고,
+   예시 화면 상자는 높이를 통일한다. 한글에는 고정폭 글꼴·자간을 쓰지 않는다(숫자·영문에만 mono).
+   색은 frontend/src/index.css 토큰 값을 그대로 옮겼다. 앱과 같은 단일 룩(라이트 + 오닉스). */
+:root {
+  color-scheme: light;
+  --onyx: #1C1C1C;
+  --onyx-2: #2A2A2A;
+  --onyx-3: #262626;
+  --paper: #f8f9fa;
+  --card: #ffffff;
+  --ink: #191c1d;
+  --grey: #5f5e5e;
+  --line: #E5E7EB;
+  --surface: #f1f2f4;
+  --me: #FF6B5A;
+  --me-ink: #D6452F;
+  --you: #6C7BE8;
+  --you-ink: #4553C4;
+  --on-dark: rgba(255,255,255,.72);
+  --on-dark-dim: rgba(255,255,255,.48);
+  --line-dark: rgba(255,255,255,.1);
+
+  --f-display: 'Hanken Grotesk', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  --f-body: 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* 글자 크기 단계 — 이 여섯 개만 쓴다 */
+  --t-hero: clamp(42px, 6vw, 72px);
+  --t-h2: clamp(30px, 3.6vw, 42px);
+  --t-h3: 22px;
+  --t-lede: 17px;
+  --t-body: 15px;
+  --t-small: 13px;
+
+  --sec-y: 120px;
+  --gap-col: 80px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: var(--t-body); -webkit-font-smoothing: antialiased; line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
+.wrap { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.035em; font-weight: 900; }
+h3 { font-family: var(--f-body); letter-spacing: -0.02em; }
+p { margin: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
+a, button { font: inherit; }
+.ms { font-family: 'Material Symbols Outlined'; font-weight: 400; font-size: 20px; line-height: 1; display: inline-block; font-style: normal; flex-shrink: 0; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--me); outline-offset: 3px; }
+
+/* 섹션 머리: 라벨 → 제목 → 한 줄 설명 */
+.eyebrow { font-size: var(--t-small); font-weight: 700; color: var(--me-ink); }
+.on-dark .eyebrow { color: var(--me); }
+.h2 { font-size: var(--t-h2); line-height: 1.25; }
+.lede { font-size: var(--t-lede); color: var(--grey); line-height: 1.7; }
+.on-dark .lede { color: var(--on-dark); }
+.sec-head { display: grid; gap: 16px; max-width: 620px; margin-bottom: 56px; }
+
+/* 예시 표시 */
+.ex { font-size: 11px; font-weight: 500; color: var(--grey); padding: 2px 8px; border: 1px dashed color-mix(in srgb, var(--grey) 45%, transparent); border-radius: 999px; white-space: nowrap; line-height: 1.5; }
+.ex.dark { color: var(--on-dark-dim); border-color: rgba(255,255,255,.2); }
+
+/* 버튼 */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 52px; padding-inline: 24px; border-radius: 12px; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform .15s, background .15s, border-color .15s; white-space: nowrap; }
+.btn:active { transform: scale(.97); }
+.btn .ms { font-size: 18px; }
+.btn-coral { background: var(--me); color: var(--onyx); }
+.btn-coral:hover { background: color-mix(in srgb, var(--me) 88%, white); }
+.btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.22); }
+.btn-ghost:hover { border-color: var(--me); }
+.btn-sm { height: 38px; padding-inline: 14px; font-size: 13px; border-radius: 10px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ── 상단 ── */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--onyx); border-bottom: 1px solid var(--line-dark); }
+.nav .wrap { display: flex; align-items: center; gap: 40px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 8px; color: var(--me); font-family: var(--f-display); font-weight: 900; font-size: 22px; letter-spacing: -0.04em; text-decoration: none; }
+.brand .ms { font-size: 26px; font-weight: 700; }
+.nav-links { display: flex; gap: 28px; margin-right: auto; }
+.nav-links a { color: var(--on-dark); text-decoration: none; font-size: 14px; font-weight: 500; }
+.nav-links a:hover { color: #fff; }
+
+/* ── 히어로 ── */
+.hero { background: linear-gradient(180deg, var(--onyx) 0%, var(--onyx-2) 100%); color: #fff; padding-block: 104px 112px; overflow: hidden; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: var(--gap-col); align-items: center; }
+.hero-copy { display: grid; gap: 24px; justify-items: start; }
+.hero .eyebrow { color: var(--on-dark-dim); }
+.hero h1 { font-size: var(--t-hero); line-height: 1.12; }
+.hero h1 .you { color: var(--you); }
+.hero h1 .me { color: var(--me); }
+.hero h1 .vs { font-family: var(--f-mono); font-weight: 500; font-size: .36em; color: rgba(255,255,255,.3); letter-spacing: 0; margin-inline: .3em; position: relative; top: -.5em; }
+.hero-sub { font-size: 18px; color: var(--on-dark); line-height: 1.75; }
+.hero-sub strong { color: #fff; }
+.hero .cta-row { margin-top: 8px; }
+.hero-note { font-size: var(--t-small); color: var(--on-dark-dim); margin-top: -8px; }
+.demo { position: relative; }
+.demo::before { content: ""; position: absolute; inset: -40px; background: radial-gradient(closest-side at 25% 60%, color-mix(in srgb, var(--you) 24%, transparent), transparent), radial-gradient(closest-side at 80% 40%, color-mix(in srgb, var(--me) 24%, transparent), transparent); filter: blur(12px); pointer-events: none; }
+
+/* 사연 카드 */
+.story { position: relative; background: var(--card); color: var(--ink); border-radius: 16px; padding: 24px; display: grid; gap: 14px; box-shadow: 0 30px 60px -24px rgba(0,0,0,.6); }
+.row-meta { display: flex; align-items: center; gap: 8px; }
+.row-meta .ex { margin-left: auto; }
+.chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
+.time { font-size: 12px; color: color-mix(in srgb, var(--grey) 70%, white); }
+.story h3 { font-size: 20px; line-height: 1.4; }
+.story-body { font-size: 14px; color: var(--grey); line-height: 1.7; }
+.vote { display: grid; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); }
+.vote-q { font-size: var(--t-small); font-weight: 700; padding-top: 8px; }
+.vote-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vb { padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); font-weight: 800; font-size: 15px; cursor: pointer; transition: border-color .2s, background .2s; }
+.vb small { display: block; font-weight: 500; font-size: 12px; color: var(--grey); margin-top: 2px; }
+.vb.you { color: var(--you-ink); }
+.vb.me { color: var(--me-ink); }
+.vb.you:hover, .vb.you[aria-pressed="true"] { border-color: var(--you); background: color-mix(in srgb, var(--you) 8%, white); }
+.vb.me:hover, .vb.me[aria-pressed="true"] { border-color: var(--me); background: color-mix(in srgb, var(--me) 8%, white); }
+.gauge { position: relative; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surface); }
+.gauge .fill { position: absolute; inset: 0; }
+.legend { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+.legend .l { color: var(--you-ink); }
+.legend .r { color: var(--me-ink); }
+.gauge-note { font-size: 12px; color: var(--grey); text-align: center; }
+.sealed .pct { filter: blur(5px); user-select: none; }
+
+/* 카테고리 */
+.cats { background: var(--onyx-2); border-top: 1px solid var(--line-dark); padding-block: 20px; }
+.cats .wrap { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.cats .lead { color: var(--on-dark-dim); font-size: 14px; margin-right: 8px; }
+.cat { color: #fff; font-weight: 700; font-size: 14px; padding: 6px 16px; border-radius: 999px; border: 1px solid var(--line-dark); }
+
+/* ── 공감 문장 ── */
+.statement { padding-block: var(--sec-y); text-align: center; }
+.statement .wrap { display: grid; gap: 24px; justify-items: center; }
+.statement .lede { font-size: 18px; }
+.statement h2 { font-size: clamp(28px, 4vw, 48px); line-height: 1.4; }
+.statement .dim { color: color-mix(in srgb, var(--grey) 50%, var(--paper)); }
+.statement .you { color: var(--you-ink); }
+.statement .me { color: var(--me-ink); }
+.statement { padding-bottom: 64px; }
+.nw { white-space: nowrap; display: inline-block; }
+
+/* ── 기능 행: 글 | 예시 화면 ── */
+.feature { padding-block: 56px; }
+.features { padding-bottom: calc(var(--sec-y) - 56px); }
+.feature .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-col); align-items: center; }
+.feature.flip .text { order: 2; }
+.feature .text { display: grid; gap: 16px; }
+.feature .h2 { margin-bottom: 4px; }
+.points { display: grid; gap: 12px; margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+.points li { display: flex; gap: 12px; align-items: flex-start; font-size: var(--t-body); }
+.points .ms { color: var(--me); margin-top: 1px; }
+.visual { background: var(--surface); border-radius: 24px; padding: 20px 32px 40px; min-height: 440px; display: grid; grid-template-rows: auto 1fr; gap: 16px; }
+.visual-top { display: flex; justify-content: flex-end; }
+.visual-body { display: grid; align-items: center; justify-items: center; }
+.visual-body > * { width: 100%; max-width: 420px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 12px 32px -20px rgba(0,0,0,.25); }
+
+/* 쓰기 화면 */
+.compose { display: grid; gap: 12px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs span { font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--line); color: var(--grey); }
+.tabs span.on { background: var(--onyx); color: #fff; border-color: var(--onyx); }
+.field { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; background: var(--paper); }
+.field.title { font-weight: 700; }
+.field.body { color: var(--grey); min-height: 88px; line-height: 1.65; }
+.compose-foot { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
+.byline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--grey); margin-right: auto; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--onyx); color: var(--me); display: grid; place-items: center; font-size: 15px; }
+.check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--you-ink); font-weight: 700; }
+.check .ms { font-size: 16px; }
+.mini-btn { background: var(--me); color: var(--onyx); font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 8px; }
+
+/* 투표 전/후 */
+.compare { display: grid; gap: 10px; }
+.cmp { display: grid; gap: 10px; }
+.cmp-cap { font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; }
+.cmp-cap span { color: var(--grey); font-weight: 500; }
+.bar { height: 10px; border-radius: 999px; }
+.bar.locked { background: linear-gradient(90deg, color-mix(in srgb, var(--you) 45%, white) 0%, color-mix(in srgb, var(--me) 45%, white) 60%, color-mix(in srgb, var(--me) 45%, white) 100%); }
+.bar.open { background: linear-gradient(90deg, var(--you) 0 32%, var(--me) 32% 100%); }
+.blur span { filter: blur(5px); }
+.arrow { justify-self: center; color: var(--grey); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.arrow .ms { font-size: 18px; }
+
+/* 댓글 */
+.comments { padding-block: 4px; }
+.cm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding-block: 14px; align-items: center; }
+.cm + .cm { border-top: 1px solid var(--line); }
+.cm .who { font-size: 12px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+.side { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; }
+.side.me { color: var(--me-ink); background: color-mix(in srgb, var(--me) 12%, white); }
+.side.you { color: var(--you-ink); background: color-mix(in srgb, var(--you) 12%, white); }
+.cm p { font-size: 14px; line-height: 1.6; }
+.like { grid-row: 1 / span 2; grid-column: 2; display: inline-flex; align-items: center; gap: 4px; height: 32px; padding-inline: 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--grey); background: var(--card); cursor: pointer; }
+.like .ms { font-size: 16px; }
+.like[aria-pressed="true"] { color: var(--me-ink); border-color: var(--me); background: color-mix(in srgb, var(--me) 8%, white); }
+
+/* 랭킹 */
+.rank { background: var(--onyx); border-radius: 16px; padding: 20px; color: #fff; display: grid; gap: 8px; box-shadow: 0 12px 32px -20px rgba(0,0,0,.4); }
+.rank-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+.rank-tabs button { background: transparent; border: 1px solid var(--line-dark); color: var(--on-dark); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.rank-tabs button[aria-selected="true"] { background: var(--me); color: var(--onyx); border-color: var(--me); }
+.ri { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 6px 12px; padding-block: 12px; border-top: 1px solid var(--line-dark); align-items: center; }
+.ri .no { grid-row: 1 / span 2; font-family: var(--f-display); font-size: 24px; font-weight: 900; color: var(--me); }
+.ri .t { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mbar { display: flex; height: 5px; border-radius: 999px; overflow: hidden; }
+.mbar i { display: block; }
+.mbar .y { background: var(--you); }
+.mbar .m { background: var(--me); }
+.rank-time { font-size: 12px; color: var(--on-dark-dim); }
+
+/* 밸런스 게임 */
+.bgame { background: var(--onyx); border-radius: 16px; padding: 22px; color: #fff; display: grid; gap: 16px; box-shadow: 0 12px 32px -20px rgba(0,0,0,.4); }
+.bgame .q { font-size: 17px; font-weight: 800; line-height: 1.5; }
+.bgame .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bo { height: 48px; border-radius: 10px; font-weight: 800; font-size: 15px; border: 1.5px solid; background: transparent; cursor: pointer; }
+.bo.a { color: var(--me); border-color: color-mix(in srgb, var(--me) 55%, var(--onyx)); }
+.bo.b { color: var(--you); border-color: color-mix(in srgb, var(--you) 55%, var(--onyx)); }
+.bo.a[aria-pressed="true"] { background: var(--me); color: var(--onyx); border-color: var(--me); }
+.bo.b[aria-pressed="true"] { background: var(--you); color: var(--onyx); border-color: var(--you); }
+.bres { display: grid; gap: 8px; }
+.bar2 { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #333; }
+.bar2 i { display: block; transition: width .8s cubic-bezier(.4,0,.2,1); }
+.bar2 .a { background: var(--me); }
+.bar2 .b { background: var(--you); }
+.bres .legend .a { color: var(--me); }
+.bres .legend .b { color: var(--you); }
+.bres .hint { font-size: 12px; color: var(--on-dark-dim); text-align: center; }
+.dark-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--on-dark-dim); }
+
+/* ── AI ── */
+.ai { background: linear-gradient(180deg, var(--onyx) 0%, #121212 100%); color: #fff; padding-block: var(--sec-y); }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.mode { background: var(--onyx-3); border: 1px solid var(--line-dark); border-radius: 24px; padding: 32px; display: grid; grid-template-rows: auto auto 1fr; gap: 24px; }
+.mode-top { display: grid; gap: 8px; }
+.mode .tag { font-size: var(--t-small); font-weight: 700; color: var(--on-dark-dim); }
+.mode h3 { font-size: 26px; }
+.mode .d { color: var(--on-dark); font-size: var(--t-body); line-height: 1.7; }
+.pick { display: grid; gap: 10px; }
+.pick-cap { font-size: 12px; font-weight: 700; color: var(--on-dark-dim); }
+.pick-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pp { padding: 14px 12px; border-radius: 12px; border: 1px solid var(--line-dark); display: grid; gap: 4px; align-content: start; position: relative; }
+.pp b { font-size: 14px; line-height: 1.4; }
+.pp span { font-size: 12px; color: var(--on-dark-dim); line-height: 1.5; }
+.pp.hl { border-color: var(--me); }
+.pp.you b { color: var(--you); }
+.pp.you { border-color: color-mix(in srgb, var(--you) 70%, transparent); }
+.pp.me b { color: var(--me); }
+.rec { position: absolute; top: -9px; right: 10px; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--me); color: var(--onyx); }
+.chat { background: var(--onyx); border: 1px solid var(--line-dark); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; }
+.bubble.them { background: #333; color: #eee; border-bottom-left-radius: 4px; justify-self: start; }
+.bubble.mine { background: var(--me); color: var(--onyx); justify-self: end; border-bottom-right-radius: 4px; font-weight: 500; }
+.ai-note { margin-top: 32px; font-size: var(--t-small); color: var(--on-dark-dim); display: flex; gap: 8px; align-items: center; }
+.ai-note .ms { font-size: 18px; }
+
+/* ── 안심 장치 ── */
+.safe { background: var(--card); border-block: 1px solid var(--line); padding-block: var(--sec-y); }
+.safe-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.sg { background: var(--paper); border-radius: 20px; padding: 28px 24px; display: grid; gap: 10px; align-content: start; }
+.sg .ms { font-size: 28px; color: var(--me); margin-bottom: 8px; }
+.sg h3 { font-size: 18px; }
+.sg p { font-size: 14px; color: var(--grey); line-height: 1.65; }
+
+/* ── FAQ: 제목 왼쪽, 목록 오른쪽 ── */
+.faq { padding-block: var(--sec-y); }
+.faq .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--gap-col); align-items: start; }
+.faq .sec-head { margin-bottom: 0; }
+.faq-list { border-top: 2px solid var(--onyx); }
+.faq-list details { border-bottom: 1px solid var(--line); }
+.faq-list summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 22px; font-size: 17px; font-weight: 700; }
+.faq-list summary::-webkit-details-marker { display: none; }
+.faq-list summary .ms { transition: transform .2s; color: var(--grey); }
+.faq-list details[open] summary .ms { transform: rotate(45deg); color: var(--me-ink); }
+.faq-list .a { padding-bottom: 24px; color: var(--grey); line-height: 1.75; }
+
+/* ── 마무리 ── */
+.final { background: var(--onyx); color: #fff; padding-block: var(--sec-y); text-align: center; }
+.final .wrap { display: grid; justify-items: center; gap: 20px; }
+.final h2 { font-size: clamp(40px, 5.6vw, 64px); line-height: 1.15; }
+.final h2 em { font-style: normal; color: var(--me); }
+.final .lede { color: var(--on-dark); }
+.final .cta-row { justify-content: center; margin-top: 12px; }
+.foot { background: var(--onyx); border-top: 1px solid var(--line-dark); padding-block: 24px; font-size: 12px; color: var(--on-dark-dim); }
+.foot .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* ── 반응형 ── */
+@media (max-width: 1000px) {
+  :root { --gap-col: 48px; }
+  .nav-links { display: none; }
+  .nav .wrap { justify-content: space-between; }
+  .safe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  :root { --sec-y: 88px; }
+  .hero .wrap, .feature .wrap, .faq .wrap { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .hero { padding-block: 64px 80px; }
+  .feature.flip .text { order: 0; }
+  .feature { padding-block: 44px; }
+  .modes { grid-template-columns: minmax(0, 1fr); }
+  .visual { min-height: 0; }
+}
+@media (max-width: 560px) {
+  :root { --sec-y: 72px; }
+  .wrap { padding-inline: 20px; }
+  .hero-sub br { display: none; }
+  .hero .cta-row { width: 100%; }
+  .hero .cta-row .btn { flex: 1; }
+  .cats .lead { width: 100%; text-align: center; margin: 0 0 4px; }
+  .visual { padding: 16px 16px 24px; border-radius: 20px; }
+  .mode { padding: 22px; border-radius: 20px; }
+  .pick-row { grid-template-columns: minmax(0, 1fr); }
+  .rec { top: 50%; transform: translateY(-50%); }
+  .safe-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .sg { grid-template-columns: 32px minmax(0, 1fr); gap: 4px 14px; padding: 20px; }
+  .sg .ms { grid-row: 1 / span 2; margin: 0; font-size: 26px; }
+  .nav .btn-label { display: none; }
+  .compose-foot .byline { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="ms" aria-hidden="true">terminal</span>니편내편</a>
+    <nav class="nav-links" aria-label="페이지 안내">
+      <a href="#features">서비스 소개</a>
+      <a href="#ai">AI 대화</a>
+      <a href="#safe">안심 장치</a>
+      <a href="#faq">자주 묻는 질문</a>
+    </nav>
+    <a class="btn btn-coral btn-sm" href="/"><span class="ms" aria-hidden="true">edit</span><span class="btn-label">사연 올리기</span></a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 히어로 -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="eyebrow">익명 사연 · 편 갈라 듣기</span>
+        <h1><span class="you">니 편</span><span class="vs">VS</span><span class="me">내 편</span><br>누가 맞는지<br>물어보세요</h1>
+        <p class="hero-sub">억울한 일, 익명으로 올리면 <br><strong>사람들이 편을 갈라 답해줘요.</strong> <br>못다 한 말은 AI와 이어서 해보세요.</p>
+        <div class="cta-row">
+          <a class="btn btn-coral" href="#start">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
+          <a class="btn btn-ghost" href="#start">내 사연 올리기</a>
+        </div>
+        <p class="hero-note">로그인 없이 둘러볼 수 있어요</p>
+      </div>
+      <div class="demo">
+        <article class="story sealed" id="demo">
+          <div class="row-meta">
+            <span class="chip">친구</span>
+            <span class="time">45분 전</span>
+            <span class="ex">예시</span>
+          </div>
+          <h3>돈 안 갚는 친구, 손절할까요?</h3>
+          <p class="story-body">10만 원 빌려가 놓고 인스타엔 매일 오마카세 사진이 올라와요. 말 꺼내기 치사해서 가만히 있는데 속이 터집니다…</p>
+          <div class="vote">
+            <p class="vote-q">당신은 누구 편? 눌러보세요</p>
+            <div class="vote-btns">
+              <button class="vb you" id="v-you" aria-pressed="false">니 편<small>한 번 더 기회를</small></button>
+              <button class="vb me" id="v-me" aria-pressed="false">내 편<small>당장 손절</small></button>
+            </div>
+            <div class="gauge" aria-hidden="true"><div class="fill" id="fill"></div></div>
+            <div class="legend"><span class="l">니 편 <span class="pct num">8%</span></span><span class="r"><span class="pct num">92%</span> 내 편</span></div>
+            <p class="gauge-note" id="note">투표하면 결과가 열려요</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="cats">
+    <div class="wrap">
+      <span class="lead">어떤 고민이든</span>
+      <span class="cat">직장</span><span class="cat">연애</span><span class="cat">친구</span><span class="cat">가족</span><span class="cat">기타</span>
+    </div>
+  </div>
+
+  <!-- 공감 문장 -->
+  <section class="statement">
+    <div class="wrap">
+      <p class="lede">이런 적 있지 않나요?</p>
+      <h2><span class="dim nw">친구한테 물으면</span> <span class="me nw">무조건 내 편.</span><br><span class="dim nw">당사자한테 물으면</span> <span class="you nw">무조건 니 편.</span><br><span class="nw">진짜 남들은</span> <span class="nw">어떻게 생각할까?</span></h2>
+    </div>
+  </section>
+
+  <!-- 기능 -->
+  <div class="features" id="features">
+    <section class="feature">
+      <div class="wrap">
+        <div class="text">
+          <span class="eyebrow">사연 쓰기</span>
+          <h2 class="h2">이름 없이,<br>있는 그대로 털어놓으세요</h2>
+          <p class="lede">글에는 닉네임만 보여요. 누가 썼는지 몰라도 되니까 더 솔직해질 수 있어요.</p>
+          <ul class="points">
+            <li><span class="ms" aria-hidden="true">category</span>직장·연애·친구·가족·기타 중에서 골라요</li>
+            <li><span class="ms" aria-hidden="true">verified_user</span>올리기 전에 내용을 한 번 검사해요</li>
+            <li><span class="ms" aria-hidden="true">edit_note</span>내 글은 언제든 고치거나 지울 수 있어요</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="visual-top"><span class="ex">예시 화면</span></div>
+          <div class="visual-body">
+            <div class="panel compose">
+              <div class="tabs"><span>직장</span><span class="on">연애</span><span>친구</span><span>가족</span><span>기타</span></div>
+              <div class="field title">남친의 여사친 문제, 제가 예민한가요?</div>
+              <div class="field body">둘이서만 심야 영화 보는 걸 이해해 달라는데… 제가 속이 좁은 건지 이게 정상인 건지 모르겠어요.</div>
+              <div class="compose-foot">
+                <span class="byline"><span class="avatar ms" aria-hidden="true">person</span>고민중인여친</span>
+                <span class="check"><span class="ms" aria-hidden="true">check_circle</span>내용 검사 통과</span>
+                <span class="mini-btn">등록하기</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature flip">
+      <div class="wrap">
+        <div class="text">
+          <span class="eyebrow">편 가르기 투표</span>
+          <h2 class="h2">먼저 고르고,<br>그다음에 결과를 봐요</h2>
+          <p class="lede">투표 전에는 결과가 흐릿하게 가려져 있어요. 남의 선택에 휩쓸리지 않고 내 생각대로 고를 수 있어요.</p>
+          <ul class="points">
+            <li><span class="ms" aria-hidden="true">lock</span>투표해야 정확한 비율이 열려요</li>
+            <li><span class="ms" aria-hidden="true">swap_horiz</span>마음이 바뀌면 한 번만 바꿀 수 있어요</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="visual-top"><span class="ex">예시 화면</span></div>
+          <div class="visual-body">
+            <div class="compare">
+              <div class="panel cmp">
+                <div class="cmp-cap">투표 전<span>흐릿하게 가려져요</span></div>
+                <div class="bar locked"></div>
+                <div class="legend blur"><span class="l">니 편 32%</span><span class="r">68% 내 편</span></div>
+              </div>
+              <div class="arrow"><span class="ms" aria-hidden="true">arrow_downward</span>내 편에 투표</div>
+              <div class="panel cmp">
+                <div class="cmp-cap">투표 후<span>정확한 결과가 열려요</span></div>
+                <div class="bar open"></div>
+                <div class="legend"><span class="l">니 편 <span class="num">32%</span></span><span class="r"><span class="num">68%</span> 내 편</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature">
+      <div class="wrap">
+        <div class="text">
+          <span class="eyebrow">댓글</span>
+          <h2 class="h2">숫자 너머의 이유까지<br>들어보세요</h2>
+          <p class="lede">왜 그 편을 골랐는지 댓글로 남겨요. 마음에 와닿는 댓글에는 공감을 눌러요.</p>
+          <ul class="points">
+            <li><span class="ms" aria-hidden="true">favorite</span>공감은 한 사람당 한 번, 다시 누르면 취소돼요</li>
+            <li><span class="ms" aria-hidden="true">flag</span>불편한 댓글은 바로 신고할 수 있어요</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="visual-top"><span class="ex">예시 화면 · 눌러보세요</span></div>
+          <div class="visual-body">
+            <div class="panel comments">
+              <div class="cm">
+                <span class="who">퇴근희망자 <span class="side me">내 편</span></span>
+                <p>빌려간 사람이 먼저 말 꺼내야 하는 거 아닌가요? 치사한 거 아니에요.</p>
+                <button class="like" aria-pressed="true" data-n="24"><span class="ms" aria-hidden="true">favorite</span><span class="num">24</span></button>
+              </div>
+              <div class="cm">
+                <span class="who">평화주의자 <span class="side you">니 편</span></span>
+                <p>손절 전에 날짜 정해서 한 번만 딱 말해보세요. 그래도 안 주면 그때.</p>
+                <button class="like" aria-pressed="false" data-n="11"><span class="ms" aria-hidden="true">favorite</span><span class="num">11</span></button>
+              </div>
+              <div class="cm">
+                <span class="who">억울한야옹이 <span class="side me">내 편</span></span>
+                <p>저도 똑같은 일 있었는데 결국 연락 끊겼어요…</p>
+                <button class="like" aria-pressed="false" data-n="7"><span class="ms" aria-hidden="true">favorite</span><span class="num">7</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature flip">
+      <div class="wrap">
+        <div class="text">
+          <span class="eyebrow">랭킹</span>
+          <h2 class="h2">지금 가장 뜨겁게<br>갈리는 사연</h2>
+          <p class="lede">요즘 사람들이 가장 많이 이야기하는 사연을 랭킹으로 모아 봐요.</p>
+          <ul class="points">
+            <li><span class="ms" aria-hidden="true">calendar_month</span>주간 TOP 3: 이번 주 가장 화제였던 사연</li>
+            <li><span class="ms" aria-hidden="true">schedule</span>실시간 TOP 3: 매시 정각에 새로 집계</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="visual-top"><span class="ex">예시 화면 · 탭을 눌러보세요</span></div>
+          <div class="visual-body">
+            <div class="rank">
+              <div class="rank-tabs" role="tablist">
+                <button role="tab" aria-selected="true" data-tab="weekly">주간 TOP 3</button>
+                <button role="tab" aria-selected="false" data-tab="live">실시간 TOP 3</button>
+              </div>
+              <div id="rank-list"></div>
+              <span class="rank-time" id="rank-time">이번 주 기준</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature">
+      <div class="wrap">
+        <div class="text">
+          <span class="eyebrow">밸런스 게임</span>
+          <h2 class="h2">가볍게 한 판,<br>당신의 선택은?</h2>
+          <p class="lede">사연이 부담스러운 날엔 질문 하나에 한 표만 던져도 돼요.</p>
+        </div>
+        <div class="visual">
+          <div class="visual-top"><span class="ex">예시 화면 · 골라보세요</span></div>
+          <div class="visual-body">
+            <div class="bgame">
+              <div class="dark-top"><span>오늘의 질문</span></div>
+              <p class="q">주말에 팀장님이 개인 톡으로 가벼운 업무 지시를 내린다면?</p>
+              <div class="opts">
+                <button class="bo a" id="b-a" aria-pressed="false">일단 읽씹</button>
+                <button class="bo b" id="b-b" aria-pressed="false">바로 답장</button>
+              </div>
+              <div class="bres">
+                <div class="bar2"><i class="a" id="ba" style="width:50%"></i><i class="b" id="bb" style="width:50%"></i></div>
+                <div class="legend" id="bnums" style="visibility:hidden"><span class="a">읽씹 <span class="num">61%</span></span><span class="b"><span class="num">39%</span> 답장</span></div>
+                <p class="hint" id="bhint">골라야 결과가 보여요</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- AI -->
+  <section class="ai on-dark" id="ai">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">AI 대화</span>
+        <h2 class="h2">투표로 끝나지 않아요.<br>못다 한 말을 해보세요</h2>
+        <p class="lede">사연을 바탕으로 AI와 대화할 수 있어요. 두 가지 방식 중에서 골라요.</p>
+      </div>
+      <div class="modes">
+        <div class="mode">
+          <div class="mode-top">
+            <span class="tag">방식 1</span>
+            <h3>상대와 대화하기</h3>
+            <p class="d">AI가 사연 속 상대가 되어 대답해요. 실제로는 하기 어려운 말을 미리 연습해 보세요.</p>
+          </div>
+          <div class="pick">
+            <span class="pick-cap">시작 상황 고르기</span>
+            <div class="pick-row">
+              <div class="pp"><b>상대가 먼저 사과해 온 상황</b><span>누그러진 상태에서</span></div>
+              <div class="pp hl"><span class="rec">추천</span><b>아무 일 없다는 듯 구는 상황</b><span>가장 답답한 지점부터</span></div>
+              <div class="pp"><b>내가 먼저 말을 꺼내는 상황</b><span>내 첫 마디로</span></div>
+            </div>
+          </div>
+          <div class="chat" aria-label="대화 예시">
+            <div class="dark-top"><span>친구 역할 AI</span><span class="ex dark">예시</span></div>
+            <div class="bubble them">아 그거? 다음 달에 줄게~ 요즘 좀 바빠서 ㅎㅎ</div>
+            <div class="bubble mine">오마카세 갈 시간은 있던데?</div>
+            <div class="bubble them">…그건 선물받은 거야. 너 그렇게까지 말해야 돼?</div>
+          </div>
+        </div>
+        <div class="mode">
+          <div class="mode-top">
+            <span class="tag">방식 2</span>
+            <h3>공감 대화</h3>
+            <p class="d">누구 입장에서 들어줄지 고르면, AI가 그 시선으로 함께 생각을 정리해 줘요.</p>
+          </div>
+          <div class="pick">
+            <span class="pick-cap">관점 고르기</span>
+            <div class="pick-row">
+              <div class="pp hl me"><b>내 입장</b><span>내 마음부터 들어줘요</span></div>
+              <div class="pp"><b>양쪽 다</b><span>균형 있게 봐요</span></div>
+              <div class="pp you"><b>상대 입장</b><span>상대 마음을 짐작해요</span></div>
+            </div>
+          </div>
+          <div class="chat" aria-label="대화 예시">
+            <div class="dark-top"><span>공감 대화 · 내 입장</span><span class="ex dark">예시</span></div>
+            <div class="bubble mine">제가 너무 쪼잔한 걸까요?</div>
+            <div class="bubble them">돈보다 '내가 가볍게 여겨진다'는 느낌이 더 서운하셨을 것 같아요.</div>
+            <div class="bubble them">그건 쪼잔한 게 아니에요. 어떤 순간에 제일 서운했어요?</div>
+          </div>
+        </div>
+      </div>
+      <p class="ai-note"><span class="ms" aria-hidden="true">info</span>AI 대화는 로그인 후 이용할 수 있어요. AI는 사연 내용을 바탕으로 역할을 연기할 뿐, 실제 그 사람이 아니에요.</p>
+    </div>
+  </section>
+
+  <!-- 안심 장치 -->
+  <section class="safe" id="safe">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">안심 장치</span>
+        <h2 class="h2">솔직해도 괜찮은 곳이 되도록</h2>
+        <p class="lede">익명 공간일수록 지켜야 할 것이 많아요.</p>
+      </div>
+      <div class="safe-grid">
+        <div class="sg"><span class="ms" aria-hidden="true">verified_user</span><h3>올리기 전 검사</h3><p>사연과 댓글은 등록 전에 내용을 검사해요.</p></div>
+        <div class="sg"><span class="ms" aria-hidden="true">flag</span><h3>신고</h3><p>불편한 사연·댓글은 바로 신고하면 운영자가 확인해요.</p></div>
+        <div class="sg"><span class="ms" aria-hidden="true">visibility_off</span><h3>나에게만 숨기기</h3><p>보고 싶지 않은 글은 내 화면에서만 숨기고, 언제든 되돌릴 수 있어요.</p></div>
+        <div class="sg"><span class="ms" aria-hidden="true">support</span><h3>힘들 때 도움받을 곳</h3><p>위험한 상황이 보이면 도움받을 수 있는 곳을 안내해요.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">자주 묻는 질문</span>
+        <h2 class="h2">궁금한 점이<br>있나요?</h2>
+      </div>
+      <div class="faq-list">
+        <details><summary>정말 익명인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">다른 사람에게는 내가 정한 닉네임만 보여요. 이메일 같은 개인 정보는 보이지 않아요.</p></details>
+        <details><summary>가입하지 않아도 쓸 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">사연은 로그인 없이 둘러볼 수 있어요. 사연 쓰기, 투표, 댓글, AI 대화는 이메일로 가입한 뒤 이용할 수 있어요.</p></details>
+        <details><summary>투표를 바꿀 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">한 번 바꿀 수 있어요. 바꾼 뒤에는 그대로 확정되고, 투표 취소는 할 수 없어요.</p></details>
+        <details><summary>AI 상대는 진짜 그 사람인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">아니요. 사연에 적힌 내용을 바탕으로 AI가 상대 역할을 연기해요. 실제 대화를 앞두고 연습하거나 마음을 정리하는 용도로 써주세요.</p></details>
+        <details><summary>내가 쓴 글을 지울 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">네. 내 사연은 언제든 수정하거나 삭제할 수 있어요.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- 마무리 -->
+  <section class="final" id="start">
+    <div class="wrap">
+      <h2>익명이라<br><em>솔직하게.</em></h2>
+      <p class="lede">지금 사람들이 어떤 사연에 편을 갈랐는지 확인해 보세요.</p>
+      <div class="cta-row">
+        <a class="btn btn-coral" href="/">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
+        <a class="btn btn-ghost" href="/">내 사연 올리기</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap"><span>니편내편</span><span>화면 속 사연·숫자·대화는 예시입니다</span></div>
+</footer>
+
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // 히어로 예시 투표 — 앱의 봉인 게이지처럼 투표 전엔 경계를 녹여 보여준다
+  const card = document.getElementById('demo');
+  const fill = document.getElementById('fill');
+  const note = document.getElementById('note');
+  const btnYou = document.getElementById('v-you');
+  const btnMe = document.getElementById('v-me');
+  const YOU = 8;
+  const lock = (c) => `color-mix(in srgb, ${c} 45%, white)`;
+  fill.style.background = `linear-gradient(90deg, ${lock(css('--you'))} 0%, ${lock(css('--me'))} ${YOU + 40}%, ${lock(css('--me'))} 100%)`;
+  const vote = (side) => {
+    btnYou.setAttribute('aria-pressed', side === 'you');
+    btnMe.setAttribute('aria-pressed', side === 'me');
+    card.classList.remove('sealed');
+    fill.style.background = `linear-gradient(90deg, ${css('--you')} 0 ${YOU}%, ${css('--me')} ${YOU}% 100%)`;
+    note.textContent = side === 'me' ? '예시 결과: 92%가 당신과 같은 편이에요' : '예시 결과: 8%만 이쪽이에요';
+  };
+  btnYou.addEventListener('click', () => vote('you'));
+  btnMe.addEventListener('click', () => vote('me'));
+
+  // 댓글 공감 — 한 번 누르면 +1, 다시 누르면 취소
+  document.querySelectorAll('.like').forEach((b) => {
+    b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      const n = Number(b.dataset.n) + (on ? 1 : -1);
+      b.dataset.n = n;
+      b.setAttribute('aria-pressed', on);
+      b.lastElementChild.textContent = n;
+    });
+  });
+
+  // 랭킹 탭
+  const RANK = {
+    weekly: { time: '이번 주 기준', items: [['부장님이 또 갈궈요…', 28], ['남친의 여사친 문제, 제가 예민한가요?', 85], ['돈 안 갚는 친구, 손절할까요?', 8]] },
+    live: { time: `${new Date().getHours()}:00 기준`, items: [['결혼식 축의금 5만 원, 서운한 게 맞나요?', 41], ['단톡방에서 저만 빼고 약속 잡았어요', 22], ['엄마가 제 일기장을 읽었어요', 12]] },
+  };
+  const list = document.getElementById('rank-list');
+  const time = document.getElementById('rank-time');
+  const tabs = document.querySelectorAll('.rank-tabs button');
+  const render = (key) => {
+    const r = RANK[key];
+    list.innerHTML = r.items.map(([t, you], i) =>
+      `<div class="ri"><span class="no">${i + 1}</span><span class="t">${t}</span><span class="mbar"><i class="y" style="width:${you}%"></i><i class="m" style="width:${100 - you}%"></i></span></div>`).join('');
+    time.textContent = `${r.time} · 예시`;
+    tabs.forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === key));
+  };
+  tabs.forEach((b) => b.addEventListener('click', () => render(b.dataset.tab)));
+  render('weekly');
+
+  // 밸런스 게임 예시
+  const pick = (k) => {
+    document.getElementById('b-a').setAttribute('aria-pressed', k === 'a');
+    document.getElementById('b-b').setAttribute('aria-pressed', k === 'b');
+    document.getElementById('ba').style.width = '61%';
+    document.getElementById('bb').style.width = '39%';
+    document.getElementById('bnums').style.visibility = 'visible';
+    document.getElementById('bhint').textContent = '예시 결과예요';
+  };
+  document.getElementById('b-a').addEventListener('click', () => pick('a'));
+  document.getElementById('b-b').addEventListener('click', () => pick('b'));
+})();
+</script>
+</body>
+</html>

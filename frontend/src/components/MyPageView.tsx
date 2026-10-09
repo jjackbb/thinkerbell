@@ -290,6 +290,12 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           </button>
         </section>
 
+        {/* 처음 온 사람이 서비스를 한눈에 볼 수 있는 소개 페이지 */}
+        <a href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+          <span>니편내편 소개 보기</span>
+          <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
+        </a>
+
         {/* 서비스가 뭔지는 로그인 전에도 알아볼 수 있어야 한다 */}
         <section className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
           <div className="p-5 border-b border-[#E5E7EB] bg-[#f8f9fa]">
@@ -869,6 +875,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <span>도움말 및 문의</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
+        <a href="/landing" className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
+          <span>니편내편 소개</span>
+          <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
+        </a>
 
         {/* 운영자에게만 보인다. 권한은 admins 테이블로 판정한다 */}
         {isAdmin && (
