@@ -1,5 +1,14 @@
 # 니편내편 최신 인수인계 — 2026-10-09
 
+## 2026-10-10 최신 확인 상태
+
+main63b4494 정상 푸시·Vercel 커밋 상태success·공개 승인문구4개/조회RPC/00:01안내 확인, 운영 보안 경계 적용·독립8항목 readback PASS. GA4 기존9개를 보존하고 누락4개만 event scope 등록/총13개 목록 readback PASS. 확장 실제수신과 최신 Vercel UI Source/Production은 미검증이다.
+
+합성 B 로그인/상세, AI 모달 취소 뒤 댓글 초안·육안 동일스크롤·시작버튼 포커스/URL PASS. 합성 정상 답변·저장 성공 뒤3단계 평가 score5/v2 제출·사연복귀 PASS. 393×852 에뮬레이션 상세/모드모달/초안취소 PASS이며 전수·실물기기는 아니다. 대화완료 후 복귀에서는 댓글 초안이 비워지는 기존 동작을 관찰했고 추가 결정 전 변경하지 않았다.
+
+기존12항목 중9개 완료(75%)를 유지한다. 남은 것은 전체 화면/역할/모바일 전수, 운영 유효역할 삭제와 제보(자료없음/미재현), 확장 GA4 실제수신이다. 공급사현재계약·처리지역·학습·로그/백업 보유와 전체 파기 실증은 미확정이며 개인정보 안내는 미활성이다. 환경/절차/실제 근거와 최소 재개 조치는 기존 실행 기록의 최신 결과를 따른다.
+
+
 ## 2026-10-10 사용자 후속 결정 — 공개 파비콘 / 예약 시각 완료 / 나머지 로컬
 
 - 최종 Library 교체 성공/readback: 데이터 v4(libfile_3fa676e251508191bb230960e95d4c4b), UX v5(libfile_7441ca2495688191a4fd0c0f66806673). 최종검사47개=모의46+격리REST1 PASS. 질문HTML3개각4안 정적검사PASS. 시험컨테이너정리·합성HTTP서버종료완료.
@@ -197,8 +206,8 @@
 
 합성 계정 B 로그인과 상세/댓글 표시 PASS. 댓글 초안/스크롤 및 모바일 전체는 실제 입력/복귀를 확인하지 못해 미검증으로 남긴다. Chrome 자동화에서 user-changed 보호 오류가 반복 관찰됐다. 사용자 직접 조작 여부나 오류 원인은 단정하지 않는다. 운영 사전 대조 snapshot과 적용/복구 SQL은 준비됐으며 [복구 계획](sql/public-content-boundary-rollback-plan.md)을 따른다. 아직 운영 SQL 적용·GA4 등록·커밋푸시/추가 배포는 미완료다.
 
-## 2026-10-10 운영 보안 적용 완료
+## 2026-10-10 운영 보안 적용 완료 — 적용 직후 단계 기록
 
 사용자 구체 범위 승인과 ‘지금 해’ 재개 지시 후 기존 함수4개의 hash/owner/ACL 불변을 재확인했다. 검증된 적용 파일 본문 MD5 `06aafca48926ffd9cf307edc78475bfb` 보호를 포함한 한 트랜잭션으로 실제 운영 적용했다. 긴 직접 타이핑의 자동완성 오류는 실행하지 않았고 검증 파일 원문을 복사해 적용했다. 원문 사용자 행 조회/삭제는 없었다.
 
-독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. GA4 누락13개 등록·실제 수신은 별도 완료 증거를 기다린다. 개인정보 안내는 계속 미활성이다.
+독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. 당시 GA4 등록·수신은 미완료였으며, 이후 등록 결과는 최신 확인 상태를 따른다. 개인정보 안내는 계속 미활성이다.

@@ -6,16 +6,16 @@
 |---|---|---|---|
 | 계정 인증 | 이메일·비밀번호·닉네임을 Supabase Auth에 전달, 앱 UUID로 연결 | Auth/서버 인증, 브라우저 세션 보관. 원문 비밀번호/사용자 목록 미조회 | 탈퇴 Auth 삭제 함수 존재. 비밀번호 저장 방식·Auth 로그/백업·실제 전체 파기 미검증 |
 | 가입 이메일 소유 확인 | signup_email_checks의 이메일/토큰 digest·봉인값·단회 소비 상태. backend/emailOwnership.ts | Resend에 수신 주소·확인 메일/인증 링크 전송. 발신 주소는 문의처 증거 아님 | 토큰10분 유효, created_at24시간 이후 정리·15분 예약 확인. 발송자 로그·Resend 계약/지역/보유 미확인 |
-| 사연·댓글 | stories의 계정ID·표시명·본문·시각·역할 지시문·신고/항소·공개상태, comments의 계정ID·익명번호·본문·시각·참여 상태 | 현재 운영 RLS와 전체 열 grant 확인. 로컬 읽기/투표/공감/공개상태 RPC 투영·블라인드 차단은 미배포 | 본인 삭제 및 사연 종속 삭제. 별도 일반 사연/댓글 만료기간 미확정. 실제 사용자 행 미조회 |
+| 사연·댓글 | stories의 계정ID·표시명·본문·시각·역할 지시문·신고/항소·공개상태, comments의 계정ID·익명번호·본문·시각·참여 상태 | 적용 전 전체 SELECT 발견 후 운영 읽기/투표/공감/공개상태 RPC 투영·블라인드 차단 적용/독립 readback 완료 | 본인 삭제 및 사연 종속 삭제. 별도 일반 사연/댓글 만료기간 미확정. 실제 사용자 행 미조회 |
 | 참여·개인 설정 | votes, balance_votes, comment_likes, story_hides의 대상/계정·선택·시각 | 본인 정책/RPC, 공개 집계와 원형 개인 행 구분 | 일부 Auth/대상 FK CASCADE 소스. 모든 탈퇴/집계 영향 실제 실증 미완료 |
 | AI 대화 | ai_personas에 userId·storyId·지시문·모드/시작점·원문/시각/requestId·createdAt/updatedAt | 일반 사용자 본인 SELECT 실환경 확인. 서버가 저장 문맥 최신8개와 새 입력/역할 지시문을 Potens에 전송. 사연 내용 검증도 외부 AI 경로 | **updatedAt부터6개월**, 매일00:01KST 기존 운영 job 시각 변경/readback 완료. 대상 실제 삭제/백업 파기는 미검증. Potens 학습·지역·재수탁·보유 계약 없음 |
 | AI 횟수 | ai_chat_usage, ai_quota_completed_rooms, ai_quota_reservations의 계정/방/요청·날짜·상태·시각 | 본인 조회 또는 서버 전용 RPC, 대화 원문과 별개 | 종료 횟수 기록30일 소스/일일03:00 예약. reservations의 Auth FK/탈퇴 직접 제거 공백; 식별자 잔류 가능성, 실제 이용자 잔류 미조회 |
-| AI 도움 평가 | ai_feedback의 episode_id,user_id,persona_id,mode,score,outcome,schema_version,created_at,expires_at | 서버 전용, 평가에 답변 원문 없음, 점수GA4 제외. 로컬3단계 v2는1/3/5; 옛 v1 유지 |29일 만료+일일 정리/최대30일 정책. 방 삭제CASCADE. 실제 평가 파기·탈퇴전체 실증 미완료 |
+| AI 도움 평가 | ai_feedback의 episode_id,user_id,persona_id,mode,score,outcome,schema_version,created_at,expires_at | 서버 전용, 평가에 답변 원문 없음, 점수GA4 제외. main63b4494의3단계 v2는1/3/5; 옛 v1 유지 |29일 만료+일일 정리/최대30일 정책. 방 삭제CASCADE. 실제 평가 파기·탈퇴전체 실증 미완료 |
 | 월 평가 집계 | ai_feedback_month_pending: month_start,rated_count,positive_count. monthly_totals: 같은 집계+finalized_at | 개인/방ID·모드·원점수 셀 없는 서버 전용 합계 | 서로 다른 점수 응답자5명 증명되는 지난달만 확정; 미증명 임시값 폐기. 실제 월말 실행 미검증 |
 | 문의·신고·운영 권한 | inquiries의 계정/내용/답변/상태·시각, reports의 신고자/대상/이유·시각, admins의 운영역할 | 문의 본인/운영자 정책과 DB 콘솔·서비스 권한은 별개 | 신고자 탈퇴 직접 삭제 확인, 대상 삭제·문의/관리역할·전체 기간은 미확정 |
 | 내부 분석 | events의 session_id,user_id,event_name,props,created_at, 기존9종 | 동의 후 쓰기, 일반 읽기 없음. GA4 정제와 별개이며 UUID nullable | 일반 보유/탈퇴 제거·로그 정책 미확정 |
-| GA4 분석 | 동의한 일반 화면·클릭·기능 결과의 고정 필드. GA4 정제에서 원문·이메일·계정ID 제외 | Google GA4 운영555751929/QA555775628. 거부해도 이용 가능 | 실제 속성 보관·Google 로그/지역/계약·확장 이벤트 수신/맞춤 차원 최신 미검증. 전체 계측 결정 유지 |
-| 접근 변경 신호 | story_access_invalidations의 id,story_id,changed_at, 내용/작성자 없음 | 운영ID만 Realtime. 로컬 access_changed 추가해 일반 갱신/접근차단 구분 |30일 소스·일일03:05 예약. 실제 행 파기 미검증 |
+| GA4 분석 | 동의한 일반 화면·클릭·기능 결과의 고정 필드. GA4 정제에서 원문·이메일·계정ID 제외 | Google GA4 운영555751929/QA555775628. 거부해도 이용 가능 | 실제 속성 보관·Google 로그/지역/계약·맞춤 차원13개 event scope 목록 확인; 확장 이벤트 실제수신 미검증. 전체 계측 결정 유지 |
+| 접근 변경 신호 | story_access_invalidations의 id,story_id,changed_at, 내용/작성자 없음 | 운영ID만 Realtime. 운영 access_changed를 추가해 일반 갱신/접근차단 구분 |30일 소스·일일03:05 예약. 실제 행 파기 미검증 |
 | 파일·운영 환경 | Vercel 앱/서버, Supabase Storage 버킷 없음 실환경 화면·소스storage업로드 없음 | 공유 이미지는 클라이언트 생성·다운로드 | Storage 없음이 로그/백업/플랫폼 저장 없음 의미는 아님. 계정별 지역·DPA·보유 설정 확정자료 없음 |
 
 ## 근거와 확정되지 않은 부분
@@ -30,8 +30,16 @@
 
 2026-10-10 운영 적용 readback: 승인된 공개 데이터 경계 SQL이 실제 적용됐으며 read_visible_stories(text) 존재=true, anon의 stories.body SELECT=false를 독립 조회로 확인했다. 전체 권한·Realtime·블라인드 검사 및 새 앱 배포 완료는 이어지는 실행 근거를 따른다. 개인정보 안내는 계속 미활성이다.
 
-## 2026-10-10 운영 보안 적용 완료
+## 2026-10-10 운영 보안 적용 완료 — 적용 직후 단계 기록
 
 사용자 구체 범위 승인과 ‘지금 해’ 재개 지시 후 기존 함수4개의 hash/owner/ACL 불변을 재확인했다. 검증된 적용 파일 본문 MD5 `06aafca48926ffd9cf307edc78475bfb` 보호를 포함한 한 트랜잭션으로 실제 운영 적용했다. 긴 직접 타이핑의 자동완성 오류는 실행하지 않았고 검증 파일 원문을 복사해 적용했다. 원문 사용자 행 조회/삭제는 없었다.
 
-독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. GA4 누락13개 등록·실제 수신은 별도 완료 증거를 기다린다. 개인정보 안내는 계속 미활성이다.
+독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. 당시 GA4 등록·수신은 미완료였으며, 이후 등록 결과는 최신 확인 상태를 따른다. 개인정보 안내는 계속 미활성이다.
+
+## 2026-10-10 최신 확인 상태
+
+main63b4494 정상 푸시·Vercel 커밋 상태success·공개 승인문구4개/조회RPC/00:01안내 확인, 운영 보안 경계 적용·독립8항목 readback PASS. GA4 기존9개를 보존하고 누락4개만 event scope 등록/총13개 목록 readback PASS. 확장 실제수신과 최신 Vercel UI Source/Production은 미검증이다.
+
+합성 B 로그인/상세, AI 모달 취소 뒤 댓글 초안·육안 동일스크롤·시작버튼 포커스/URL PASS. 합성 정상 답변·저장 성공 뒤3단계 평가 score5/v2 제출·사연복귀 PASS. 393×852 에뮬레이션 상세/모드모달/초안취소 PASS이며 전수·실물기기는 아니다. 대화완료 후 복귀에서는 댓글 초안이 비워지는 기존 동작을 관찰했고 추가 결정 전 변경하지 않았다.
+
+기존12항목 중9개 완료(75%)를 유지한다. 남은 것은 전체 화면/역할/모바일 전수, 운영 유효역할 삭제와 제보(자료없음/미재현), 확장 GA4 실제수신이다. 공급사현재계약·처리지역·학습·로그/백업 보유와 전체 파기 실증은 미확정이며 개인정보 안내는 미활성이다. 환경/절차/실제 근거와 최소 재개 조치는 기존 실행 기록의 최신 결과를 따른다.
