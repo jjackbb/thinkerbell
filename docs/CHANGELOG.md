@@ -2,6 +2,13 @@
 
 최신 정책은 [PLAN.md](../PLAN.md)입니다. 아래 PATCH-001~042는 [기존 PRD 원본](../archive/2026-09-22/legacy/PRD.md)의 §7을 보존한 과거 기록입니다. 당시 PASS·운영 상태·경로를 현재 검증으로 해석하지 않습니다. `src/` → `frontend/src/`, API 구현 → `backend/app.ts`, `supabase/` → `backend/supabase/`로 이동했습니다.
 
+## 2026-10-10 파비콘만 공개 반영
+
+- 요약/무엇을: 배포 헤더의 코랄 Material Symbols Outlined terminal 원본 경로·색상을 SVG/PNG/ICO/Apple/manifest에 통일하고 앱·소개에 연결.
+- 왜: 사용자 지정 실제 헤더 로고와 이전 파비콘 형태가 달랐다.
+- 확인: Google 원본 path와 #FF6B5A, PNG32/180/192/512, 두 HTML 링크·manifest·빌드 파일 동일성 PASS. 공개 배포 반영은 커밋/푸시 후 별도 대조한다.
+- 파일: frontend/index.html, landing.html의 아이콘 링크만, public 아이콘7종, docs/release-improvement/favicon-source.md. 첫행동 소개 문구·개인정보·신규 기능/권한 수정은 이 커밋에 포함하지 않음.
+
 ## 2026-10-09 신규 가입 직후 1회 소개·독립 랜딩 계측
 
 - 무엇을/왜: 사용자 추가 요구에 따라 신규 생성 응답에서만 계정별 한 번 소개로 이동한다. 일반 로그인/세션 복원은 제외하고 중복·중단·계정 전환을 방어한다. 작성 CTA와 게스트 탐색, 독립 페이지의 기존 동의·예시 ui_click 구분을 연결한다.
