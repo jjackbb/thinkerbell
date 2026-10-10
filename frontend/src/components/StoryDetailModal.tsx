@@ -1,6 +1,6 @@
 import { ownsStory } from '../lib/storyOwnership';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
 import { VoteResult } from './VoteResult';
@@ -11,6 +11,7 @@ import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircl
 interface StoryDetailModalProps {
   story: Story | null;
   interactionPaused?: boolean;
+  suspended?: boolean;
   comments: Comment[];
   currentUser: UserProfile;
   onClose: () => void;
@@ -45,6 +46,7 @@ interface StoryDetailModalProps {
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   story,
   interactionPaused = false,
+  suspended = false,
   comments,
   currentUser,
   onClose,
@@ -65,6 +67,18 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onEditComment,
   onDeleteComment,
 }) => {
+  const scrollContentRef = useRef<HTMLDivElement>(null);
+  const scrollPosition = useRef(0);
+  const returnFocus = useRef<HTMLButtonElement | null>(null);
+  const wasSuspended = useRef(false);
+  useLayoutEffect(() => {
+    if (!story) return;
+    if (!suspended && wasSuspended.current) {
+      if (scrollContentRef.current) scrollContentRef.current.scrollTop = scrollPosition.current;
+      returnFocus.current?.focus({ preventScroll: true });
+    }
+    wasSuspended.current = suspended;
+  }, [suspended, story?.id]);
   const [commentText, setCommentText] = useState('');
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
   const commentRequestRef = useRef<{ sourceText: string; id: string } | null>(null);
@@ -284,7 +298,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isZeroVotes = totalVotes === 0;
 
   return (
-    <div data-analytics-screen={isPrivate || isSensitive || story.isAdult || story.isBlind || story.isHidden ? "excluded" : "story_detail"} data-analytics-layer="20" data-action-id="story-detail-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
+    <div style={suspended ? { display: 'none' } : undefined} inert={suspended} aria-hidden={suspended || undefined} data-analytics-screen={isPrivate || isSensitive || story.isAdult || story.isBlind || story.isHidden ? "excluded" : "story_detail"} data-analytics-layer="20" data-action-id="story-detail-modal-action-01" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs">
       <div data-analytics-ignore="true" onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         {/* Toast Alert */}
         {toastMessage && (
@@ -354,7 +368,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         </header>
 
         {/* Modal Scroll Content */}
-        <div className="overflow-y-auto flex-1">
+        <div ref={scrollContentRef} onScroll={event => { if (!suspended) scrollPosition.current = event.currentTarget.scrollTop; }} className="overflow-y-auto flex-1">
           {/* Hero Section */}
           <section className="story-gradient text-white py-10 px-6 md:px-10 border-b border-[#1C1C1C]">
             <div className="flex items-center gap-2 mb-3">
@@ -511,7 +525,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     )}
                   </div>
                   <button data-button-id="story-detail-modal-button-11"
-                    onClick={() => onStartAIChat(story)}
+                    onClick={event => {
+                      returnFocus.current = event.currentTarget;
+                      scrollPosition.current = scrollContentRef.current?.scrollTop ?? 0;
+                      onStartAIChat(story);
+                    }}
                     className="px-4 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs sm:text-sm rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer shrink-0 transition-all"
                   >
                     시작하기

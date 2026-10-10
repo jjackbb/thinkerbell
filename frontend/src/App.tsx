@@ -1,4 +1,4 @@
-import { canContinueAiNavigation } from './lib/aiNavigation';
+import { canContinueAiNavigation, readAiReturnStory } from './lib/aiNavigation';
 import { fetchVisibleStories, fetchVisibleStory, fetchVisibleComments } from './lib/visibleContent';
 import { createSignupLandingGate, signupLandingHref } from './lib/signupLanding';
 import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
@@ -511,6 +511,7 @@ export default function App() {
 
   // Active Modals & Selected Items
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [aiStoryContext, setAiStoryContext] = useState<{ account: string | null; storyId: string } | null>(null);
   useEffect(() => {
     if (selectedStory && (!hiddenStoriesReady || hiddenStoryIds.includes(selectedStory.id))) {
       setSelectedStory(null);
@@ -573,6 +574,58 @@ export default function App() {
         (fresh.visibility === 'private' && fresh.authorId !== authUserId) ||
         !hiddenStoriesReady || hiddenStoryIds.includes(target.id)) cancelAiSelection();
   }, [stories, aiChatModeStory, aiExplainSettingsStory, authUserId, hiddenStoriesReady, hiddenStoryIds, cancelAiSelection]);
+  useEffect(() => {
+    if (!aiStoryContext) return;
+    if (selectedStory?.id !== aiStoryContext.storyId || !canContinueAiNavigation({
+      generation: 0, currentGeneration: 0, account: aiStoryContext.account,
+      currentAccount: authUserId, storyId: aiStoryContext.storyId,
+      stories, hiddenStoriesReady, hiddenStoryIds,
+    })) {
+      aiNavigationGeneration.current++;
+      setAiStoryContext(null);
+      if (selectedStory?.id === aiStoryContext.storyId) {
+        setSelectedStory(null);
+        syncStoryUrl(null);
+      }
+    }
+  }, [aiStoryContext, selectedStory, authUserId, stories, hiddenStoriesReady, hiddenStoryIds]);
+
+  const suspendStoryForAi = (storyId: string) => {
+    if (selectedStory?.id === storyId) setAiStoryContext({ account: authUserId, storyId });
+    else { setAiStoryContext(null); setSelectedStory(null); }
+  };
+
+  const discardAiStoryContext = () => {
+    aiNavigationGeneration.current++;
+    if (!aiStoryContext) return;
+    setAiStoryContext(null);
+    setSelectedStory(null);
+    syncStoryUrl(null);
+  };
+
+  const returnToAiStory = async (storyId: string) => {
+    const generation = ++aiNavigationGeneration.current;
+    const result = await readAiReturnStory({ generation, account: authUserId, storyId }, () => ({
+      generation: aiNavigationGeneration.current, account: authUserIdRef.current,
+      ...aiTargetCurrent.current,
+    }), async id => {
+      const { data, error } = await fetchVisibleStory(id);
+      return { data: data as Story | null, error };
+    });
+    if (result.status === 'stale') return;
+    if (result.status === 'unavailable') {
+      setAiStoryContext(null);
+      setSelectedStory(null);
+      syncStoryUrl(null);
+      setActiveTab('feed');
+      setToastMessage('사연을 확인할 수 없어 목록으로 돌아왔습니다.');
+      return;
+    }
+    setStories(prev => prev.map(story => story.id === storyId ? result.story : story));
+    setActiveTab('feed');
+    openStoryDetail(result.story, 'chat_return');
+  };
+
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
   const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
@@ -601,6 +654,7 @@ export default function App() {
   function clearAccountBoundViews() {
     setStories([]);
     setCommentsMap({});
+    setAiStoryContext(null);
     setSelectedStory(null);
     setPersonas([]);
     setActiveChatSession(null);
@@ -1412,7 +1466,7 @@ export default function App() {
         conversationType,
       });
       if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
-      setSelectedStory(null);
+      suspendStoryForAi(story.id);
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
@@ -1516,7 +1570,7 @@ export default function App() {
         explanationRatio: ratio
       });
       if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
-      setSelectedStory(null);
+      suspendStoryForAi(target.id);
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
@@ -1722,6 +1776,8 @@ export default function App() {
   };
 
   const closeStoryDetail = () => {
+    aiNavigationGeneration.current++;
+    setAiStoryContext(null);
     setSelectedStory(null);
     syncStoryUrl(null);
   };
@@ -1737,6 +1793,8 @@ export default function App() {
       이유도 안 생긴다. 편을 들거나(투표) 말을 얹는(댓글·공감·신고) 것만
       로그인을 요구한다. 투표를 안 했으니 비율은 자연히 봉인된 채로 보인다.
     */
+    aiNavigationGeneration.current++;
+    setAiStoryContext(null);
     setSelectedStory(story);
     syncStoryUrl(story.id);
 
@@ -1780,9 +1838,9 @@ export default function App() {
       {/* Header */}
       <Header
         user={user}
-        onOpenProfile={() => setActiveTab('mypage')}
+        onOpenProfile={() => { discardAiStoryContext(); setActiveTab('mypage'); }}
         onOpenCreateStory={openCreateStory}
-        onGoHome={() => setActiveTab('feed')}
+        onGoHome={() => { discardAiStoryContext(); setActiveTab('feed'); }}
         /*
           둘러보는 사람에게는 '사연 등록'을 감춘다 — 눌러봐야 로그인 안내로 막힌다.
           피드 탭에서도 감춘다 — 같은 일을 하는 플로팅 버튼이 이미 떠 있다.
@@ -1973,13 +2031,9 @@ export default function App() {
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
             onReportErrorPersona={handleReportErrorPersona}
-            onGoToFeed={() => setActiveTab('feed')}
+            onGoToFeed={() => { discardAiStoryContext(); setActiveTab('feed'); }}
             /* 대화를 마치면 왔던 사연으로 돌려보낸다 */
-            onReturnToStory={(storyId) => {
-              const target = stories.find(s => s.id === storyId);
-              setActiveTab('feed');
-              if (target) openStoryDetail(target, 'chat_return');
-            }}
+            onReturnToStory={(storyId) => { void returnToAiStory(storyId); }}
           />
         )}
 
@@ -2069,6 +2123,7 @@ export default function App() {
             대신 각 화면이 게스트에게 맞는 것만 보여준다 — AI 탭은 사연에서
             시작하라는 안내, 마이 탭은 로그인하면 뭘 할 수 있는지.
           */
+          discardAiStoryContext();
           setActiveTab(tab);
           if (tab === 'ai-chat') {
             setActiveChatSession(null);
@@ -2155,7 +2210,9 @@ export default function App() {
       />
 
       <StoryDetailModal 
-        interactionPaused={aiSelectionOpen}
+        key={`${authUserId ?? 'guest'}:${visibleSelectedStory?.id ?? 'none'}`}
+        suspended={Boolean(aiStoryContext && aiStoryContext.storyId === visibleSelectedStory?.id)}
+        interactionPaused={aiSelectionOpen || Boolean(aiStoryContext)}
         story={hiddenStoriesReady ? visibleSelectedStory : null}
         comments={visibleSelectedStory ? (commentsMap[visibleSelectedStory.id] || []).map(comment => ({
           ...comment,
