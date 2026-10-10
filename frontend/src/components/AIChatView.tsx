@@ -9,9 +9,7 @@ import { supabase } from '../lib/supabase';
 import { submitAiFeedback } from '../lib/aiFeedback';
 import { messagesBeforeRetry } from '../lib/chatRetry';
 
-const FEEDBACK_CHOICES = [
-  '전혀 도움 안 됨', '별로 도움 안 됨', '보통', '조금 도움 됨', '매우 도움 됨',
-] as const;
+import { AI_FEEDBACK_CHOICES, AI_CHAT_RETENTION_NOTICE } from '../lib/aiFeedbackScale';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -923,11 +921,11 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           role="dialog" aria-modal="true" aria-labelledby="ai-feedback-title">
           <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl">
             <h2 id="ai-feedback-title" className="text-lg font-bold text-[#1C1C1C]">이 AI 대화가 도움이 되었나요?</h2>
-            <p className="mt-2 text-xs text-[#5f5e5e]">평가를 남겨도 대화는 보관됩니다. 답변 내용은 평가에 저장하지 않습니다.</p>
+            <p className="mt-2 text-xs text-[#5f5e5e]">{AI_CHAT_RETENTION_NOTICE}</p>
             <div className="mt-5 grid gap-2">
-              {FEEDBACK_CHOICES.map((label, index) => (
-                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-20" key={label} type="button" disabled={feedbackSaving}
-                  onClick={() => { void finishWithFeedback((index + 1) as 1 | 2 | 3 | 4 | 5); }}
+              {AI_FEEDBACK_CHOICES.map(({ label, score }, index) => (
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-20" key={score} type="button" aria-label={`${label}, 3단계 중 ${index + 1}단계`} disabled={feedbackSaving}
+                  onClick={() => { void finishWithFeedback(score); }}
                   className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-left text-sm hover:border-[#FF6B5A] cursor-pointer disabled:opacity-50">
                   {label}
                 </button>

@@ -1,5 +1,40 @@
 # 니편내편 최신 인수인계 — 2026-10-09
 
+## 2026-10-10 사용자 후속 결정 — 공개 파비콘 / 예약 시각 완료 / 나머지 로컬
+
+- 최종 Library 교체 성공/readback: 데이터 v4(libfile_3fa676e251508191bb230960e95d4c4b), UX v5(libfile_7441ca2495688191a4fd0c0f66806673). 최종검사47개=모의46+격리REST1 PASS. 질문HTML3개각4안 정적검사PASS. 시험컨테이너정리·합성HTTP서버종료완료.
+- 마지막소스대조: vote_story/like_comment/set_story_visibility도 composite원형행반환. 로컬초안은 기존잠금/인증/횟수로직을내부함수로보존하고동일명RPC를명시투영JSON으로감쌈. 기존raw story/comment 반환함수(옛신고/오버로드포함)의anon/auth/PUBLIC실행권한을제거. 격리실제REST에서 투표1회/재시도집계1유지·공감1·작성자비공개/복구·타인비공개투표거부·내부구현/옛원형RPC호출거부 PASS. 운영의개별RPC현재본문/반환값을직접사용자행으로검증한것은아니며 운영미적용. SQL은1회적용초안으로재실행은의도적으로실패; 운영현재함수소유자/의존성/grant사전대조필수.
+- 최종 npm run lint·npm run build(앱/서버)·git diff --check PASS. Library 데이터보고서 libfile_3fa676e251508191bb230960e95d4c4b v3 / UX libfile_7441ca2495688191a4fd0c0f66806673 v4 교체·버전확인 성공. 부모의시트검증: G24 TRUE 업데이트/readback, G3 FALSE 유지(부모제공근거; 이작업시트조작0).
+- 공개: main6e18aec 파비콘만 정상 push, Vercel Production READY/동일commit, 운영 index·landing 링크와7자산 원본 동일 PASS. 소개 감정/CTA 문구는 사용자 승인·로컬 반영·미배포이며 공개에는 옛 문구 유지.
+- 운영 예약: 기존 purge-stale-ai-personas jobid1을 GMT `1 15 * * *`/한국00:01로만 변경/readback. active·작업수4·command/함수해시 동일. 실제 updatedAt<now()-6months 기준 유지. 즉시 파기/이용자행 조회0. 기존51성공은 삭제행 증거가 아님.
+- 로컬: AI 종료의 정확한6개월 안내·3단계 schema_version2(1/3/5), 옛1~5/v1 보존. AI 모달 native dialog·Escape/닫기/설정 취소·브라우저뒤로 원래상세 보존. StrictMode 중복history방지, 계정/취소/접근변경/삭제 뒤 늦은 요청 차단·삭제된 본인캐시 제거.
+- 보안 발견 높은 우선순위: 운영stories25/comments14 모든 열SELECT, 댓글isBlind RLS제외없음. 로컬 read_visible_* RPC 투영·열grant제거·원형Realtime 제거·ID신호 변경, UI블라인드 필터. SQL은 docs/plan-execution/sql/public-content-boundary-draft.sql **운영 미적용**. 새클라이언트/RPC 동시적용 필요, 원형fallback없음.
+- PASS: 타입, 관련모의회귀44개+새AI진입2개, 임시PostgreSQL/PostgREST 경계1개(실제익명·무효·본인·타인 HTTP, 원형/내부열 거부, 블라인드댓글 미반환·본인삭제, 미래열 차단, ID신호·publication). 첫 DB시험은 이미지초기화 서버 준비오인 FAIL; TCP 준비검사로 러너 수정 후 PASS. 제품 취약점으로 분류하지 않음.
+- 실제Chrome 합성API/현재앱: 모드Escape·브라우저뒤로/동일사연URL·시작점내부뒤로·공감설정Escape·시작하기포커스복귀 PASS, 시작점 실제화면 캡처 확인. 전체 키보드전수/로그인댓글draft·스크롤보존/모바일/계정전환 실브라우저는 NOT_RUN. 재구성 그림을 실제캡처로 세지 않음.
+- 처리표/정책.md에 코드·운영근거·6개월예약·평가·공개/비공개·탈퇴공백 분리. 운영주체/책임자·공식연락처·최소연령/성인콘텐츠만4안질문. 외부계약·지역/학습/로그/백업 보유·전체탈퇴실증은 미확인, 임의기간/법적근거 채우지 않음. 개인정보초안 미마운트·G3미완료.
+- 보류/미검증: 소개문구·신규기능배포/운영보안 SQL; 제보 당시빌드/특정사연/세션재현; 운영유효역할삭제시험; 확장GA4수신/차원등록; 전체화면/모바일. 기존실환경 **75%=9/12** 유지, 신규요청분모로섞지않음. 현재main의 추가로컬변경은 미커밋·미푸시이며 기존변경 보호.
+
+
+## 2026-10-09 추가 읽기 전용 점검 — 운영 변경 없음
+
+- 운영 cron jobid1 `purge-stale-ai-personas`: active=true, `0 19 * * *`, timezone GMT, 삭제 함수 직접 포함. 기존 실행 상태 집계 succeeded51, 마지막 종료 `2026-10-09 19:00:00.263304+00`. 실제 삭제 행/개수는 조회하지 않았음. 현재 PLAN의 AI 대화 자동삭제 없음과 충돌하는 활성 예약은 확인했고 변경은 보류.
+- 해당 함수 SECURITY DEFINER; anon/authenticated EXECUTE=false, service_role=true. 다른 DB 함수 직접 텍스트 참조/비내부 트리거 연결0건, 앱/서버 소스 호출 없음. 동적 SQL/외부 호출 전체 부재를 보장하지 않음.
+- stories25/comments14 모든 열 SELECT는 anon/authenticated에 허용. 현재 댓글 SELECT RLS는 부모 사연 조건만 검사하고 댓글 isBlind는 제외하지 않음. App SELECT * 원형 저장, 상세 UI 투표방향 필터 후 c.content 렌더이며 isBlind 차단 없음. 실제 이용자 원문/응답 값이나 실제 노출 건수 조회는 안 함.
+- Library 데이터 보고서 libfile_3fa676e251508191bb230960e95d4c4b v2 / UX libfile_7441ca2495688191a4fd0c0f66806673 v3으로 근거 업데이트 성공. 부모의 개인정보/공개반영 선택 답변 대기 유지. 제품수정·권한/예약변경·함수실행·커밋푸시배포·시트체크 없음.
+
+## 2026-10-09 후속 UX·QA 준비 — 로컬 미커밋 / 미배포
+
+- main d075823에서 fetch/ff 최신, 시작 작업트리 clean. 이번 승인은 첫행동 개선과 개인정보/아이콘 준비이며 커밋·푸시·배포·시트 체크는 하지 않았다.
+- 첫행동: 소개 히어로 가치와 시작 안내·하단 CTA 설명 개선. 행동 ID·경로·전체 GA4 계측·선택 동의·가입 성공 계정별 1회/일반 로그인 미노출 보존. 익명 안내·투표 정책·기존 작성 모달은 수정하지 않았다. 추가 익명 경고 제안은 철회하고 감정 표현·공감·역할 대화 방향을 따른다.
+- 파비콘: 공개 배포 헤더의 코랄 Material Symbols Outlined terminal 원본 경로·색상 재사용(이전 두 칸 아이콘과 구분). 앱/소개 동일 링크, PNG/ICO/Apple/manifest 및 빌드 포함 PASS. 실제 배포 브라우저 캐시는 NOT_RUN이므로 QA_10.19 G24 완료 체크 보류.
+- 개인정보: 처리방침 공개와 수집·이용 동의는 구분. 운영자·연락처·항목별 목적/근거·보유/파기·수탁/국외이전·AI 처리·연령 정책 미확정. 검토 컴포넌트 PrivacyNoticeDraft는 앱에 연결하지 않음. 정책 초안은 docs/release-improvement/privacy-notice-draft.md. 실제 동의 저장/우회 방지/게시 미완료이므로 G3 보류.
+- 최종 lint(타입)/build PASS, 기존 관련22회귀 PASS, 소개 가상DOM PASS, 아이콘 빌드 크기·경로·원본 동일성 PASS, diff 공백 PASS. 현재 Chrome 연결 복구 및 Supabase 메타데이터 읽기 PASS. 최종 수정 화면 실제 캡처·키보드·모바일은 미완료. 재구성 비교5종은 실제 캡처를 대신하지 않는다. 마지막 lint/build·22/22회귀·아이콘 원본/크기/빌드 동일성 PASS.
+- 앞선 재부팅 후 격리 가입 브라우저에서는 A 최초소개/재로그인 미노출, B 별도 최초소개, C 연타·취소 지연응답, D 다른 계정 전환 지연응답을 확인했다. 실제 운영 계정 생성/DB 증거로 확대하지 않는다. 운영 정책 읽기(authorId=auth.uid, DELETE authenticated), GA4 운영9/QA0 및 운영 소개 경로 확인도 앞선 읽기 결과이다. 최신 전체 역할/DB/GA4 수신 판정은 미완료다.
+- 최종 데이터 점검: public 19테이블/RLS 목록·AI 본인 SELECT 식·storyId FK SET NULL·탈퇴 함수·Storage 버킷 없음 실환경 메타데이터 확인. 6개월 AI 방 DELETE 함수 purge_stale_ai_personas는 존재/본문만 확인; cron/트리거/외부 실행 연결 미확인. 횟수 예약의 30일 보관·탈퇴 후 식별자 잔류 가능은 소스/함수 검증 공백이며 이용자 행을 읽지 않았다. 정책/운영 쓰기 없음.
+- Library 최종: UX libfile_7441ca2495688191a4fd0c0f66806673 v2 / 데이터 libfile_3fa676e251508191bb230960e95d4c4b v1. 이미지5종은 감정·공감/개인정보 준비/참여 수 제안/모달/GA4로 갱신, 기존 익명 안내 제안은 현재 보고서에서 제외. G3/G24 미체크 유지.
+- 기존 실환경 완료율 **75%=9/12** 유지. 신규 UX 요청은 별도 준비/차단 상태이며 완료율에 섞지 않는다. 보고서/이미지는 대화 작업 폴더 및 Library에 별도 저장한다.
+
+
 ## 2026-10-09 커밋·푸시 전 최종 인계
 
 - 사용자 요청으로 현재 변경을 main에 커밋·푸시한다. Chrome QA는 승인 반복 진단을 위해 보류 상태다. 사용자 Mac에서만 재개하며 로그인 정보·키·쿠키를 추출하거나 다른 환경으로 옮기지 않는다.
@@ -147,3 +182,23 @@
 - [사용자 시험 전 목록](2026-09-28-pre-user-test-work.md), [전환 절차](2026-09-28-release-gates.md), [계정별 검증 범위](2026-09-28-two-account-browser-checklist.md), [진행 HTML](2026-09-28-plan-reader.html).
 - HTML 생성기 `tools/render-plan-reader.mjs`의 상태 목록과 원본 문서를 함께 갱신한다. 생성만 다시 한다고 고정 목록이 최신화되지는 않는다.
 - 개인비서: `/Users/b/Documents/개인비서/자료함/프로젝트/니편내편/산출물/2026-09-28_최신Preview브라우저_GA4_검증근거.md`. 사용자 선택·AI 실행·실제 관찰·미검증을 나누어 기존 기록에 추가한다.
+
+## 2026-10-10 추가 승인과 실행 경계
+
+사용자가 운영 주체·문의 책임자를 변종현 개인(현재 비사업자), 공식 문의처를 ds5305naver@gmail.com, 최소 연령을 만 14세, 성인 전용 콘텐츠를 미지원으로 확정했다. 사업자 등록 여부로 개인정보 관련 의무가 없다고 판단하지 않는다. 외부 공급사 계약·리전·학습·로그/백업 보유 사실은 미확정이며 개인정보 안내는 미활성 초안이다.
+
+첫행동 문구 4개 수정, 운영 보안 SQL의 함수·권한·의존성 대조 후 적용·검증, GA4 기존 목록 대조 후 누락 13개 event scope 등록, 검증 후 main 커밋·푸시가 승인됐다. 아직 실행 완료로 기록하지 않는다. 운영 DB에 read_visible RPC가 없는 동안 해당 클라이언트를 먼저 자동 배포하지 않는다. 삭제 제보는 자료 없음으로 미재현을 유지하고 일반 권한 회귀만 확인한다.
+
+현재 운영 읽기 전용 대조: vote_story(text,text), like_comment(text,integer), set_story_visibility(text,text), notify_story_access_change() 4개 모두 postgres 소유·security definer. 조회 RPC는 아직 없음. 사연·댓글 테이블에는 anon/authenticated의 전체 SELECT가 존재한다. 복구용 메타데이터 조회는 이용자 행 없이 수행했으나 다운로드·전체 의존성 대조·운영 적용은 아직 미완료다.
+
+### 2026-10-10 승인 후 추가 검증
+
+타입/빌드, 관련 mock46 + 격리 REST1=47 시험 재실행 PASS. 운영 메타데이터에서 읽은 실제 함수 정의로 별도 격리 DB를 구성한 적용·REST·복구 시험도 최종 PASS: 기존 anon SELECT 복구, 새 조회 함수 제거, stories/comments publication 복구 모두 true. 초기 시험은 파일 상대 경로와 합성 comments 항소 열 누락으로 실패했고 시험 환경을 바로잡아 최종 통과했다. 운영 변경·삭제는 없었다.
+
+합성 계정 B 로그인과 상세/댓글 표시 PASS. 댓글 초안/스크롤 및 모바일 전체는 실제 입력/복귀를 확인하지 못해 미검증으로 남긴다. Chrome 자동화에서 user-changed 보호 오류가 반복 관찰됐다. 사용자 직접 조작 여부나 오류 원인은 단정하지 않는다. 운영 사전 대조 snapshot과 적용/복구 SQL은 준비됐으며 [복구 계획](sql/public-content-boundary-rollback-plan.md)을 따른다. 아직 운영 SQL 적용·GA4 등록·커밋푸시/추가 배포는 미완료다.
+
+## 2026-10-10 운영 보안 적용 완료
+
+사용자 구체 범위 승인과 ‘지금 해’ 재개 지시 후 기존 함수4개의 hash/owner/ACL 불변을 재확인했다. 검증된 적용 파일 본문 MD5 `06aafca48926ffd9cf307edc78475bfb` 보호를 포함한 한 트랜잭션으로 실제 운영 적용했다. 긴 직접 타이핑의 자동완성 오류는 실행하지 않았고 검증 파일 원문을 복사해 적용했다. 원문 사용자 행 조회/삭제는 없었다.
+
+독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. GA4 누락13개 등록·실제 수신은 별도 완료 증거를 기다린다. 개인정보 안내는 계속 미활성이다.

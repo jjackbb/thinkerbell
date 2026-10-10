@@ -10,6 +10,7 @@ import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircl
 
 interface StoryDetailModalProps {
   story: Story | null;
+  interactionPaused?: boolean;
   comments: Comment[];
   currentUser: UserProfile;
   onClose: () => void;
@@ -43,6 +44,7 @@ interface StoryDetailModalProps {
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   story,
+  interactionPaused = false,
   comments,
   currentUser,
   onClose,
@@ -138,7 +140,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
    * 싶으면 입력창 밖을 한 번 누르고 다시 누르면 된다.
    */
   useEffect(() => {
-    if (!story) return;
+    if (!story || interactionPaused) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
 
@@ -157,7 +159,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [story, previewUrl, isMenuOpen, commentMenuOpenId, editingCommentId, onClose]);
+  }, [story, previewUrl, isMenuOpen, commentMenuOpenId, editingCommentId, onClose, interactionPaused]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -177,6 +179,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const isSensitive = detectCrisis(story.body) || detectCrisis(story.title);
 
   const filteredComments = comments
+    .filter(c => !c.isBlind)
     .filter(c => {
       const displayVote = c.authorId === currentUser.id ? votedOption : c.authorVoted;
       return commentFilter === 'all' || displayVote === commentFilter;

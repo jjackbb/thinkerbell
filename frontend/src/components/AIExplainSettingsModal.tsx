@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNativeModal } from '../lib/useNativeModal';
 import { X, Settings2 } from 'lucide-react';
 
 export type ExplainRatio = 'High' | 'Middle' | 'Low';
@@ -16,18 +17,21 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
 }) => {
   const [ratio, setRatio] = useState<ExplainRatio>(initialRatio);
 
+  const dialogRef = useNativeModal();
+
   return (
-    <div data-analytics-screen="ai_settings" data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <dialog ref={dialogRef} aria-labelledby="ai-settings-title" onCancel={e => { e.preventDefault(); onClose(); }} data-analytics-screen={"ai_settings"} data-analytics-layer="20" className="m-auto p-0 bg-transparent border-0 w-[calc(100%-2rem)] max-w-sm max-h-[90dvh] overflow-y-auto backdrop:bg-black/70 backdrop:backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-sm flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
-          <h3 className="font-headline-md font-bold text-[#1C1C1C] text-sm flex items-center gap-2">
+          <h3 id="ai-settings-title" className="font-headline-md font-bold text-[#1C1C1C] text-sm flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-[#FF6B5A]" />
             공감 비율 설정
           </h3>
           <button data-button-id="ai-explain-settings-modal-button-01"
             onClick={onClose}
+            aria-label="공감 비율 설정 닫기"
             className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1"
           >
             <X className="w-5 h-5" />
@@ -95,6 +99,6 @@ export const AIExplainSettingsModal: React.FC<AIExplainSettingsModalProps> = ({
         </div>
 
       </div>
-    </div>
+    </dialog>
   );
 };

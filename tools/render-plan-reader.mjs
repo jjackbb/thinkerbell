@@ -117,9 +117,10 @@ const statusGroups = [
     ['9월 30일 핵심 GA4 속성·동의·수신', '당시 운영 검증. 10월 9일 확장 이벤트의 수신 검증 아님', '2026-09-28-in-progress-release-preflight.md'],
     ['답변 완료·저장 결과 분리 운영 복원', '가상 응답 4종으로 완료/저장 실패 1/1·부분/빈 답변 0·중복 0 확인', '../../PLAN.md'],
     ['현재 문서·이력 분리와 커밋·운영 배포', '원본 15개 보존, fee5ea5 푸시·운영 READY·공개 주소 확인', 'README.md'],
+    ['10월10일 파비콘 공개·AI 정리 예약 확인', '6e18aec Vercel READY·7자산 동일; job1 00:01KST·6개월 updatedAt 유지', 'README.md'],
     ['Chrome 기기 모드 확인', '390×844·터치 기술 확인, 실물 Safari 아님', '2026-09-28-two-account-browser-checklist.md'],
   ]},
-  { id: 'in-progress', title: '작업 중', note: '2026-10-09 전체 완료 항목 9/12 · 75%', items: [['삭제 소유권·세션 경계 보강', '격리 회귀 PASS. 5aa097b 랜딩 수신·삭제 방어 보존. 제보·운영 DB 권한 미검증', '2026-09-28-in-progress-release-preflight.md'], ['전체 화면·행동·기능 결과 계측', '구현 푸시·QA Preview READY. 독립 랜딩 동의·예시 클릭 연결/정제 PASS. Chrome 승인 반복으로 실제 수신 보류', 'README.md']] },
+  { id: 'in-progress', title: '작업 중', note: '2026-10-09 전체 완료 항목 9/12 · 75%', items: [['삭제 소유권·세션 경계 보강', '격리 회귀 PASS. 5aa097b 랜딩 수신·삭제 방어 보존. 제보·운영 DB 권한 미검증', '2026-09-28-in-progress-release-preflight.md'], ['전체 화면·행동·기능 결과 계측', '구현 푸시·QA Preview READY. 독립 랜딩 동의·예시 클릭 연결/정제 PASS. Chrome 연결 복구·일부 합성 UI PASS. 신규 GA4 실제 수신은 미검증', 'README.md']] },
   { id: 'not-started', title: '작업 전', note: '게시 이후 또는 별도 보류', items: [
     ['커뮤니티·SNS 실제 게시', '소개 글·링크 초안 준비, 게시 경로/시각 기록 필요', '2026-09-28-release-blockers-questions.html'],
     ['처리 보고서·기준선 대조', '실제 유입 후 기술 시험 제외·기간/버전/분모 기록', '../../PLAN.md'],
@@ -136,7 +137,7 @@ const orderedStatusGroups = ['not-started', 'in-progress', 'done', 'user-test']
 // Execution order follows PLAN section 4 and the release-gates handoff. Items
 // waiting for a real account or an owner decision stay explicitly pending.
 const nextActions = [
-  ['연결 확인 후', '남은 3개 검증 항목 재개', '완료 9/12(75%). 실제 화면 전수·운영 DB 역할/삭제 제보·신규 GA4 수신을 이어간다. 팀원 랜딩 수신 완료, 별도 배포 미실행.', '2026-09-28-in-progress-release-preflight.md'],
+  ['연결 확인 후', '남은 3개 검증 항목 재개', '완료 9/12(75%). 실제 화면 전수·운영 DB 역할/삭제 제보·신규 GA4 수신을 이어간다. 팀원 랜딩 수신 완료. 파비콘만 공개, 신규 기능/보안/소개 문구는 미배포.', '2026-09-28-in-progress-release-preflight.md'],
   ['확인 후', 'QA 수신·운영 반영', '기존 계정은 테스트·팀원 계정으로 별도 재동의 전환을 생략한다. 맞춤 측정기준·Preview 수신을 확인한 뒤 운영에 반영한다. 신규 내부 DB 이벤트는 추가하지 않는다.', '2026-10-09-analytics-scope.html'],
   ['실제 게시', '커뮤니티·SNS 소개 글과 링크', '자발적 이용을 위한 게시다. Vercel 배포와 구분하며 게시 경로·시각·주소를 기록한다.', '2026-09-28-release-blockers-questions.html'],
   ['이용·보고서 처리 후', '기준선·불편 근거·첫 개선', '기술 시험 제외, 신규/이어하기 분리, 실제 건수·피드백으로 문제를 선택하고 개선을 확인한다.', '../../PLAN.md'],
@@ -278,7 +279,7 @@ const html = `<!doctype html>
         </details>
       </section>
       <p class="meta">이 HTML은 문서를 변경하거나 운영 상태를 판정하지 않습니다. 각 PASS는 원문에 적힌 검증 범위에만 적용됩니다.</p>
-<section class="panel" id="dots-questions"><h2>현재 완료율 75% · 9/12 항목</h2><p>사용자 1A/2A/3A를 반영했습니다. 신규 가입 직후 계정당 한 번 소개, 일반 로그인 제외를 구현했습니다. 랜딩 수신/기본 처리 방향은 다시 묻지 않습니다. 삭제 제보 근거는 사용자 전달 대기이며 실제 검증 3항목은 미검증입니다.</p><p>검증 장소는 사용자 Mac으로 확정했습니다. Chrome 승인 반복으로 전체 화면·운영 DB·GA4 검증은 보류입니다. 다음 확인은 사용자의 ChatGPT 설정 → Computer Use → Always-allowed apps에 Chrome이 표시되는지 읽기 확인입니다. 설정 변경·초기화·우회와 앱 재시작은 실행하지 않았습니다.</p></section>
+<section class="panel" id="dots-questions"><h2>2026-10-10 승인과 실행 상태</h2><p>사용자 확인: 운영 주체·문의 책임자는 변종현 개인(현재 비사업자), 공식 문의처 ds5305naver@gmail.com, 만14세 이상, 성인 전용 콘텐츠 미지원. 외부 배포 후 데이터 기반 개선이 목표이며 사업자 등록 여부와 개인정보 의무는 별개입니다.</p><p>랜딩 문구 수정, 운영 보안 SQL 사전 대조 후 적용, GA4 누락13개 event scope 등록, 검증 후 main 커밋·푸시가 승인됐습니다. 운영 보안 SQL은 실제 적용·독립8항목 readback PASS입니다. GA4 등록·추가 배포는 아직 완료 증거를 기다립니다. 개인정보 안내는 공급사 계약·보유·파기 사실이 미확정이라 미활성 초안입니다. 삭제 제보는 자료 없음으로 미재현, 일반 권한 회귀만 확인합니다.</p><p>앞선47개 자동시험 PASS와 실제 게스트 Chrome 일부 복귀 PASS는 유지합니다. 새 합성 로그인·상세/댓글 표시 PASS, 댓글 초안/스크롤·모바일 전체 및 운영 유효 역할 검증은 아직 미완료입니다. Chrome 자동화에서 user-changed 보호 오류가 반복 관찰됐으며 원인은 단정하지 않습니다. 검증 결과를 성공으로 과장하지 않습니다. 기존75%=9/12는 동일 분모로 유지합니다.</p></section>
     </main>
   </div>
 </body>

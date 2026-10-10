@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNativeModal } from '../lib/useNativeModal';
 import { X, MessageSquare, ListTree, ChevronLeft } from 'lucide-react';
 import { track } from '../lib/events';
 import type { AnalyticsEntryPoint } from '../lib/analyticsContext';
@@ -40,22 +41,24 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
 }) => {
   const [step, setStep] = useState<'mode' | 'opening'>('mode');
 
+  const dialogRef = useNativeModal();
+
   return (
-    <div data-analytics-screen={step === "opening" ? "ai_opening_selection" : "ai_mode_selection"} data-analytics-layer="20" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <dialog ref={dialogRef} aria-labelledby="ai-mode-title" onCancel={e => { e.preventDefault(); onClose(); }} data-analytics-screen={step === "opening" ? "ai_opening_selection" : "ai_mode_selection"} data-analytics-layer="20" className="m-auto p-0 bg-transparent border-0 w-[calc(100%-2rem)] max-w-sm max-h-[90dvh] overflow-y-auto backdrop:bg-black/70 backdrop:backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-sm flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
 
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#f8f9fa]">
           <div className="flex items-center gap-2">
             {step === 'opening' && (
-              <button data-button-id="ai-chat-mode-selection-modal-button-01" onClick={() => setStep('mode')} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 cursor-pointer">
+              <button data-button-id="ai-chat-mode-selection-modal-button-01" onClick={() => setStep('mode')} aria-label="모드 선택으로 돌아가기" className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 cursor-pointer">
                 <ChevronLeft className="w-4 h-4" />
               </button>
             )}
-            <h3 className="font-headline-md font-bold text-[#1C1C1C] text-sm">
+            <h3 id="ai-mode-title" className="font-headline-md font-bold text-[#1C1C1C] text-sm">
               {step === 'mode' ? 'AI 시뮬레이션 모드 선택' : '어디서부터 시작할까요?'}
             </h3>
           </div>
-          <button data-button-id="ai-chat-mode-selection-modal-button-02" onClick={onClose} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer">
+          <button data-button-id="ai-chat-mode-selection-modal-button-02" onClick={onClose} aria-label="AI 모드 선택 닫기" className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors p-1 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -121,6 +124,6 @@ export const AIChatModeSelectionModal: React.FC<AIChatModeSelectionModalProps> =
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 };

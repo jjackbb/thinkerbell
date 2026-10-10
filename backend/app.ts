@@ -656,10 +656,12 @@ app.post("/api/ai/feedback", async (req: Request, res: Response) => {
     const episodeId = req.body?.episodeId;
     const personaId = req.body?.personaId;
     const score = req.body?.score;
+    const schemaVersion = req.body?.schemaVersion ?? 1;
     if (typeof episodeId !== "string" ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(episodeId) ||
         typeof personaId !== "string" || !personaId || personaId.length > 100 ||
-        (score !== null && ![1, 2, 3, 4, 5].includes(score))) {
+        (![1, 2].includes(schemaVersion)) ||
+        (score !== null && !(schemaVersion === 2 ? [1, 3, 5] : [1, 2, 3, 4, 5]).includes(score))) {
       throw new StoryRequestFailure(400, "INVALID_AI_FEEDBACK");
     }
     const client = storyWriteClient();
@@ -687,16 +689,16 @@ app.post("/api/ai/feedback", async (req: Request, res: Response) => {
       episode_id: episodeId.toLowerCase(), user_id: user.id,
       persona_id: room.id, mode, score,
       outcome: score === null ? "skipped" : "submitted",
-      schema_version: 1,
+      schema_version: schemaVersion,
     };
     const { error: insertError } = await client.from("ai_feedback").insert(row);
     if (insertError?.code === "23505") {
       const { data: prior, error: priorError } = await client.from("ai_feedback")
-        .select("user_id,persona_id,mode,score,outcome")
+        .select("user_id,persona_id,mode,score,outcome,schema_version")
         .eq("episode_id", episodeId.toLowerCase()).maybeSingle();
       if (priorError || !prior || prior.user_id !== user.id ||
           prior.persona_id !== room.id || prior.mode !== mode ||
-          prior.score !== score || prior.outcome !== row.outcome) {
+          prior.score !== score || prior.outcome !== row.outcome || prior.schema_version !== schemaVersion) {
         throw new StoryRequestFailure(409, "AI_FEEDBACK_CONFLICT");
       }
       return res.json({ saved: true, recovered: true });

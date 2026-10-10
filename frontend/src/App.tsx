@@ -1,3 +1,5 @@
+import { canContinueAiNavigation } from './lib/aiNavigation';
+import { fetchVisibleStories, fetchVisibleStory, fetchVisibleComments } from './lib/visibleContent';
 import { createSignupLandingGate, signupLandingHref } from './lib/signupLanding';
 import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
 import { beginTask, blockedAction } from './lib/taskAnalytics';
@@ -301,7 +303,8 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     if (!authUserId) {
-      setAiQuotaUsed(0);
+      aiNavigationGeneration.current++;
+    setAiQuotaUsed(0);
       return () => { alive = false; };
     }
     fetchAiQuotaUsed()
@@ -342,7 +345,7 @@ export default function App() {
     let active = true;
     const accountId = authUserId;
     // Initial fetch
-    supabase.from('stories').select('*').order('createdAt', { ascending: false }).then(({ data, error }) => {
+    fetchVisibleStories().then(({ data, error }) => {
       if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         setStories(data);
@@ -350,32 +353,7 @@ export default function App() {
       }
     });
 
-    // Realtime subscription
-    const channel = supabase
-      .channel(`public:stories:${accountId ?? 'guest'}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setStories(prev => {
-          // Prevent duplicates if local insert happened first
-          if (prev.some(s => s.id === payload.new.id)) return prev;
-          return [payload.new as Story, ...prev];
-        });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stories' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setStories(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
-        setSelectedStory(prev => prev?.id === payload.new.id ? { ...prev, ...payload.new } : prev);
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setStories(prev => prev.filter(s => s.id !== payload.old.id));
-      })
-      .subscribe();
-
-    return () => {
-      active = false;
-      void supabase.removeChannel(channel);
-    };
+    return () => { active = false; };
   }, [authUserId]);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
@@ -407,7 +385,7 @@ export default function App() {
     let active = true;
     const accountId = authUserId;
     // Initial fetch
-    supabase.from('comments').select('*').order('createdAt', { ascending: true }).then(({ data, error }) => {
+    fetchVisibleComments().then(({ data, error }) => {
       if (!active || authUserIdRef.current !== accountId) return;
       if (data && !error) {
         const newMap: Record<string, Comment[]> = {};
@@ -419,50 +397,7 @@ export default function App() {
       }
     });
 
-    // Realtime subscription
-    const channel = supabase
-      .channel(`public:comments:${accountId ?? 'guest'}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setCommentsMap(prev => {
-          const comment = payload.new as Comment;
-          const storyComments = prev[comment.storyId] || [];
-          if (storyComments.some(c => c.id === comment.id)) return prev;
-          return { ...prev, [comment.storyId]: [...storyComments, comment] };
-        });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comments' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setCommentsMap(prev => {
-          const comment = payload.new as Comment;
-          const storyComments = prev[comment.storyId] || [];
-          return {
-            ...prev,
-            [comment.storyId]: storyComments.map(c => c.id === comment.id ? { ...c, ...comment } : c)
-          };
-        });
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, payload => {
-        if (!active || authUserIdRef.current !== accountId) return;
-        setCommentsMap(prev => {
-          const updatedMap = { ...prev };
-          let found = false;
-          for (const sId in updatedMap) {
-            if (updatedMap[sId].some(c => c.id === payload.old.id)) {
-              updatedMap[sId] = updatedMap[sId].filter(c => c.id !== payload.old.id);
-              found = true;
-              break;
-            }
-          }
-          return found ? updatedMap : prev;
-        });
-      })
-      .subscribe();
-
-    return () => {
-      active = false;
-      void supabase.removeChannel(channel);
-    };
+    return () => { active = false; };
   }, [authUserId]);
 
   /**
@@ -476,7 +411,7 @@ export default function App() {
   const [storyPrivateReady, setStoryPrivateReady] = useState(false);
   useEffect(() => {
     let active = true;
-    void supabase.from('stories').select('visibility').limit(0).then(({ error }) => {
+    void fetchVisibleStories('__schema_probe_no_story__').then(({ error }) => {
       if (active) setStoryPrivateReady(!error);
     });
     return () => { active = false; };
@@ -489,15 +424,17 @@ export default function App() {
     const refreshVisibleStories = async () => {
       const current = ++generation;
       const [storyResult, commentResult] = await Promise.all([
-        supabase.from('stories').select('*').order('createdAt', { ascending: false }),
-        supabase.from('comments').select('*').order('createdAt', { ascending: true }),
+        fetchVisibleStories(),
+        fetchVisibleComments(),
       ]);
       if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
       if (!storyResult.error && storyResult.data) {
         const visible = storyResult.data as Story[];
         setStories(visible);
         setSelectedStory(prev => {
-          if (!prev || visible.some(s => s.id === prev.id)) return prev;
+          if (!prev) return prev;
+          const fresh = visible.find(s => s.id === prev.id);
+          if (fresh) return fresh;
           const url = new URL(window.location.href);
           url.searchParams.delete('story');
           window.history.replaceState(null, '', url.toString());
@@ -520,7 +457,8 @@ export default function App() {
         const id = payload.new.story_id;
         if (typeof id !== 'string') return;
         const current = ++generation;
-        // Remove previously visible raw content before the fresh RLS read.
+        // Ordinary content updates keep the mounted story/draft; access changes clear first.
+        if (payload.new.access_changed !== false) {
         setStories(prev => prev.filter(s => s.id !== id || s.authorId === authUserId));
         setCommentsMap(prev => { const next = { ...prev }; delete next[id]; return next; });
         setSelectedStory(prev => {
@@ -530,9 +468,10 @@ export default function App() {
           window.history.replaceState(null, '', url.toString());
           return null;
         });
+        }
         const [storyResult, commentResult] = await Promise.all([
-          supabase.from('stories').select('*').eq('id', id).maybeSingle(),
-          supabase.from('comments').select('*').eq('storyId', id).order('createdAt', { ascending: true }),
+          fetchVisibleStory(id),
+          fetchVisibleComments(id),
         ]);
         if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
         if (!storyResult.error && storyResult.data) {
@@ -540,6 +479,15 @@ export default function App() {
           setStories(prev => prev.some(s => s.id === id)
             ? prev.map(s => s.id === id ? visible : s) : [visible, ...prev]);
           setSelectedStory(prev => prev?.id === id ? visible : prev);
+        }
+        if (!storyResult.error && !storyResult.data) {
+          setStories(prev => prev.filter(s => s.id !== id));
+          setSelectedStory(prev => {
+            if (prev?.id !== id) return prev;
+            syncStoryUrl(null);
+            return null;
+          });
+          setCommentsMap(prev => { const next = { ...prev }; delete next[id]; return next; });
         }
         if (!commentResult.error && commentResult.data) {
           setCommentsMap(prev => ({ ...prev, [id]: commentResult.data as Comment[] }));
@@ -582,8 +530,49 @@ export default function App() {
   const [myStoriesNavigationKey, setMyStoriesNavigationKey] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [undoHiddenStoryId, setUndoHiddenStoryId] = useState<string | null>(null);
+  const aiNavigationGeneration = useRef(0);
   const [aiChatModeStory, setAiChatModeStory] = useState<Story | null>(null);
   const [aiExplainSettingsStory, setAiExplainSettingsStory] = useState<Story | null>(null);
+  const aiSelectionOpen = Boolean(aiChatModeStory || aiExplainSettingsStory);
+  const cancelAiSelection = useCallback(() => {
+    aiNavigationGeneration.current++;
+    setAiChatModeStory(null);
+    setAiExplainSettingsStory(null);
+    setIsExplainSettingsModalOpen(false);
+  }, []);
+  const aiHistoryOwner = useRef<string | null>(null);
+  const aiHistoryEffect = useRef(0);
+  const aiTargetCurrent = useRef({ stories, hiddenStoryIds, hiddenStoriesReady });
+  aiTargetCurrent.current = { stories, hiddenStoryIds, hiddenStoriesReady };
+  // One temporary history entry for mode/settings together; Back closes only that layer.
+  useEffect(() => {
+    if (!aiSelectionOpen) return;
+    const version = ++aiHistoryEffect.current;
+    const reuse = aiHistoryOwner.current && window.history.state?.aiSelection === aiHistoryOwner.current;
+    const key = reuse ? aiHistoryOwner.current! : crypto.randomUUID();
+    aiHistoryOwner.current = key;
+    if (!reuse) window.history.pushState({ ...window.history.state, aiSelection: key }, '', window.location.href);
+    const onBack = () => { if (window.history.state?.aiSelection !== key) cancelAiSelection(); };
+    window.addEventListener('popstate', onBack);
+    return () => {
+      window.removeEventListener('popstate', onBack);
+      // StrictMode replays effects: defer cleanup so the next setup can reuse the entry.
+      queueMicrotask(() => {
+        if (aiHistoryEffect.current === version && window.history.state?.aiSelection === key) {
+          aiHistoryOwner.current = null;
+          window.history.back();
+        }
+      });
+    };
+  }, [aiSelectionOpen, cancelAiSelection]);
+  useEffect(() => {
+    const target = aiChatModeStory || aiExplainSettingsStory;
+    if (!target) return;
+    const fresh = stories.find(item => item.id === target.id);
+    if (!fresh || fresh.isBlind || fresh.isAdult || fresh.isHidden ||
+        (fresh.visibility === 'private' && fresh.authorId !== authUserId) ||
+        !hiddenStoriesReady || hiddenStoryIds.includes(target.id)) cancelAiSelection();
+  }, [stories, aiChatModeStory, aiExplainSettingsStory, authUserId, hiddenStoriesReady, hiddenStoryIds, cancelAiSelection]);
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
   const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
@@ -620,6 +609,7 @@ export default function App() {
     setHiddenStoryOwnerId(null);
     setLikedCommentIds([]);
     setLikedCommentOwnerId(null);
+    aiNavigationGeneration.current++;
     setAiQuotaUsed(0);
     setPremiumModalStory(null);
     setAiChatModeStory(null);
@@ -822,7 +812,7 @@ export default function App() {
       setToastMessage('투표 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
       setTimeout(() => setToastMessage(null), 3000);
       try {
-        const { data: fresh } = await supabase.from('stories').select('*').eq('id', storyId).maybeSingle();
+        const { data: fresh } = await fetchVisibleStory(storyId);
         if (fresh) setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...(fresh as Story) } : s));
         await loadMyVotes();
       } catch {
@@ -860,8 +850,7 @@ export default function App() {
           : [...(prev[storyId] || []), saved]
       }));
       try {
-        const { data: savedStory } = await supabase.from('stories')
-          .select('commentCount').eq('id', storyId).single();
+        const { data: savedStory } = await fetchVisibleStory(storyId);
         if (typeof savedStory?.commentCount === 'number') {
           setStories(prev => prev.map(s => s.id === storyId
             ? { ...s, commentCount: savedStory.commentCount }
@@ -969,8 +958,7 @@ export default function App() {
         [storyId]: (prev[storyId] || []).filter(c => c.id !== commentId),
       }));
       try {
-        const { data: savedStory } = await supabase.from('stories')
-          .select('commentCount').eq('id', storyId).single();
+        const { data: savedStory } = await fetchVisibleStory(storyId);
         if (typeof savedStory?.commentCount === 'number') {
           setStories(prev => prev.map(s => s.id === storyId
             ? { ...s, commentCount: savedStory.commentCount }
@@ -1278,6 +1266,14 @@ export default function App() {
   const aiEntryPoint = useRef<AnalyticsEntryPoint>('story_detail');
 
   const handleStartAIChatWithStory = async (story: Story) => {
+    const navigation = ++aiNavigationGeneration.current;
+    const account = authUserId;
+    const targetAvailable = () => canContinueAiNavigation({
+      generation: navigation, currentGeneration: aiNavigationGeneration.current,
+      account, currentAccount: authUserIdRef.current, storyId: story.id,
+      ...aiTargetCurrent.current,
+    });
+    if (!targetAvailable()) return;
     /*
       AI로 가는 길목의 첫 걸음. 무료 횟수 판정보다 먼저 센다 —
       '눌렀는데 막혔다'도 눌렀다는 사실이다.
@@ -1293,7 +1289,6 @@ export default function App() {
     */
     if (story.authorId === user.id || isGuest) {
       setAiChatModeStory(story);
-      setSelectedStory(null);
       return;
     }
 
@@ -1309,14 +1304,15 @@ export default function App() {
       quotaTask.finish('success');
     } catch {
       quotaTask.finish('error');
+      if (!targetAvailable()) return;
       setToastMessage('AI 이용 횟수를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
       return;
     }
+    if (!targetAvailable()) return;
     setAiQuotaUsed(used);
 
     if (used < DAILY_AI_QUOTA || personas.some(p => p.storyId === story.id)) {
       setAiChatModeStory(story);
-      setSelectedStory(null);
     } else {
       blockedAction('ai_room_create', 'limit');
       setPremiumModalStory(story);
@@ -1325,6 +1321,7 @@ export default function App() {
 
   const handleSelectAiChatMode = async (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
     if (!aiChatModeStory) return;
+    const navigation = aiNavigationGeneration.current;
     const story = aiChatModeStory;
 
     /* 여기까지 오면 대화방이 실제로 열린다 = AI 진입 성공 */
@@ -1365,6 +1362,7 @@ export default function App() {
           }
           try {
             const quota = await fetchAiQuotaStatus();
+            if (navigation !== aiNavigationGeneration.current || authUserIdRef.current !== authUserId) return;
             setAiQuotaUsed(quota.used);
             if (story.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
               setPremiumModalStory(story);
@@ -1372,9 +1370,9 @@ export default function App() {
             }
             ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(story.id, { mode: 'simulation', opening }));
             if (recovered) conversationType = 'continuation';
-            if (authUserIdRef.current !== authUserId) return;
+            if (authUserIdRef.current !== authUserId || navigation !== aiNavigationGeneration.current) return;
           } catch {
-            if (authUserIdRef.current !== authUserId) return;
+            if (authUserIdRef.current !== authUserId || navigation !== aiNavigationGeneration.current) return;
             setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
             return;
           }
@@ -1414,6 +1412,7 @@ export default function App() {
         conversationType,
       });
       if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
+      setSelectedStory(null);
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
     } else if (mode === 'explanation') {
@@ -1424,6 +1423,7 @@ export default function App() {
   };
 
   const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
+    const navigation = aiNavigationGeneration.current;
     track('ai_settings_confirm', { mode: 'explanation', entry_point: aiExplainSettingsStory ? aiEntryPoint.current : activeChatSession?.analyticsEntryPoint });
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
     const systemInstruction = buildEmpathyPrompt({
@@ -1468,6 +1468,7 @@ export default function App() {
           }
           try {
             const quota = await fetchAiQuotaStatus();
+            if (navigation !== aiNavigationGeneration.current || authUserIdRef.current !== authUserId) return;
             setAiQuotaUsed(quota.used);
             if (target.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
               setPremiumModalStory(target);
@@ -1475,9 +1476,9 @@ export default function App() {
             }
             ({ persona, recovered, quotaMode, legacyCharged } = await openAiRoom(target.id, { mode: 'explanation', ratio }));
             if (recovered) conversationType = 'continuation';
-            if (authUserIdRef.current !== authUserId) return;
+            if (authUserIdRef.current !== authUserId || navigation !== aiNavigationGeneration.current) return;
           } catch {
-            if (authUserIdRef.current !== authUserId) return;
+            if (authUserIdRef.current !== authUserId || navigation !== aiNavigationGeneration.current) return;
             setToastMessage('AI 대화방을 저장하지 못했습니다. 다시 시도해 주세요.');
             return;
           }
@@ -1515,6 +1516,7 @@ export default function App() {
         explanationRatio: ratio
       });
       if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
+      setSelectedStory(null);
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
     } else if (activeChatSession && activeChatSession.chatMode === 'explanation') {
@@ -2153,6 +2155,7 @@ export default function App() {
       />
 
       <StoryDetailModal 
+        interactionPaused={aiSelectionOpen}
         story={hiddenStoriesReady ? visibleSelectedStory : null}
         comments={visibleSelectedStory ? (commentsMap[visibleSelectedStory.id] || []).map(comment => ({
           ...comment,
@@ -2228,7 +2231,7 @@ export default function App() {
       {aiChatModeStory && (
         <AIChatModeSelectionModal
           analyticsEntryPoint={aiEntryPoint.current}
-          onClose={() => setAiChatModeStory(null)}
+          onClose={cancelAiSelection}
           onSelectMode={handleSelectAiChatMode}
           opponentLabel={OPPONENT_LABELS[aiChatModeStory.category] ?? '상대방'}
         />
@@ -2240,9 +2243,7 @@ export default function App() {
           initialRatio={activeChatSession?.chatMode === 'explanation' ? activeChatSession.explanationRatio : 'Middle'}
           onClose={() => {
             setIsExplainSettingsModalOpen(false);
-            if (!activeChatSession && aiExplainSettingsStory) {
-              setAiExplainSettingsStory(null);
-            }
+            if (aiExplainSettingsStory) cancelAiSelection();
           }}
           onConfirm={handleConfirmExplainSettings}
         />

@@ -186,11 +186,11 @@ test('a configured future cutover keeps legacy charging but saves the reply on t
 });
 
 test('feedback requires a saved normal answer and stores score without conversation text', async () => {
-  const postFeedback = async (personaId, episodeId, score) => {
+  const postFeedback = async (personaId, episodeId, score, schemaVersion) => {
     const response = await originalFetch(`${baseUrl}/api/ai/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-owner' },
-      body: JSON.stringify({ personaId, episodeId, score }),
+      body: JSON.stringify({ personaId, episodeId, score, ...(schemaVersion === undefined ? {} : { schemaVersion }) }),
     });
     return { status: response.status, body: await response.json() };
   };
@@ -229,3 +229,25 @@ test('feedback requires a saved normal answer and stores score without conversat
   assert.equal(feedback.get(skipEpisode).outcome, 'skipped');
   assert.equal(feedback.get(skipEpisode).mode, 'simulation');
 });
+
+ test('three-step feedback maps to legacy 1/3/5 and preserves old records', async () => {
+  const send = async (episodeId, score, schemaVersion) => {
+    const res = await originalFetch(`${baseUrl}/api/ai/feedback`, { method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer test-owner'},
+      body:JSON.stringify({personaId:'persona-one',episodeId,score,schemaVersion}) });
+    return {status:res.status, body:await res.json()};
+  };
+  const old = structuredClone(feedback.get('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
+  assert.equal(old.schema_version,1);
+  for (const score of [1,3,5]) {
+    const episode = `12345678-1234-4123-8123-${String(score).padStart(12,'0')}`;
+    assert.match((await turn('one',episode)).text,/"persisted":true/);
+    assert.equal((await send(episode,2,2)).status,400);
+    assert.equal((await send(episode,score,2)).status,201);
+    assert.equal(feedback.get(episode).schema_version,2);
+    assert.equal(feedback.get(episode).score,score);
+    assert.equal((await send(episode,score,2)).status,200);
+    assert.equal((await send(episode,score,1)).status,409);
+  }
+  assert.deepEqual(feedback.get('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),old);
+ });

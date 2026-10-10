@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AI_FEEDBACK_SCHEMA_VERSION } from './aiFeedbackScale';
 
 export async function submitAiFeedback(
   personaId: string, episodeId: string, score: 1 | 2 | 3 | 4 | 5 | null,
@@ -11,7 +12,7 @@ export async function submitAiFeedback(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ personaId, episodeId, score }),
+    body: JSON.stringify({ personaId, episodeId, score, schemaVersion: AI_FEEDBACK_SCHEMA_VERSION }),
   });
   if (!response.ok) throw new Error('AI_FEEDBACK_SAVE_FAILED');
 }

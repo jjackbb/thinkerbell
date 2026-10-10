@@ -1,12 +1,24 @@
+
+## 2026-10-10 운영 보안 적용 완료
+
+사용자 구체 범위 승인과 ‘지금 해’ 재개 지시 후 기존 함수4개의 hash/owner/ACL 불변을 재확인했다. 검증된 적용 파일 본문 MD5 `06aafca48926ffd9cf307edc78475bfb` 보호를 포함한 한 트랜잭션으로 실제 운영 적용했다. 긴 직접 타이핑의 자동완성 오류는 실행하지 않았고 검증 파일 원문을 복사해 적용했다. 원문 사용자 행 조회/삭제는 없었다.
+
+독립 SQL readback에서 조회 RPC 존재=true와 anon stories.body SELECT=false를 확인했다. 추가8항목 모두 true: raw_content_blocked, delete_ids_allowed, raw_rpc_blocked, raw_realtime_removed, id_realtime_preserved, blind_policy, comment_signal_trigger, access_flag. 운영 보안 SQL은 더 이상 미적용 초안이 아니며 1회 적용 기록이다. 클라이언트 자동 배포를 위해 main 정상 커밋·푸시를 이어간다. GA4 누락13개 등록·실제 수신은 별도 완료 증거를 기다린다. 개인정보 안내는 계속 미활성이다.
 # 변경 기록
 
 최신 정책은 [PLAN.md](../PLAN.md)입니다. 아래 PATCH-001~042는 [기존 PRD 원본](../archive/2026-09-22/legacy/PRD.md)의 §7을 보존한 과거 기록입니다. 당시 PASS·운영 상태·경로를 현재 검증으로 해석하지 않습니다. `src/` → `frontend/src/`, API 구현 → `backend/app.ts`, `supabase/` → `backend/supabase/`로 이동했습니다.
+
+## 2026-10-10 AI 마무리·복귀·공개 데이터 경계 — 로컬 미배포
+
+- 무엇을/왜: 사용자 후속 결정의6개월/3단계 안내와 취소복귀를 구현하고 공개 원형 열·블라인드댓글·투표/공감/공개상태 RPC 반환 경계를 로컬 SQL/클라이언트 양쪽에서 보강. 이전 점수와 기존 사용자 변경을 보존.
+- 확인: 타입/모의회귀44+AI진입2·격리DB/REST1 PASS, 합성API 실제Chrome Escape/브라우저뒤로/설정취소 PASS. 운영보안 미적용·신규앱 미배포, 전체모바일/역할/GA4수신 미검증. 이미지초기화 러너 첫FAIL 후보완PASS.
+- 파일: backend/app.ts, App/StoryCard/StoryDetailModal/AIChatView/모드·설정모달, aiFeedback/Scale/Navigation/visibleContent/useNativeModal, 관련회귀·SQL초안, PLAN/정책/처리표/기존인수인계/생성기·HTML. 첫행동 소개는 사용자 승인·미배포, 개인정보는 미활성 초안.
 
 ## 2026-10-10 파비콘만 공개 반영
 
 - 요약/무엇을: 배포 헤더의 코랄 Material Symbols Outlined terminal 원본 경로·색상을 SVG/PNG/ICO/Apple/manifest에 통일하고 앱·소개에 연결.
 - 왜: 사용자 지정 실제 헤더 로고와 이전 파비콘 형태가 달랐다.
-- 확인: Google 원본 path와 #FF6B5A, PNG32/180/192/512, 두 HTML 링크·manifest·빌드 파일 동일성 PASS. 공개 배포 반영은 커밋/푸시 후 별도 대조한다.
+- 확인: Google 원본 path와 #FF6B5A, PNG32/180/192/512, 두 HTML 링크·manifest·빌드 파일 동일성 PASS. main6e18aec 정상푸시/VercelProduction READY·같은Source commit·운영7자산 동일과양HTML 아이콘링크 PASS. 공개 소개문구는 기존문구 유지.
 - 파일: frontend/index.html, landing.html의 아이콘 링크만, public 아이콘7종, docs/release-improvement/favicon-source.md. 첫행동 소개 문구·개인정보·신규 기능/권한 수정은 이 커밋에 포함하지 않음.
 
 ## 2026-10-09 신규 가입 직후 1회 소개·독립 랜딩 계측
@@ -1036,3 +1048,11 @@
 - **자세히:** `docs/ai-prompts.md`
 
 ---
+
+## 2026-10-10 추가 승인과 실행 경계
+
+사용자가 운영 주체·문의 책임자를 변종현 개인(현재 비사업자), 공식 문의처를 ds5305naver@gmail.com, 최소 연령을 만 14세, 성인 전용 콘텐츠를 미지원으로 확정했다. 사업자 등록 여부로 개인정보 관련 의무가 없다고 판단하지 않는다. 외부 공급사 계약·리전·학습·로그/백업 보유 사실은 미확정이며 개인정보 안내는 미활성 초안이다.
+
+첫행동 문구 4개 수정, 운영 보안 SQL의 함수·권한·의존성 대조 후 적용·검증, GA4 기존 목록 대조 후 누락 13개 event scope 등록, 검증 후 main 커밋·푸시가 승인됐다. 아직 실행 완료로 기록하지 않는다. 운영 DB에 read_visible RPC가 없는 동안 해당 클라이언트를 먼저 자동 배포하지 않는다. 삭제 제보는 자료 없음으로 미재현을 유지하고 일반 권한 회귀만 확인한다.
+
+현재 운영 읽기 전용 대조: vote_story(text,text), like_comment(text,integer), set_story_visibility(text,text), notify_story_access_change() 4개 모두 postgres 소유·security definer. 조회 RPC는 아직 없음. 사연·댓글 테이블에는 anon/authenticated의 전체 SELECT가 존재한다. 복구용 메타데이터 조회는 이용자 행 없이 수행했으나 다운로드·전체 의존성 대조·운영 적용은 아직 미완료다.

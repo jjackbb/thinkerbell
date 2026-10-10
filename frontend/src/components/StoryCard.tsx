@@ -392,6 +392,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           </div>
           <div className="space-y-2 pt-1">
             {comments
+              .filter(c => !c.isBlind)
               .filter((c) => {
                 const displayVote = c.authorId === currentUser?.id ? votedOption : c.authorVoted;
                 return activeCommentTab === 'all' || displayVote === activeCommentTab;
