@@ -1,3 +1,11 @@
+## 2026-10-13 검증 브랜치 의존성 보안 패치
+
+- 요약/무엇을: package.json 범위 안에서 lockfile의 Express 4.22.3, body-parser 1.20.8, proxy-addr 2.0.8, qs 6.16.0, PostCSS 8.5.23, nanoid 3.3.18, source-map-js 1.2.2 호환 패치를 반영했다. Playwright와 package.json은 변경하지 않았다.
+- 왜: 앞선 CI의 의존성 취약점 보고를 해소하기 위해 필요한 패치만 갱신했다.
+- 확인: 로컬 npm audit 0건, 타입·빌드·브라우저 fixture 타입·비REST 103개 PASS. 갱신된 lockfile의 실제 DB/브라우저 CI는 재실행 대기이며 기존 성공 결과를 새 의존성의 통과로 대신하지 않는다.
+- 파일: package-lock.json, docs/CHANGELOG.md.
+- 한눈에 보기: 검증 브랜치만 갱신한다. main 병합·배포·운영 DB 변경은 실행하지 않았으며 별도 사전 점검과 승인 조건이 남아 있다.
+
 ## 2026-10-13 알림·답글·AI 보관 격리 CI 최종 통과 기록
 
 - 요약/확인: 코드 커밋 e063de3e의 [Actions 38434219844](https://github.com/jjackbb/thinkerbell/actions/runs/38434219844)가 전체 success로 완료됐다. 타입·비REST 103/103·브라우저 fixture 타입·실제 Chromium 데스크톱/모바일 26/26 및 실제 PostgreSQL/PostgREST/독립 세션 DB 하네스 26개 체크포인트 PASS다.
