@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Disposable Docker/PostgREST and genuinely separate PostgreSQL sessions. No remote DB input."""
-import base64, concurrent.futures, hashlib, hmac, json, os, pathlib, re, secrets, shutil, subprocess, sys, time, urllib.request, urllib.error
+import base64, concurrent.futures, hashlib, hmac, ipaddress, json, os, pathlib, re, secrets, shutil, subprocess, sys, time, urllib.request, urllib.error
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUT = ROOT / 'validation-results' / 'database'
 OUT.mkdir(parents=True, exist_ok=True)
@@ -23,6 +23,47 @@ def cmd(*args, **kw):
 def docker(*args, **kw): return cmd('docker', *args, **kw)
 def sql(statement, app='validation'):
     return docker('exec','-i','-e','PGAPPNAME='+app, DB,'psql','-X','-qAt','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1', input=statement)
+def sanitized(text):
+    text=text.replace(PASSWORD,'[redacted]').replace(JWT,'[redacted]')
+    return re.sub(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+','[redacted JWT]',text)
+def report_container_diagnostics():
+    # Never inspect Config.Env. Keep exited API containers until finally cleanup so
+    # startup failures retain their state and logs, rather than hiding their cause.
+    for name in [DB,API]:
+        try:
+            state=docker('inspect','--format','{{json .State}}',name)
+            ports=docker('inspect','--format','{{json .NetworkSettings.Ports}}',name)
+            log=subprocess.run(['docker','logs','--tail','40',name],env=ENV,text=True,
+                               capture_output=True,timeout=10)
+            print(sanitized('DIAGNOSTIC '+name+' state='+state+' ports='+ports+'\n'+log.stdout+log.stderr),file=sys.stderr)
+        except Exception:
+            pass  # A missing container adds no information; the original error remains fatal.
+def internal_rest_url():
+    # Docker deliberately skips published-port programming on internal-only
+    # networks (moby v28.5.1 libnetwork/endpoint.go, !n.internal guard).
+    # Linux hosts can reach their internal bridge directly. Accept only the exact
+    # new container's inspected address on our one fresh internal bridge; no URL input.
+    if sys.platform!='linux': raise RuntimeError('Direct internal-bridge validation requires Linux')
+    meta=json.loads('['+docker('inspect','--format',
+        '{{json .Id}},{{json .Name}},{{json .State.Running}},{{json .NetworkSettings.Networks}},{{json .HostConfig.PortBindings}}',API)+']')
+    container_id,name,running,networks,bindings=meta
+    if not container_id or name!='/'+API or not running: raise RuntimeError('PostgREST container is not running')
+    if bindings or set(networks)!={NET}: raise RuntimeError('PostgREST must have no host port bindings and exactly the fresh internal network')
+    net=json.loads(docker('network','inspect',NET))[0]
+    endpoint=networks[NET]
+    if not net.get('Id') or net.get('Name')!=NET or net.get('Internal') is not True or net.get('Driver')!='bridge' or endpoint.get('NetworkID')!=net.get('Id'):
+        raise RuntimeError('PostgREST network identity/isolation mismatch')
+    if (net.get('Options') or {}).get('com.docker.network.bridge.gateway_mode_ipv4')=='isolated':
+        raise RuntimeError('Internal bridge has no host gateway; direct access unsupported')
+    member=net.get('Containers',{}).get(container_id,{})
+    address=ipaddress.IPv4Address(endpoint.get('IPAddress',''))
+    allowed=[ipaddress.IPv4Network(cidr) for cidr in ['10.0.0.0/8','172.16.0.0/12','192.168.0.0/16']]
+    subnets=[ipaddress.ip_network(c['Subnet']) for c in net.get('IPAM',{}).get('Config',[]) if c.get('Subnet')]
+    if not any(address in subnet for subnet in allowed) or not any(address in subnet for subnet in subnets if subnet.version==4):
+        raise RuntimeError('PostgREST address is outside the fresh private network')
+    if member.get('Name')!=API or ipaddress.ip_interface(member.get('IPv4Address','')).ip!=address:
+        raise RuntimeError('PostgREST address is not assigned to the exact fresh container')
+    return 'http://'+str(address)+':3000'
 def wait_for_final_postgres():
     # This image uses docker-library's temporary socket-only server while running
     # /docker-entrypoint-initdb.d. Socket SELECT 1 can race those migrations.
@@ -73,10 +114,10 @@ def token(user):
     enc=lambda v:base64.urlsafe_b64encode(json.dumps(v,separators=(',',':')).encode()).rstrip(b'=')
     payload=enc({'alg':'HS256','typ':'JWT'})+b'.'+enc({'role':'authenticated','sub':user,'exp':int(time.time())+600})
     return (payload+b'.'+base64.urlsafe_b64encode(hmac.new(JWT.encode(),payload,hashlib.sha256).digest()).rstrip(b'=')).decode()
-def rest(path,user=OWNER,data=None,method=None):
+def rest(path,user=OWNER,data=None,method=None,timeout=15):
     req=urllib.request.Request(URL+path, data=None if data is None else json.dumps(data).encode(), headers={'Authorization':'Bearer '+token(user),'Content-Type':'application/json'},method=method)
     try:
-        with HTTP.open(req,timeout=15) as r: return r.status,json.loads(r.read() or b'null')
+        with HTTP.open(req,timeout=timeout) as r: return r.status,json.loads(r.read() or b'null')
     except urllib.error.HTTPError as e: return e.code,json.loads(e.read() or b'null')
 def complete(room,request='aaaaaaaa-1234-4234-8234-123456789abc'):
     return f"select public.complete_ai_turn('{OWNER}','{room}','{request}','synthetic prompt','synthetic answer',now(),'2099-01-01 00:00+09');"
@@ -103,16 +144,20 @@ try:
     end $$; grant execute on function public.set_validation_claims() to anon,authenticated;
     """)
     docker('exec',DB,'psql','-X','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-c',f"alter role authenticator password '{PASSWORD}';")
-    docker('run','--rm','-d','--name',API,'--network',NET,'-p','127.0.0.1::3000','-e',f'PGRST_DB_URI=postgres://authenticator:{PASSWORD}@{DB}:5432/postgres','-e','PGRST_DB_SCHEMAS=public','-e','PGRST_DB_ANON_ROLE=anon','-e','PGRST_JWT_SECRET='+JWT,'-e','PGRST_DB_PRE_REQUEST=public.set_validation_claims',REST_IMAGE)
-    port=docker('port',API,'3000/tcp')
-    if not re.fullmatch(r'127\.0\.0\.1:\d+',port): raise RuntimeError('REST must bind only loopback')
-    URL='http://'+port
-    for _ in range(60):
+    docker('run','-d','--name',API,'--network',NET,'-e','PGRST_SERVER_HOST=0.0.0.0','-e','PGRST_SERVER_PORT=3000','-e',f'PGRST_DB_URI=postgres://authenticator:{PASSWORD}@{DB}:5432/postgres','-e','PGRST_DB_SCHEMAS=public','-e','PGRST_DB_ANON_ROLE=anon','-e','PGRST_JWT_SECRET='+JWT,'-e','PGRST_DB_PRE_REQUEST=public.set_validation_claims',REST_IMAGE)
+    URL=internal_rest_url()
+    rest_deadline=time.monotonic()+30
+    readiness_status='not reached'
+    while time.monotonic()<rest_deadline:
+        if docker('inspect','--format','{{.State.Running}}',API)!='true':
+            raise RuntimeError('PostgREST exited before REST readiness')
         try:
-            if rest('/rpc/count_my_unread_notifications',data={})[0]==200: break
-        except (OSError,urllib.error.URLError): pass
+            readiness_status=rest('/rpc/count_my_unread_notifications',data={},timeout=2)[0]
+            if readiness_status==200: break
+        except (OSError,urllib.error.URLError) as exc:
+            readiness_status=type(exc).__name__
         time.sleep(.5)
-    else: raise RuntimeError('PostgREST readiness timeout')
+    else: raise RuntimeError('PostgREST readiness timeout on verified private container address; last status='+str(readiness_status))
     status,rows=rest('/rpc/read_my_notifications',data={})
     check('owner reads actual PostgREST inbox',status==200 and len(rows)==1)
     event=rows[0]['id']
@@ -187,7 +232,8 @@ try:
 except Exception as exc:
     # Never dump subprocess arguments or environment: they can contain temporary JWT secrets.
     message=str(exc) if not isinstance(exc,subprocess.CalledProcessError) else 'subprocess failed: '+(exc.stderr or '')[-2000:]
-    message=message.replace(PASSWORD,'[redacted]').replace(JWT,'[redacted]')
+    message=sanitized(message)
+    report_container_diagnostics()
     results.append(message if message.startswith('NOT_RUN:') else 'FAIL: '+message); print(results[-1],file=sys.stderr)
     sys.exit(2 if 'NOT_RUN:' in message else 1)
 finally:

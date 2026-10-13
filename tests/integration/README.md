@@ -12,10 +12,16 @@ Requirements: Linux local Docker socket `/var/run/docker.sock`, Python 3, Node 2
 and lockfile dependencies (`npm ci --ignore-scripts`). The database runner takes no
 URL, credential, container name, or image override. It forces the local Docker
 socket, ignores inherited Docker/database configuration, never loads `.env`, and
-creates uniquely named disposable containers on an internal Docker network. Only
-PostgREST's random port is published, to `127.0.0.1`. No production API is called.
+creates uniquely named disposable containers on an internal Docker network. No host ports are published. On Linux, the test reaches PostgREST directly on its
+internal bridge address, accepted only after verifying exact fresh container and
+network identity, private subnet membership, running state, and no host bindings.
+Inherited HTTP proxies are disabled. Unsupported/non-Linux access fails closed.
+No production API is called.
 Temporary generated PostgreSQL/JWT secrets are never printed or persisted in
-artifacts. Containers and network are removed on exit (including test failure).
+artifacts. Containers and network are removed on exit (including test failure). Failed starts
+print only sanitized state, port metadata and bounded container logs; container
+environment configuration is never dumped. PostgreSQL readiness requires the final
+authenticated TCP server, not its temporary socket-only initialization server.
 
 The SQL drafts and activation transaction run ONLY in the freshly created fixture.
 The fixture uses existing repository migration/contract SQL and its documented
