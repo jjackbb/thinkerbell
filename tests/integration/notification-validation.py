@@ -216,12 +216,28 @@ try:
     if not body: raise RuntimeError('reviewed legacy purger source missing; do not guess')
     sql("update public.ai_retention_config set enabled=false,activated_at=null;"+f"insert into public.ai_personas(id,\"userId\",\"createdAt\",\"updatedAt\") values('queued-legacy','{OWNER}','2019-01-01','2019-01-01');"+"create function public.purge_stale_ai_personas() returns integer language plpgsql security definer as $legacy$"+body[1]+"$legacy$;")
     sql("create extension if not exists pg_cron; select cron.schedule('purge-stale-ai-personas','1 15 * * *','select public.purge_stale_ai_personas();');")
-    holder=session('lock table public.ai_personas in access exclusive mode')
-    activation_sql = """select set_config('app.approve_ai_retention_activation','yes',false);
+    check('cron operator has SELECT and supported API but no direct UPDATE grant',scalar("select has_table_privilege(current_user,'cron.job','SELECT') and not has_table_privilege(current_user,'cron.job','UPDATE') and has_function_privilege(current_user,'cron.alter_job(bigint,text,text,text,text,boolean)','EXECUTE')")=='t')
+    activation_sql = '\\set VERBOSITY verbose\n' + """select set_config('app.approve_ai_retention_activation','yes',false);
     select set_config('app.approve_ai_retention_warning_schedule','yes',false);
     select set_config('app.reviewed_legacy_ai_purger_md5',md5(pg_get_functiondef('public.purge_stale_ai_personas()'::regprocedure)),false);
     select set_config('app.reviewed_legacy_ai_cron_md5',md5(jsonb_build_object('jobid',jobid,'jobname',jobname,'schedule',schedule,'command',command,'database',database,'username',username,'active',active)::text),false) from cron.job where jobname='purge-stale-ai-personas';
     """ + (ROOT/'backend/supabase/drafts/ai-retention-activation.sql').read_text()
+    # A real second transaction changes the reviewed cron row through the supported
+    # pg_cron API. Its uncommitted row is invisible to activation's serializable
+    # snapshot, but activation must wait for it before attempting its own update.
+    drift=session("select cron.alter_job((select jobid from cron.job where jobname='purge-stale-ai-personas'),schedule:='2 15 * * *')")
+    drift_activation=pool.submit(sql,activation_sql,'activation-cron-drift')
+    blocked('activation-cron-drift'); release(drift)
+    try:
+        drift_activation.result(timeout=30)
+        raise AssertionError('activation overwrote concurrently changed cron metadata')
+    except subprocess.CalledProcessError as exc:
+        check('concurrent cron drift aborts activation with serialization failure','40001' in exc.stderr)
+    check('cron drift rollback preserves inactive config and uninitialized room',scalar("select (select not enabled and activated_at is null from public.ai_retention_config) and (select \"expiresAt\" is null and \"retentionVersion\" is null from public.ai_personas where id='queued-legacy') and not exists(select 1 from public.notification_events where room_id='queued-legacy')")=='t')
+    check('concurrent cron edit commits while activation changes all roll back',scalar("select (select schedule='2 15 * * *' and command='select public.purge_stale_ai_personas();' from cron.job where jobname='purge-stale-ai-personas') and not exists(select 1 from cron.job where jobname='thinkerbell-ai-expiry-warnings')")=='t')
+    # Restore only the synthetic review baseline through the same supported API.
+    sql("select cron.alter_job((select jobid from cron.job where jobname='purge-stale-ai-personas'),schedule:='1 15 * * *')")
+    holder=session('lock table public.ai_personas in access exclusive mode')
     activation=pool.submit(sql,activation_sql,'activation-race')
     blocked('activation-race')
     queued=pool.submit(sql,'select public.purge_stale_ai_personas();','queued-old-cron')

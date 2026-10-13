@@ -1,3 +1,11 @@
+## 2026-10-13 실제 REST·동시성 확인과 활성화 초안 권한 보완
+
+- 요약/확인: 검증 커밋 17277099의 CI에서 실제 PostgreSQL 계약·PostgREST 본인/타인 접근·읽음·RLS·서비스 RPC 차단·동시 답글/투표·대화 완료/삭제 경쟁까지 19개 확인이 통과했고 브라우저 26/26도 재통과했다. 마지막 활성화 경쟁 시험은 cron.job 직접 행 잠금 권한 부재로 실패했으므로 전체 통과는 아니다.
+- 무엇을/왜: 운영 미적용 활성화 SQL 초안에서 직접 UPDATE 권한이 필요한 FOR UPDATE를 제거하고 SERIALIZABLE 트랜잭션과 지원되는 cron.alter_job API를 사용한다. 동시 cron 변경은 직렬화 실패로 전체 롤백되어야 하며 최신 메타데이터 재검토 후에만 재시도한다. 권한 부여·RLS 완화·운영 실행은 없다.
+- 확인: 로컬 PGlite AI 계약 89개·낮은 격리수준 거부·정적 검토 PASS. 실제 pg_cron 동시 변경 시 40001 및 설정/방/알림/예약 롤백을 확인하는 회귀를 추가했다. 새 다중 세션 회귀와 전체 CI 재실행은 대기 상태다.
+- 파일: backend/supabase/drafts/ai-retention-activation.sql, tests/integration/notification-validation.py, tests/integration/README.md, docs/plan-execution/2026-10-13-notifications-foundation.md, docs/CHANGELOG.md.
+- 한눈에 보기: 활성화는 계속 미적용 초안이며 검증은 새 합성 DB에 한정한다. main·운영 데이터·기능 플래그·배포 변경 없음.
+
 ## 2026-10-13 실제 브라우저 통과와 격리 DB 네트워크 보완
 
 - 요약/확인: 검증 커밋 bc5f097의 두 번째 CI에서 타입·비REST 103/103·브라우저 fixture 타입 검사와 실제 Chromium 데스크톱/모바일 26/26이 통과했다. 최종 TCP 준비 대기와 실제 PostgreSQL의 기존 알림/AI SQL 계약도 통과했다. 이후 PostgREST 연결 준비에서 내부 Docker 네트워크의 호스트 포트 매핑 부재로 중단했으므로 REST·다중 세션 전체 PASS는 아니다.

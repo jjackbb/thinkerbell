@@ -32,7 +32,8 @@ and changes synthetic pg_cron rows only; it does not authorize real activation.
 Coverage: existing single-session SQL contracts; authenticated PostgREST own inbox,
 read marking and cross-owner denial; direct table ACL plus actual recipient RLS;
 service-only reply denial; two independently blocked reply creates and threshold
-votes; concurrent completion/retry/purge; locked expired-row purge; and activation
+votes; concurrent completion/retry/purge; locked expired-row purge; concurrent cron metadata drift causing a serializable activation abort with full
+rollback; and activation
 queued ahead of an already-started legacy purger statement. Races assert real
 `pg_stat_activity` lock waits before releasing the holder. They are not simulated
 with mocked REST responses. Browser fixtures are separate from these DB tests.
@@ -59,3 +60,17 @@ Local preparation checks: Python compilation and workflow parsing. Real Docker,
 PostgREST and concurrent-session results remain NOT_RUN until a Docker-capable
 run completes. No commit, push, CI dispatch, production migration or cron change
 is performed by preparing these files.
+
+## Supabase cron operator boundary
+
+The official Supabase PostgreSQL 17.6.1.171 fixture grants `postgres` SELECT on
+`cron.job`, deliberately not direct UPDATE. The activation draft therefore uses a
+SERIALIZABLE transaction and the supported `cron.alter_job` API, not SELECT FOR
+UPDATE or additional privileges. A simultaneous cron change must abort activation
+with SQLSTATE 40001 and roll back configuration, room initialization, warning rows
+and scheduler edits. Operators must re-review changed metadata before retrying.
+The integration test commits that drift from a separate real connection and checks
+rollback without granting cron table privileges. No operating cron is touched.
+
+Source: [official image privilege setup](https://github.com/supabase/postgres/blob/17.6.1.171/migrations/schema-15.sql)
+and [pg_cron supported update implementation](https://github.com/citusdata/pg_cron/blob/v1.6.4/src/job_metadata.c).

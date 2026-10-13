@@ -11,7 +11,12 @@
 -- The old daily physical purge time stays 00:01 KST. Warnings are due seven days
 -- before exact expiry, persisted at the next five-minute tick or inbox read; delays
 -- are possible during outages. Legacy grace warnings are atomic with activation.
-begin;
+-- Run as the reviewed cron job's owning operator. Supabase intentionally gives
+-- postgres SELECT, not direct UPDATE, on cron.job; never grant extra table rights.
+-- SERIALIZABLE preserves the reviewed metadata snapshot through cron.alter_job's
+-- supported privileged update. Concurrent cron drift aborts this entire transaction
+-- with SQLSTATE 40001; inspect/re-review metadata before any retry.
+begin isolation level serializable;
 lock table public.ai_personas in access exclusive mode;
 do $$
 declare j record; v_hash text; v_existing timestamptz;
@@ -22,8 +27,9 @@ begin
   or current_setting('app.approve_ai_retention_warning_schedule',true) is distinct from 'yes' then
   raise exception 'EXPLICIT_ACTIVATION_AND_SCHEDULER_APPROVAL_REQUIRED';
  end if;
+ if current_setting('transaction_isolation')<>'serializable' then raise exception 'SERIALIZABLE_ACTIVATION_REQUIRED'; end if;
  if (select count(*) from cron.job where jobname='purge-stale-ai-personas')<>1 then raise exception 'LEGACY_CRON_IDENTITY_CHANGED'; end if;
- select * into j from cron.job where jobname='purge-stale-ai-personas' for update;
+ select * into j from cron.job where jobname='purge-stale-ai-personas';
  select activated_at into v_existing from public.ai_retention_config where singleton;
  if v_existing is not null then
   -- Retry is read-only and may not reset the transition anchor or warning dates.

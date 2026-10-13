@@ -112,7 +112,7 @@ end;
 - 로컬 변경: 구현 초안 작성, 기본 비활성·미적용. 위 AI/알림 계약을 코드에 반영했으며 최종 SQL 해시/격리 계약·타입·빌드·비REST 회귀를 아래에서 확인했다.
 - 최종 통합 확인(14:41:43 UTC): `npm run lint`·`npm run build`·`git diff --check` PASS, SQL 해시가 독립 검증본과 일치. 최종 비REST 합계 **103/103 PASS**. 기본 비활성 빌드와 `VITE_AI_RETENTION_ENABLED=true VITE_NOTIFICATIONS_REPLIES_ENABLED=true` 빌드 모두 PASS다. 프론트 22개(React SSR 3개 포함)는 부분집합으로 별도 합산하지 않는다.
 - 최종 격리 DB 계약: PASS. 독립 검증에서 AI 89 assertions·알림 42 및 기존 quota/completion/feedback 계약 통과. 실제 10표 도달 후 투표자 삭제·재도달에도 이벤트 한 번 유지, 활성화 승인 거부 gate를 포함한다. 실제 cron 활성화·Supabase REST·다중 세션 동시성은 NOT_RUN이다. 전환 시 이미 대기 중인 구형 cron과의 경쟁은 방어 설계만 있으며 다중 세션 안전성이 입증된 것은 아니다.
-- 최종 검증 SQL SHA-256: AI `09f8b83e02c90bcf6f1d8fd022f7a8afbb369c245a280f13dde56598bff647e3`, 알림 `c7c02f7d62577a6f399f819098685c468f6453442c862c03c1938094660af15e`. 현재 파일과 일치함을 대조했다. 활성화 템플릿 SHA-256 `3b5c89b9530fad03c271ff7f04564420ff45f6502f1a028d87392817a06a48fb`, preflight `952358522d883a2db66a273560812b0e6a7a1bfdbdb7cfa47aff7ac36ec2c9c7`도 최종 검증 값이다. 앞선 06:04 UTC 해시와 구분한다.
+- 최종 검증 SQL SHA-256: AI `09f8b83e02c90bcf6f1d8fd022f7a8afbb369c245a280f13dde56598bff647e3`, 알림 `c7c02f7d62577a6f399f819098685c468f6453442c862c03c1938094660af15e`. 현재 파일과 일치함을 대조했다. 당시 활성화 템플릿 SHA-256 `3b5c89b9530fad03c271ff7f04564420ff45f6502f1a028d87392817a06a48fb`(아래 cron 권한 수정 전), preflight `952358522d883a2db66a273560812b0e6a7a1bfdbdb7cfa47aff7ac36ec2c9c7`도 최종 검증 값이다. 앞선 06:04 UTC 해시와 구분한다.
 - 후속 계약 파일: `tests/ai-retention-contract.sql`, `tests/notifications-replies-contract.sql`. 재현 하네스 `tests/ai-retention-pglite.mjs`, `tests/notifications-retention-regression-pglite.mjs`가 추가됐다. 실제 Docker 경로 `tests/run-ai-retention-local.sh`는 shell syntax PASS지만 Docker 부재로 실행 NOT_RUN이며 실제 PostgreSQL 다중 세션 검증으로 확대하지 않는다.
 - 브라우저·모바일·상호작용 접근성·계정 전환·만료 안내 및 알림 이동: BLOCKED/NOT_RUN. React SSR 검사는 HTML 생성 확인이며 실제 브라우저 상호작용 검증이 아니다. 앞선 렌더 환경 차단은 해소되지 않았다.
 - 실제 운영 wrapper/AI 완료 함수/purge/ACL/의존성/cron 재대조: PENDING. 기존 운영 purge 근거는 05:33–05:35 UTC 기록이며 변경 전 재확인이 필요하다.
@@ -123,3 +123,12 @@ end;
 ### 남은 출시 조건
 
 승인 정책에 맞춘 후속 구현의 실제 파일·해시·검증 결과를 확정하고 기본 비활성을 확인한다. 실제 운영 함수 본문·권한·fingerprint 일치, 본인/타인/비로그인 RLS·RPC 경계, 다중 세션 동시성, 시간 경계/기존 방 유예, 실제 브라우저와 전체 검사를 확인한 뒤(별도 검증 환경/CI 사용 승인이 필요한 경우 먼저 확보), 5분 maintenance 예약을 포함해 운영 적용·기존 데이터 전환/삭제·배포·활성화 승인을 별도로 받는다. 이전 합성 시험 통과를 이 게이트의 완료로 확대하지 않는다.
+
+
+## 격리 CI cron 권한 수정 — 2026-10-13 16:49 UTC
+
+- 실제 Supabase 이미지 검증에서 `postgres`는 `cron.job` SELECT만 허용되어, 활성화 초안의 `SELECT FOR UPDATE`가 실패했다. 이는 테스트용 권한 부족을 임의로 풀 문제가 아니라 운영자 권한 경계를 잘못 가정한 초안 결함이다.
+- 활성화 트랜잭션을 SERIALIZABLE로 명시하고 일반 SELECT 및 기존 `cron.alter_job` API를 사용한다. 이미 쿼리를 실행한 낮은 격리 수준의 트랜잭션은 PostgreSQL이 격리 수준 변경 단계에서 거부하며, 본문에서도 SERIALIZABLE 여부를 검사한다. 동시 cron 변경은 SQLSTATE 40001로 전체 활성화를 중단해야 하며, 운영자는 변경된 메타데이터를 재검토한 뒤 재시도를 판단한다. 테이블 권한 추가·역할 상승·운영 실행은 없다.
+- 초안 SHA-256: `f56d726e50781f48bd887cd9294b8dbf664f5ca9e8d54bf6cad12fb23bc10140`. 기존 알림/AI 준비 SQL 및 preflight 내용은 바뀌지 않았다.
+- 로컬 PGlite 89개 계약 및 기존 READ COMMITTED 트랜잭션 거부 검사 통과. 별도 연결의 `cron.alter_job` 변경 커밋과 활성화의 직렬화 실패·전체 롤백을 검사하는 회귀를 추가했으며, 실제 다중 연결 결과는 다음 격리 CI에서 확인해야 한다.
+- 근거: [공식 이미지 권한 초기화](https://github.com/supabase/postgres/blob/17.6.1.171/migrations/schema-15.sql), [pg_cron 변경 API 구현](https://github.com/citusdata/pg_cron/blob/v1.6.4/src/job_metadata.c).
