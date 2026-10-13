@@ -1,3 +1,10 @@
+## 2026-10-13 알림·답글·AI 보관 격리 CI 최종 통과 기록
+
+- 요약/확인: 코드 커밋 e063de3e의 [Actions 38434219844](https://github.com/jjackbb/thinkerbell/actions/runs/38434219844)가 전체 success로 완료됐다. 타입·비REST 103/103·브라우저 fixture 타입·실제 Chromium 데스크톱/모바일 26/26 및 실제 PostgreSQL/PostgREST/독립 세션 DB 하네스 26개 체크포인트 PASS다.
+- 무엇을/왜: 검증 결과와 앞선 실패/수정 이력을 문서에 기록한다. 실제 수신자 RLS·서비스 RPC 경계·동시 답글/투표·완료/삭제 경쟁·cron 직렬화 실패 롤백·대기하던 구형 purge의 유예 보존까지 확인했다. 이 변경은 문서만이며 시험된 코드는 그대로다.
+- 파일: docs/plan-execution/2026-10-13-notifications-foundation.md, docs/CHANGELOG.md.
+- 한눈에 보기: 새 합성 DB/브라우저의 작성된 시험 범위만 PASS다. main·운영 DB·실제 데이터·배포·기능 활성화·공개 개인정보 안내는 변경하지 않았다. 최종 운영 검토와 승인은 계속 필요하다.
+
 ## 2026-10-13 실제 REST·동시성 확인과 활성화 초안 권한 보완
 
 - 요약/확인: 검증 커밋 17277099의 CI에서 실제 PostgreSQL 계약·PostgREST 본인/타인 접근·읽음·RLS·서비스 RPC 차단·동시 답글/투표·대화 완료/삭제 경쟁까지 19개 확인이 통과했고 브라우저 26/26도 재통과했다. 마지막 활성화 경쟁 시험은 cron.job 직접 행 잠금 권한 부재로 실패했으므로 전체 통과는 아니다.
