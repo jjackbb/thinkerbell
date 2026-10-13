@@ -1,3 +1,6 @@
+import { NotificationList } from './NotificationList';
+import { notificationRequest, notificationsRepliesEnabled } from '../lib/notifications';
+import type { InAppNotification } from '../lib/notificationModel';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Story, Comment } from '../types';
@@ -19,6 +22,7 @@ interface MyPageViewProps {
   onUpdateNickname: (nickname: string) => Promise<boolean>;
   onGenerateRandomNickname: () => Promise<string | null>;
   onSelectStory: (story: Story) => void;
+  onOpenNotification: (item: InAppNotification, signal?: AbortSignal) => Promise<boolean>;
   /** 한도 안내에서 '내 사연 보기'를 눌렀을 때 작성한 사연 탭으로 이동한다. */
   storiesNavigationKey?: number;
   /** 지금 남아 있는 AI 대화방 수 */
@@ -54,12 +58,25 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   onUpdateNickname,
   onGenerateRandomNickname,
   onSelectStory,
+  onOpenNotification,
   storiesNavigationKey,
   aiChatCount = 0,
   onDeleteAllAiChats,
   isGuest = false,
   onRequireLogin,
 }) => {
+  const [unread, setUnread] = useState<{ owner: string; count: number } | null>(null);
+  const unreadRequest = useRef<AbortController | null>(null);
+  const unreadCount = unread?.owner === user.id && !isGuest ? unread.count : 0;
+  useEffect(() => {
+    setUnread(null);
+    if (isGuest || !notificationsRepliesEnabled) return;
+    const controller = new AbortController();
+    unreadRequest.current = controller;
+    notificationRequest<{ unreadCount: number }>(user.id, '/unread-count', 'GET', controller.signal)
+      .then(result => { if (!controller.signal.aborted) setUnread({ owner: user.id, count: result.unreadCount }); }).catch(() => {});
+    return () => controller.abort();
+  }, [user.id, isGuest]);
   /** 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
@@ -631,10 +648,10 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           </button>
           <h2 className="text-lg font-bold font-headline-md">알림</h2>
         </header>
-        <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-2">
-          <p className="text-sm font-bold text-[#1C1C1C]">알림은 준비 중입니다.</p>
-          <p className="text-xs text-[#5f5e5e] leading-relaxed">현재 밸런스 게임·투표·댓글 알림은 발송되지 않습니다. 알림 기능이 준비되면 이곳에서 받을 항목을 선택할 수 있습니다.</p>
-        </section>
+        {notificationsRepliesEnabled && !isGuest ? <NotificationList key={user.id} accountId={user.id} onOpen={onOpenNotification} onUnreadChange={count => { unreadRequest.current?.abort(); setUnread({ owner: user.id, count }); }} /> : <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-2">
+          <p className="text-sm font-bold text-[#1C1C1C]">{isGuest ? '로그인하면 내 알림을 확인할 수 있어요.' : '알림은 준비 중입니다.'}</p>
+          {isGuest && <button type="button" onClick={() => onRequireLogin?.('알림을 확인하려면 로그인이 필요해요.')} className="text-sm underline">로그인하기</button>}
+        </section>}
       </div>
     );
   }
@@ -927,7 +944,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
         <button data-button-id="my-page-view-button-33" onClick={() => setViewMode('notifications')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">
-          <span>알림 · 준비 중</span>
+          <span>{notificationsRepliesEnabled ? `알림${unreadCount ? ` · 안 읽음 ${unreadCount}` : ''}` : '알림 · 준비 중'}</span>
           <ChevronRight className="w-5 h-5 text-[#5f5e5e]" />
         </button>
         <button data-analytics-exclude="true" data-button-id="my-page-view-button-34" onClick={() => setViewMode('support')} className="w-full flex items-center justify-between p-4 bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B5A] transition-colors font-bold text-sm text-[#1C1C1C] cursor-pointer">

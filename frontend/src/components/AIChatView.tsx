@@ -1,3 +1,4 @@
+import { aiRetentionEnabled } from '../lib/notifications';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
@@ -9,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { submitAiFeedback } from '../lib/aiFeedback';
 import { messagesBeforeRetry } from '../lib/chatRetry';
 
-import { AI_FEEDBACK_CHOICES, AI_CHAT_RETENTION_NOTICE } from '../lib/aiFeedbackScale';
+import { AI_FEEDBACK_CHOICES, aiChatRetentionNotice, aiExpiryLabel, aiRetentionBasisNotice } from '../lib/aiFeedbackScale';
 
 interface AIChatViewProps {
   /** 위기 표현이 감지되면 알린다 (전송은 막지 않는다) */
@@ -23,6 +24,7 @@ interface AIChatViewProps {
   onUpdateSession?: (sessionId: string, personaId: string, updates: Partial<ChatSession>) => void;
   onSaveTurn?: (personaId: string, messages: ChatMessage[]) => Promise<boolean>;
   onQuotaChanged?: () => void;
+  onTurnPersisted?: (personaId: string) => void;
   onOpenSettings?: () => void;
   onTogglePinPersona?: (personaId: string) => void;
   onDeletePersona?: (personaId: string) => Promise<boolean> | boolean;
@@ -58,6 +60,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onUpdateSession,
   onSaveTurn,
   onQuotaChanged,
+  onTurnPersisted,
   onOpenSettings,
   onTogglePinPersona,
   onDeletePersona,
@@ -330,6 +333,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           setIsSaving(false);
         }
         setSaveFailed(!saved);
+        if (saved) onTurnPersisted?.(selectedPersona.id);
         if (saved && ended) setSimEndResult(ended);
         track(saved ? 'operation_success' : 'operation_error', {
           ...analyticsProps,
@@ -550,6 +554,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             </div>
           ) : null}
 
+          {aiRetentionEnabled && !isGuest && <p className="mb-4 text-xs text-[#5f5e5e]">{aiChatRetentionNotice(true)}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {personas.map((persona) => (
               <div data-action-id="a-i-chat-view-action-01"
@@ -558,6 +563,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                 className="bg-white border border-[#E5E7EB] hover:border-[#FF6B5A] p-6 rounded-lg flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
               >
                 <div>
+                  {aiRetentionEnabled && aiExpiryLabel(persona.expiresAt) && <p className="mb-2 text-xs text-[#5f5e5e]">{aiExpiryLabel(persona.expiresAt)}</p>}
+                  {aiRetentionEnabled && aiRetentionBasisNotice(persona.retentionBasis) && <p className="mb-2 text-xs text-[#5f5e5e]">{aiRetentionBasisNotice(persona.retentionBasis)}</p>}
                   <div className="flex items-center justify-between mb-3 font-mono text-xs">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-0.5 bg-[#f3f4f5] text-[#1C1C1C] font-semibold rounded">
@@ -921,7 +928,9 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           role="dialog" aria-modal="true" aria-labelledby="ai-feedback-title">
           <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl">
             <h2 id="ai-feedback-title" className="text-lg font-bold text-[#1C1C1C]">이 AI 대화가 도움이 되었나요?</h2>
-            <p className="mt-2 text-xs text-[#5f5e5e]">{AI_CHAT_RETENTION_NOTICE}</p>
+            <p className="mt-2 text-xs text-[#5f5e5e]">{aiChatRetentionNotice(aiRetentionEnabled)}</p>
+            {aiRetentionEnabled && aiExpiryLabel(selectedPersona.expiresAt) && <p className="mt-2 text-xs text-[#5f5e5e]">{aiExpiryLabel(selectedPersona.expiresAt)}</p>}
+            {aiRetentionEnabled && aiRetentionBasisNotice(selectedPersona.retentionBasis) && <p className="mt-2 text-xs text-[#5f5e5e]">{aiRetentionBasisNotice(selectedPersona.retentionBasis)}</p>}
             <div className="mt-5 grid gap-2">
               {AI_FEEDBACK_CHOICES.map(({ label, score }, index) => (
                 <button data-analytics-exclude="true" data-button-id="ai-chat-view-button-20" key={score} type="button" aria-label={`${label}, 3단계 중 ${index + 1}단계`} disabled={feedbackSaving}

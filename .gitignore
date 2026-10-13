@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .vercel
 backend/supabase/.temp/
+
+# Local synthetic validation output (never publish traces or reports)
+validation-results/

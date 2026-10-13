@@ -1,3 +1,6 @@
+import { notificationRequest } from './notifications';
+import { isCurrentAiWarning } from './aiRetention';
+import type { InAppNotification } from './notificationModel';
 import { measuredTask } from './taskAnalytics';
 import { supabase } from './supabase';
 import type { AIPersona } from '../types';
@@ -19,6 +22,10 @@ import type { AIPersona } from '../types';
 /** DB 컬럼과 화면에서 쓰는 모양을 맞춘다 */
 const toPersona = (row: any): AIPersona => ({
   id: row.id,
+  lastCompletedAt: row.lastCompletedAt ?? null,
+  expiresAt: row.expiresAt ?? null,
+  retentionVersion: row.retentionVersion,
+  retentionBasis: row.retentionBasis,
   name: row.name,
   role: row.role,
   category: row.category,
@@ -138,4 +145,20 @@ export async function deletePersona(personaId: string): Promise<boolean> {
 export async function deleteAllPersonas(userId: string): Promise<boolean> {
   const { error } = await supabase.from('ai_personas').delete().eq('userId', userId);
   return !error;
+}
+
+/** Fresh owner-scoped server read. Never fall back to cached rooms for a warning. */
+export async function fetchAiRoom(accountId: string, roomId: string, signal?: AbortSignal): Promise<AIPersona> {
+  const { data: { session } } = await supabase.auth.getSession();
+  signal?.throwIfAborted();
+  if (!session || session.user.id !== accountId) throw new Error('AUTH_REQUIRED');
+  const response = await fetch(`/api/ai/rooms/${encodeURIComponent(roomId)}`, { signal, headers: { Authorization: `Bearer ${session.access_token}` } });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.room?.id !== roomId || result.room?.userId !== accountId) throw new Error('ROOM_UNAVAILABLE');
+  return toPersona(result.room);
+}
+export async function fetchAiWarningTarget(accountId: string, item: InAppNotification, signal?: AbortSignal): Promise<AIPersona> {
+  const result = await notificationRequest<{ room: any }>(accountId, `/${encodeURIComponent(item.id)}/target`, 'GET', signal);
+  if (result.room?.userId !== accountId || !isCurrentAiWarning(item, result.room)) throw new Error('WARNING_UNAVAILABLE');
+  return toPersona(result.room);
 }

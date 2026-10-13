@@ -1,3 +1,5 @@
+import { notificationsRepliesEnabled, aiRetentionEnabled } from './lib/notifications';
+import type { InAppNotification } from './lib/notificationModel';
 import { canContinueAiNavigation, readAiReturnStory } from './lib/aiNavigation';
 import { fetchVisibleStories, fetchVisibleStory, fetchVisibleComments } from './lib/visibleContent';
 import { createSignupLandingGate, signupLandingHref } from './lib/signupLanding';
@@ -30,7 +32,7 @@ import { supabase } from './lib/supabase';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
-import { fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
+import { fetchAiRoom, fetchAiWarningTarget, fetchPersonas, openAiRoom, savePersona, updateAiRoomPin, updateAiRoomRatio, deletePersona, deleteAllPersonas } from './lib/aiPersonas';
 import { track, trackOnce } from './lib/events';
 import type { AnalyticsEntryPoint, ConversationType } from './lib/analyticsContext';
 import { setupGA4 } from './lib/ga4';
@@ -356,6 +358,9 @@ export default function App() {
     return () => { active = false; };
   }, [authUserId]);
 
+  const [notificationCommentId, setNotificationCommentId] = useState<string | null>(null);
+  const notificationNavigation = useRef(0);
+  const notificationPendingTarget = useRef<string | null>(null);
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
   const [likedCommentOwnerId, setLikedCommentOwnerId] = useState<string | null>(null);
@@ -457,6 +462,7 @@ export default function App() {
         const id = payload.new.story_id;
         if (typeof id !== 'string') return;
         const current = ++generation;
+        if (notificationPendingTarget.current === id) notificationNavigation.current++;
         // Ordinary content updates keep the mounted story/draft; access changes clear first.
         if (payload.new.access_changed !== false) {
         setStories(prev => prev.filter(s => s.id !== id || s.authorId === authUserId));
@@ -503,6 +509,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('전체');
   const [sortBy, setSortBy] = useState<'latest' | 'votes'>('latest');
   const [activeTab, setActiveTab] = useState<'feed' | 'ai-chat' | 'mypage'>('feed');
+  useEffect(() => { notificationNavigation.current++; }, [activeTab]);
   const analyticsConsent = useAnalyticsConsent();
 
   useEffect(() => {
@@ -654,6 +661,8 @@ export default function App() {
   function clearAccountBoundViews() {
     setStories([]);
     setCommentsMap({});
+    notificationNavigation.current++;
+    setNotificationCommentId(null);
     setAiStoryContext(null);
     setSelectedStory(null);
     setPersonas([]);
@@ -878,7 +887,7 @@ export default function App() {
     }
   };
 
-  const handleAddComment = async (storyId: string, content: string, commentId: string): Promise<boolean> => {
+  const handleAddComment = async (storyId: string, content: string, commentId: string, replyToId?: string): Promise<boolean> => {
     if (blockedForGuest('댓글을 남기려면 로그인이 필요해요.') || !authUserId) { blockedAction('comment_create', 'auth_required'); return false; }
 
     notifyIfCrisis(content);
@@ -890,10 +899,11 @@ export default function App() {
       const response = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ id: commentId, storyId, content }),
+        body: JSON.stringify({ id: commentId, storyId, content, ...(notificationsRepliesEnabled && replyToId ? { replyToId } : {}) }),
       });
       if (!response.ok) { task.finish('error'); return false; }
       const result = await response.json();
+      if (authUserIdRef.current !== authUserId) { task.finish('error'); return false; }
       const saved = result?.comment as Comment | undefined;
       if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
       trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success');
@@ -905,7 +915,7 @@ export default function App() {
       }));
       try {
         const { data: savedStory } = await fetchVisibleStory(storyId);
-        if (typeof savedStory?.commentCount === 'number') {
+        if (authUserIdRef.current === authUserId && typeof savedStory?.commentCount === 'number') {
           setStories(prev => prev.map(s => s.id === storyId
             ? { ...s, commentCount: savedStory.commentCount }
             : s));
@@ -1003,6 +1013,21 @@ export default function App() {
   const handleDeleteComment = async (storyId: string, commentId: string): Promise<boolean> => {
     if (!authUserId) return false;
     try {
+      if (notificationsRepliesEnabled) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || session.user.id !== authUserId) return false;
+        const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ storyId }) });
+        if (!response.ok || !(await response.json())?.deleted || authUserIdRef.current !== authUserId) return false;
+        // Clear the deleted text immediately; only the authorized public projection may restore the group.
+        setCommentsMap(previous => ({ ...previous, [storyId]: (previous[storyId] ?? []).map(c => c.id === commentId ? { ...c, content: '', authorId: '', anonymousId: '', deletedAt: new Date().toISOString(), likeCount: 0 } : c) }));
+        try {
+          const [comments, fresh] = await Promise.all([fetchVisibleComments(storyId), fetchVisibleStory(storyId)]);
+          if (authUserIdRef.current !== authUserId) return false;
+          if (!comments.error && comments.data) setCommentsMap(previous => ({ ...previous, [storyId]: comments.data }));
+          if (fresh.data) setStories(previous => previous.map(s => s.id === storyId ? fresh.data! : s));
+        } catch { /* Deletion is confirmed; a failed projection refresh must not claim it failed. */ }
+        return true;
+      }
       const { data, error } = await supabase.from('comments').delete()
         .eq('id', commentId).eq('authorId', authUserId).eq('storyId', storyId)
         .select('id').maybeSingle();
@@ -1293,6 +1318,24 @@ export default function App() {
   const saveCompletedTurn = useCallback(async (personaId: string, chatHistory: ChatMessage[]): Promise<boolean> => {
     return runPersonaSave(personaId, chatHistory);
   }, [runPersonaSave]);
+
+  const retentionRefreshGeneration = useRef<Record<string, number>>({});
+  const refreshSavedRoomRetention = useCallback((personaId: string) => {
+    if (!aiRetentionEnabled || !authUserId || authUserIdRef.current !== authUserId) return;
+    const accountId = authUserId;
+    const authVersion = authTransitionVersion.current;
+    const generation = (retentionRefreshGeneration.current[personaId] ?? 0) + 1;
+    retentionRefreshGeneration.current[personaId] = generation;
+    // A saved turn invalidates the displayed old deadline immediately; never invent the new date.
+    setPersonas(previous => previous.map(persona => persona.id === personaId ? { ...persona, expiresAt: null } : persona));
+    void fetchAiRoom(accountId, personaId).then(fresh => {
+      if (authUserIdRef.current !== accountId || authTransitionVersion.current !== authVersion || retentionRefreshGeneration.current[personaId] !== generation) return;
+      setPersonas(previous => previous.map(persona => persona.id === personaId ? {
+        ...persona, lastCompletedAt: fresh.lastCompletedAt, expiresAt: fresh.expiresAt,
+        retentionVersion: fresh.retentionVersion, retentionBasis: fresh.retentionBasis,
+      } : persona));
+    }).catch(() => { /* The successful turn stays saved; a later room fetch restores its deadline. */ });
+  }, [authUserId]);
 
   const handleUpdateSession = useCallback((sessionId: string, personaId: string, updates: Partial<ChatSession>) => {
     setActiveChatSession(prev => {
@@ -1775,7 +1818,71 @@ export default function App() {
     window.history.replaceState(null, '', url.toString());
   };
 
+  const startPersonaSession = (persona: AIPersona) => {
+    const isExplanation = ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(persona.role) || (persona.description && persona.description.includes('공감하며 위로'));
+    const ratio: ExplainRatio | undefined = persona.role === '내 편 100%' ? 'High' : persona.role === '반반' ? 'Middle' : (persona.role === '상대편 100%' || persona.role === '상대편 입장 100%') ? 'Low' : undefined;
+    const newSession: ChatSession = {
+      id: `session-${Date.now()}`,
+      personaId: persona.id,
+      personaName: persona.name,
+      personaRole: persona.role,
+      messages: persona.chatHistory && persona.chatHistory.length > 0
+        ? persona.chatHistory
+        : [
+            {
+              id: `msg-0`,
+              sender: 'ai',
+              text: persona.sampleFirstMessage || (isExplanation ? `상황에 대한 이야기를 들려주세요. 편하게 감정을 털어놓으셔도 좋습니다.` : `말해보세요. 제 이야기도 들어보실래요?`),
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          ],
+      createdAt: new Date().toISOString(),
+      status: 'active',
+      chatMode: isExplanation ? 'explanation' : 'simulation',
+      explanationRatio: ratio,
+      analyticsEntryPoint: 'chat_list',
+      conversationType: 'continuation',
+    };
+    setActiveChatSession(newSession);
+    setAiExplainSettingsStory(null);
+
+  };
+
+  const handleOpenNotification = async (item: InAppNotification, signal?: AbortSignal): Promise<boolean> => {
+    if (!authUserId || !notificationsRepliesEnabled) return false;
+    const accountId = authUserId;
+    const navigation = ++notificationNavigation.current;
+    if (item.kind === 'ai_room_expiring') {
+      if (!aiRetentionEnabled) return false;
+      const persona = await fetchAiWarningTarget(accountId, item, signal);
+      if (signal?.aborted || authUserIdRef.current !== accountId || notificationNavigation.current !== navigation || activeTab !== 'mypage') return false;
+      notificationPendingTarget.current = null;
+      setPersonas(previous => [...previous.filter(p => p.id !== persona.id), persona]);
+      discardAiStoryContext();
+      setSelectedStory(null);
+      syncStoryUrl(null);
+      startPersonaSession(persona);
+      setActiveTab('ai-chat');
+      return true;
+    }
+    if (!item.storyId) return false;
+    notificationPendingTarget.current = item.storyId;
+    const [fresh, comments] = await Promise.all([fetchVisibleStory(item.storyId), fetchVisibleComments(item.storyId)]);
+    if (signal?.aborted || authUserIdRef.current !== accountId || notificationNavigation.current !== navigation || activeTab !== 'mypage') return false;
+    const current = aiTargetCurrent.current;
+    if (fresh.error || comments.error || !fresh.data || fresh.data.isBlind || fresh.data.isHidden || fresh.data.isAdult || !current.hiddenStoriesReady || current.hiddenStoryIds.includes(item.storyId)) return false;
+    if (fresh.data.visibility === 'private' && fresh.data.authorId !== accountId) return false;
+    if (item.commentId && !comments.data?.some(c => c.id === item.commentId && !c.deletedAt && !c.isBlind)) return false;
+    setCommentsMap(previous => ({ ...previous, [item.storyId]: comments.data ?? [] }));
+    notificationPendingTarget.current = null;
+    openStoryDetail(fresh.data);
+    setNotificationCommentId(item.commentId);
+    return true;
+  };
+
   const closeStoryDetail = () => {
+    notificationNavigation.current++;
+    setNotificationCommentId(null);
     aiNavigationGeneration.current++;
     setAiStoryContext(null);
     setSelectedStory(null);
@@ -1793,6 +1900,8 @@ export default function App() {
       이유도 안 생긴다. 편을 들거나(투표) 말을 얹는(댓글·공감·신고) 것만
       로그인을 요구한다. 투표를 안 했으니 비율은 자연히 봉인된 채로 보인다.
     */
+    notificationNavigation.current++;
+    setNotificationCommentId(null);
     aiNavigationGeneration.current++;
     setAiStoryContext(null);
     setSelectedStory(story);
@@ -1995,37 +2104,11 @@ export default function App() {
               return timeB - timeA;
             })}
             activeSession={activeChatSession}
-            onStartSession={(persona) => {
-              const isExplanation = ['내 편 100%', '반반', '상대편 100%', '상대편 입장 100%'].includes(persona.role) || (persona.description && persona.description.includes('공감하며 위로'));
-              const ratio: ExplainRatio | undefined = persona.role === '내 편 100%' ? 'High' : persona.role === '반반' ? 'Middle' : (persona.role === '상대편 100%' || persona.role === '상대편 입장 100%') ? 'Low' : undefined;
-              const newSession: ChatSession = {
-                id: `session-${Date.now()}`,
-                personaId: persona.id,
-                personaName: persona.name,
-                personaRole: persona.role,
-                messages: persona.chatHistory && persona.chatHistory.length > 0 
-                  ? persona.chatHistory 
-                  : [
-                      {
-                        id: `msg-0`,
-                        sender: 'ai',
-                        text: persona.sampleFirstMessage || (isExplanation ? `상황에 대한 이야기를 들려주세요. 편하게 감정을 털어놓으셔도 좋습니다.` : `말해보세요. 제 이야기도 들어보실래요?`),
-                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      }
-                    ],
-                createdAt: new Date().toISOString(),
-                status: 'active',
-                chatMode: isExplanation ? 'explanation' : 'simulation',
-                explanationRatio: ratio,
-                analyticsEntryPoint: 'chat_list',
-                conversationType: 'continuation',
-              };
-              setActiveChatSession(newSession);
-              setAiExplainSettingsStory(null);
-            }}
+            onStartSession={startPersonaSession}
             onEndSession={() => setActiveChatSession(null)}
             onUpdateSession={handleUpdateSession}
             onSaveTurn={saveCompletedTurn}
+            onTurnPersisted={refreshSavedRoomRetention}
             onQuotaChanged={() => { void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {}); }}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
@@ -2046,6 +2129,7 @@ export default function App() {
               if (!blockedForGuest(message)) setLoginPromptMessage(message);
             }}
             user={user}
+            onOpenNotification={handleOpenNotification}
             myStories={myStories}
             storiesNavigationKey={myStoriesNavigationKey}
             hiddenStories={hiddenStories}
@@ -2209,7 +2293,9 @@ export default function App() {
         onGoToLogin={handleGoToLogin}
       />
 
-      <StoryDetailModal 
+      <StoryDetailModal
+        focusCommentId={notificationCommentId}
+        repliesEnabled={notificationsRepliesEnabled}
         key={`${authUserId ?? 'guest'}:${visibleSelectedStory?.id ?? 'none'}`}
         suspended={Boolean(aiStoryContext && aiStoryContext.storyId === visibleSelectedStory?.id)}
         interactionPaused={aiSelectionOpen || Boolean(aiStoryContext)}

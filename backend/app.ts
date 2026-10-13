@@ -3,8 +3,11 @@ import path from "path";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { buildEmpathyPrompt, buildSimulationPrompt, changeEmpathyRatio, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, OPENING_SCRIPTS, ratioLabel } from "../frontend/src/lib/prompts.js";
+import { aiRetentionEnabled, retentionMetadata } from "./aiRetention.js";
 import { consumePotensStream } from "./potensStream.js";
 import { registerEmailOwnershipRoutes } from "./emailOwnership.js";
+
+import { notificationsRepliesEnabled, readReplyTarget, isExistingCommentId, sameCommentRequest, projectComment, NotificationInputError, registerNotificationRoutes } from "./notifications.js";
 
 dotenv.config();
 
@@ -13,6 +16,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 registerEmailOwnershipRoutes(app, storyWriteClient);
+registerNotificationRoutes(app, { authenticate: authenticatedStoryUser, scopedClient: storyUserClient, sendError: sendStorySaveError });
 
 // Random nickname helper
 const ADJECTIVES = [
@@ -101,8 +105,8 @@ app.post("/api/chat", async (req: Request, res: Response) => {
   let context: Awaited<ReturnType<typeof authorizedChatContext>>;
   try {
     const user = await authenticatedStoryUser(req);
-    context = await authorizedChatContext(user.id, req.body?.personaId, prompt);
-    if (aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
+    context = await authorizedChatContext(user.id, req.body?.personaId, prompt, req.body?.requestId);
+    if (aiRetentionEnabled() || aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
   } catch (error) {
     return sendStorySaveError(res, error);
   }
@@ -146,8 +150,9 @@ app.post("/api/chat-stream", async (req: Request, res: Response) => {
   try {
     const user = await authenticatedStoryUser(req);
     userId = user.id;
-    context = await authorizedChatContext(user.id, req.body?.personaId, prompt);
+    context = await authorizedChatContext(user.id, req.body?.personaId, prompt, req.body?.requestId);
     activation = aiQuotaActivation();
+    if (aiRetentionEnabled() && !activation) throw new StoryRequestFailure(503, "AI_RETENTION_NOT_READY");
   } catch (error) {
     return sendStorySaveError(res, error);
   }
@@ -295,7 +300,7 @@ async function streamServerAiTurn(
   if (recoveredAnswer) {
     send({ type: "text", text: recoveredAnswer });
     send({ type: "provider_done", recovered: true });
-    send({ type: "done", persisted: true, recovered: true });
+    send({ type: "done", persisted: true, recovered: true, ...(aiRetentionEnabled() ? { retention: context.retention } : {}) });
     return res.end();
   }
 
@@ -338,7 +343,7 @@ async function streamServerAiTurn(
       throw new Error("AI_REPLY_SAVE_FAILED");
     }
     heldReservation = false;
-    send({ type: "done", persisted: true, recovered: saved.result === "recovered" });
+    send({ type: "done", persisted: true, recovered: saved.result === "recovered", ...(aiRetentionEnabled() ? { retention: saved.retention } : {}) });
     return res.end();
   } catch {
     send({ type: "error", error: providerCompleted ? "ai_save_failed" : "ai_provider_failed" });
@@ -493,6 +498,15 @@ function sameAiRoomChoice(row: Record<string, any>, input: AiRoomInput, userId: 
     row.opening === input.opening && row.ratio === input.ratio;
 }
 
+async function usableAiRoom(client: ReturnType<typeof storyWriteClient>, userId: string, room: Record<string, any>) {
+  if (!aiRetentionEnabled()) return room;
+  const {data, error} = await client.rpc('read_ai_room_for_user', {p_user_id:userId,p_persona_id:room.id,p_request_id:null});
+  if (error?.message === 'AI_ROOM_EXPIRED') throw new StoryRequestFailure(410, 'AI_ROOM_EXPIRED');
+  if (error?.message === 'AI_RETENTION_NOT_READY') throw new StoryRequestFailure(503, 'AI_RETENTION_NOT_READY');
+  if (error || !data || data.userId !== userId) throw new StoryRequestFailure(404, 'CHAT_ROOM_NOT_FOUND');
+  return data;
+}
+
 app.post("/api/ai/rooms", async (req: Request, res: Response) => {
   try {
     const roomReceivedAt = new Date();
@@ -512,7 +526,7 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
       if (!sameAiRoomChoice(prior, input, user.id)) {
         throw new StoryRequestFailure(409, "CHAT_ROOM_REQUEST_CONFLICT");
       }
-      return res.json({ room: prior, recovered: true, quotaMode });
+      return res.json({ room: await usableAiRoom(client, user.id, prior), recovered: true, quotaMode });
     }
 
     const choice = input.mode === "simulation" ? "opening" : "ratio";
@@ -521,7 +535,7 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
       .select("*").eq("userId", user.id).eq("storyId", input.storyId)
       .eq(choice, choiceValue).maybeSingle();
     if (matchError) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
-    if (matching) return res.json({ room: matching, recovered: true, quotaMode });
+    if (matching) return res.json({ room: await usableAiRoom(client, user.id, matching), recovered: true, quotaMode });
 
     const { data: story, error: storyError } = await client.from("stories")
       .select("*").eq("id", input.storyId).maybeSingle();
@@ -576,7 +590,7 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
       }
       if (!opened?.room?.id) throw new StoryRequestFailure(503, "CHAT_ROOM_SAVE_FAILED");
       return res.status(opened.recovered ? 200 : 201).json({
-        room: opened.room, recovered: opened.recovered === true,
+        room: await usableAiRoom(client, user.id, opened.room), recovered: opened.recovered === true,
         quotaMode, legacyCharged: true,
       });
     }
@@ -585,20 +599,36 @@ app.post("/api/ai/rooms", async (req: Request, res: Response) => {
     if (saveError?.code === "23505") {
       const retry = await client.from("ai_personas").select("*").eq("id", input.id).maybeSingle();
       if (!retry.error && retry.data && sameAiRoomChoice(retry.data, input, user.id)) {
-        return res.json({ room: retry.data, recovered: true, quotaMode });
+        return res.json({ room: await usableAiRoom(client, user.id, retry.data), recovered: true, quotaMode });
       }
       const sameChoice = await client.from("ai_personas").select("*")
         .eq("userId", user.id).eq("storyId", input.storyId)
         .eq(choice, choiceValue).maybeSingle();
       if (!sameChoice.error && sameChoice.data && sameAiRoomChoice(sameChoice.data, input, user.id)) {
-        return res.json({ room: sameChoice.data, recovered: true, quotaMode });
+        return res.json({ room: await usableAiRoom(client, user.id, sameChoice.data), recovered: true, quotaMode });
       }
     }
     if (saveError || !saved) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
-    return res.status(201).json({ room: saved, recovered: false, quotaMode });
+    return res.status(201).json({ room: await usableAiRoom(client, user.id, saved), recovered: false, quotaMode });
   } catch (error) {
     return sendStorySaveError(res, error);
   }
+});
+
+// Owner-only, current server-clock expiry check. No view timestamp is written.
+app.get("/api/ai/rooms/:id", async (req: Request, res: Response) => {
+  try {
+    if (!aiRetentionEnabled()) throw new StoryRequestFailure(404, "FEATURE_UNAVAILABLE");
+    const user = await authenticatedStoryUser(req);
+    res.setHeader('Cache-Control', 'no-store');
+    const { data, error } = await storyWriteClient().rpc('read_ai_room_for_user', {
+      p_user_id: user.id, p_persona_id: req.params.id, p_request_id: null,
+    });
+    if (error?.message === 'AI_ROOM_EXPIRED') throw new StoryRequestFailure(410, 'AI_ROOM_EXPIRED');
+    if (error?.message === 'AI_RETENTION_NOT_READY') throw new StoryRequestFailure(503, 'AI_RETENTION_NOT_READY');
+    if (error || !data || data.userId !== user.id) throw new StoryRequestFailure(404, 'CHAT_ROOM_NOT_FOUND');
+    return res.json({room: data});
+  } catch (error) { return sendStorySaveError(res, error); }
 });
 
 app.patch("/api/ai/rooms/:id/pin", async (req: Request, res: Response) => {
@@ -610,6 +640,7 @@ app.patch("/api/ai/rooms/:id/pin", async (req: Request, res: Response) => {
     const { data, error } = await storyWriteClient().from("ai_personas")
       .update({ isPinned: req.body.isPinned, updatedAt: new Date().toISOString() })
       .eq("id", req.params.id).eq("userId", user.id).select("*").maybeSingle();
+    if (error?.message === "AI_ROOM_EXPIRED") throw new StoryRequestFailure(410, "AI_ROOM_EXPIRED");
     if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
     if (!data) throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
     return res.json({ room: data });
@@ -642,6 +673,7 @@ app.patch("/api/ai/rooms/:id/ratio", async (req: Request, res: Response) => {
       systemInstruction: changeEmpathyRatio(instruction, ratio),
       updatedAt: new Date().toISOString(),
     }).eq("id", req.params.id).eq("userId", user.id).select("*").maybeSingle();
+    if (error?.message === "AI_ROOM_EXPIRED") throw new StoryRequestFailure(410, "AI_ROOM_EXPIRED");
     if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_SAVE_FAILED");
     if (!data) throw new StoryRequestFailure(404, "CHAT_ROOM_NOT_FOUND");
     return res.json({ room: data });
@@ -737,6 +769,13 @@ async function authenticatedStoryUser(req: Request) {
   return user;
 }
 
+function storyUserClient(req: Request) {
+  return createClient(storySupabaseUrl(), process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '', {
+    global: { headers: { Authorization: req.headers.authorization || '' } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 function storyWriteClient() {
   const url = storySupabaseUrl();
   const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -749,14 +788,20 @@ function storyWriteClient() {
   });
 }
 
-async function authorizedChatContext(userId: string, personaIdValue: unknown, prompt: string) {
+async function authorizedChatContext(userId: string, personaIdValue: unknown, prompt: string, requestId?: unknown) {
   const personaId = typeof personaIdValue === "string" ? personaIdValue : "";
   if (!personaId || personaId.length > 100) {
     throw new StoryRequestFailure(400, "INVALID_CHAT_ROOM");
   }
-  const { data, error } = await storyWriteClient().from("ai_personas")
-    .select("id,userId,storyId,createdAt,systemInstruction,chatHistory")
-    .eq("id", personaId).maybeSingle();
+  const client = storyWriteClient();
+  const { data, error } = aiRetentionEnabled()
+    ? await client.rpc("read_ai_room_for_user", {
+      p_user_id: userId, p_persona_id: personaId,
+      p_request_id: typeof requestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId) ? requestId.toLowerCase() : null,
+    })
+    : await client.from("ai_personas").select("id,userId,storyId,createdAt,systemInstruction,chatHistory").eq("id", personaId).maybeSingle();
+  if (error?.message === 'AI_ROOM_EXPIRED') throw new StoryRequestFailure(410, 'AI_ROOM_EXPIRED');
+  if (error?.message === 'AI_RETENTION_NOT_READY') throw new StoryRequestFailure(503, 'AI_RETENTION_NOT_READY');
   if (error) throw new StoryRequestFailure(500, "CHAT_ROOM_LOOKUP_FAILED");
   if (!data || data.userId !== userId) {
     // Do not reveal whether another account owns this room.
@@ -781,12 +826,14 @@ async function authorizedChatContext(userId: string, personaIdValue: unknown, pr
     storyId: data.storyId as string | null,
     createdAt: data.createdAt as string,
     savedHistory: Array.isArray(data.chatHistory) ? data.chatHistory : [],
+    retention: retentionMetadata(data),
     instruction: typeof data.systemInstruction === "string" ? data.systemInstruction : "",
     history: history.slice(-8),
   };
 }
 
 function sendStorySaveError(res: Response, error: unknown): Response {
+  if (error instanceof NotificationInputError) return res.status(400).json({ error: error.message });
   if (error instanceof StoryRequestFailure) {
     return res.status(error.status).json({ error: error.code });
   }
@@ -947,19 +994,35 @@ app.post("/api/comments", async (req: Request, res: Response) => {
     const user = await authenticatedStoryUser(req);
     const client = storyWriteClient();
     const { id, storyId } = readCommentTarget(req.body);
+    const replyToId = readReplyTarget(req.body);
+    if (replyToId && !notificationsRepliesEnabled()) throw new StoryRequestFailure(404, "FEATURE_UNAVAILABLE");
     await requireCommentableStory(client, storyId);
 
     const { data: existing, error: lookupError } = await client.from("comments")
       .select("*").eq("id", id).maybeSingle();
     if (lookupError) throw new StoryRequestFailure(500, "COMMENT_SAVE_FAILED");
     if (existing) {
-      if (existing.authorId !== user.id || existing.storyId !== storyId) {
+      if (!sameCommentRequest(existing, user.id, storyId, replyToId)) {
         throw new StoryRequestFailure(409, "COMMENT_ID_CONFLICT");
       }
-      return res.json({ comment: existing });
+      return res.json({ comment: projectComment(existing) });
     }
 
     const content = await sanitizeCommentText(req.body?.content);
+    if (notificationsRepliesEnabled()) {
+      const { data, error } = await client.rpc("save_comment_with_reply", {
+        p_id: id, p_story_id: storyId, p_actor: user.id, p_content: content, p_reply_to_id: replyToId,
+      });
+      if (error) {
+        const code = error.message;
+        if (error.code === "23505") throw new StoryRequestFailure(409, "COMMENT_ID_CONFLICT");
+        if (code === "COMMENT_ID_CONFLICT") throw new StoryRequestFailure(409, code);
+        if (["STORY_NOT_FOUND", "REPLY_TARGET_NOT_FOUND"].includes(code)) throw new StoryRequestFailure(404, code);
+        throw new StoryRequestFailure(503, "COMMENT_SAVE_FAILED");
+      }
+      if (!data) throw new StoryRequestFailure(503, "COMMENT_SAVE_FAILED");
+      return res.status(201).json({ comment: projectComment(data) });
+    }
     const { data, error } = await client.from("comments").insert({
       id, storyId, authorId: user.id, anonymousId: "익명 0", content,
       createdAt: new Date().toISOString(), likeCount: 0, reportsCount: 0,
@@ -967,15 +1030,30 @@ app.post("/api/comments", async (req: Request, res: Response) => {
     }).select("*").single();
     if (error?.code === "23505") {
       const retry = await client.from("comments").select("*").eq("id", id).maybeSingle();
-      if (!retry.error && retry.data?.authorId === user.id && retry.data?.storyId === storyId) {
-        return res.json({ comment: retry.data });
+      if (!retry.error && retry.data && sameCommentRequest(retry.data, user.id, storyId, replyToId)) {
+        return res.json({ comment: projectComment(retry.data) });
       }
     }
     if (error || !data) throw new StoryRequestFailure(500, "COMMENT_SAVE_FAILED");
-    return res.status(201).json({ comment: data });
+    return res.status(201).json({ comment: projectComment(data) });
   } catch (error) {
     return sendStorySaveError(res, error);
   }
+});
+
+// Opt-in tombstones preserve existing reply groups. No physical deletion here.
+app.delete("/api/comments/:id", async (req: Request, res: Response) => {
+  try {
+    if (!notificationsRepliesEnabled()) throw new StoryRequestFailure(404, "FEATURE_UNAVAILABLE");
+    const user = await authenticatedStoryUser(req);
+    const id = req.params.id;
+    const storyId = typeof req.body?.storyId === 'string' ? req.body.storyId : '';
+    if (!isExistingCommentId(id) || !storyId || storyId.length > 100) throw new StoryRequestFailure(400, "INVALID_COMMENT_TARGET");
+    const { error } = await storyWriteClient().rpc("delete_comment_with_replies", { p_id: id, p_story_id: storyId, p_actor: user.id });
+    if (error?.message === "COMMENT_NOT_FOUND") throw new StoryRequestFailure(404, "COMMENT_NOT_FOUND");
+    if (error) throw new StoryRequestFailure(503, "COMMENT_DELETE_FAILED");
+    return res.json({ deleted: true });
+  } catch (error) { return sendStorySaveError(res, error); }
 });
 
 app.put("/api/comments/:id", async (req: Request, res: Response) => {
@@ -989,9 +1067,9 @@ app.put("/api/comments/:id", async (req: Request, res: Response) => {
     const client = storyWriteClient();
     await requireCommentableStory(client, storyId);
     const { data: existing, error: lookupError } = await client.from("comments")
-      .select("id,authorId,storyId").eq("id", id).maybeSingle();
+      .select("*").eq("id", id).maybeSingle();
     if (lookupError) throw new StoryRequestFailure(500, "COMMENT_SAVE_FAILED");
-    if (!existing || existing.authorId !== user.id || existing.storyId !== storyId) {
+    if (!existing || existing.authorId !== user.id || existing.storyId !== storyId || existing.deletedAt) {
       throw new StoryRequestFailure(404, "COMMENT_NOT_FOUND");
     }
     const content = await sanitizeCommentText(req.body?.content);
@@ -1000,7 +1078,7 @@ app.put("/api/comments/:id", async (req: Request, res: Response) => {
       .eq("id", id).eq("authorId", user.id).eq("storyId", storyId)
       .select("*").maybeSingle();
     if (error || !data) throw new StoryRequestFailure(500, "COMMENT_SAVE_FAILED");
-    return res.json({ comment: data });
+    return res.json({ comment: projectComment(data) });
   } catch (error) {
     return sendStorySaveError(res, error);
   }

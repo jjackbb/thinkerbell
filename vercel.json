@@ -10,5 +10,10 @@
       "source": "/api/(.*)",
       "destination": "/api"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/notifications-validation-20261013": false
+    }
+  }
 }

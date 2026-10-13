@@ -1,0 +1,47 @@
+name: Isolated notification validation
+# Dedicated, exact validation branch only. No default-branch dispatch, PR event,
+# schedule, deployment, environment, production URL, or repository secrets.
+on:
+  push:
+    branches: [codex/notifications-validation-20261013]
+defaults:
+  run:
+    shell: bash
+permissions:
+  contents: read
+concurrency:
+  group: isolated-notification-validation
+  cancel-in-progress: true
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/codex/notifications-validation-20261013'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout validation commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Install exact lockfile dependencies
+        run: npm ci --ignore-scripts
+      - name: Type check and unit contracts
+        run: |
+          mkdir -p validation-results
+          npm run lint 2>&1 | tee validation-results/types.txt
+          mapfile -t unit_tests < <(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*-rest.test.mjs' | sort)
+          node --import tsx --test "${unit_tests[@]}" 2>&1 | tee validation-results/unit.txt
+      - name: Real PostgreSQL, PostgREST, and concurrent sessions
+        run: python3 tests/integration/notification-validation.py
+      - name: Install Chromium
+        if: ${{ !cancelled() }}
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Browser fixture type check
+        if: ${{ !cancelled() }}
+        run: node node_modules/typescript/bin/tsc --noEmit -p tests/e2e/tsconfig.json
+      - name: Browser validation, desktop and mobile
+        if: ${{ !cancelled() }}
+        run: node node_modules/@playwright/test/cli.js test --config playwright.config.ts

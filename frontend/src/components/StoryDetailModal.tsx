@@ -1,3 +1,4 @@
+import { groupCommentThreads, replyTargetLabel } from '../lib/commentThreads';
 import { ownsStory } from '../lib/storyOwnership';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
@@ -10,13 +11,15 @@ import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircl
 
 interface StoryDetailModalProps {
   story: Story | null;
+  repliesEnabled?: boolean;
+  focusCommentId?: string | null;
   interactionPaused?: boolean;
   suspended?: boolean;
   comments: Comment[];
   currentUser: UserProfile;
   onClose: () => void;
   onVote: (storyId: string, option: 'A' | 'B') => Promise<boolean>;
-  onAddComment: (storyId: string, content: string, commentId: string) => Promise<boolean>;
+  onAddComment: (storyId: string, content: string, commentId: string, replyToId?: string) => Promise<boolean>;
   onLikeComment: (commentId: string) => void;
   likePendingIds?: string[];
   onStartAIChat: (story: Story) => void;
@@ -45,6 +48,8 @@ interface StoryDetailModalProps {
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   story,
+  repliesEnabled = false,
+  focusCommentId = null,
   interactionPaused = false,
   suspended = false,
   comments,
@@ -80,8 +85,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     wasSuspended.current = suspended;
   }, [suspended, story?.id]);
   const [commentText, setCommentText] = useState('');
+  const [replyTarget, setReplyTarget] = useState<Comment | null>(null);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const focusedNotification = useRef<string | null>(null);
+  const commentSubmittingRef = useRef(false);
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
-  const commentRequestRef = useRef<{ sourceText: string; id: string } | null>(null);
+  const commentRequestRef = useRef<{ sourceText: string; targetId?: string; id: string } | null>(null);
   const currentStoryIdRef = useRef(story?.id);
   currentStoryIdRef.current = story?.id;
   const [votedOption, setVotedOption] = useState<'A' | 'B' | null>(story?.userVoted || null);
@@ -128,11 +138,29 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   useEffect(() => {
     setShowSensitiveBody(false);
     setCommentText('');
+    setReplyTarget(null);
+    setExpandedThreads(new Set());
+    focusedNotification.current = null;
     commentRequestRef.current = null;
     setEditingCommentId(null);
     setCommentMenuOpenId(null);
     setIsMenuOpen(false);
-  }, [story?.id]);
+  }, [story?.id, currentUser.id, isGuest]);
+
+  useEffect(() => {
+    if (!focusCommentId || suspended || focusedNotification.current === focusCommentId) return;
+    const target = comments.find(c => c.id === focusCommentId);
+    if (!target) return;
+    setCommentFilter('all');
+    if (target.replyRootId) setExpandedThreads(previous => new Set([...previous, target.replyRootId!]));
+    const frame = window.requestAnimationFrame(() => {
+      const element = document.getElementById(`comment-${focusCommentId}`);
+      if (element) focusedNotification.current = focusCommentId;
+      element?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      element?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusCommentId, story?.id, suspended, comments.length]);
 
   // 미리보기를 닫거나 모달이 사라지면 만들어 둔 이미지 주소를 놓아준다.
   // 안 그러면 카드를 열어볼 때마다 메모리에 그대로 쌓인다
@@ -192,16 +220,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
   const isSensitive = detectCrisis(story.body) || detectCrisis(story.title);
 
-  const filteredComments = comments
-    .filter(c => !c.isBlind)
-    .filter(c => {
-      const displayVote = c.authorId === currentUser.id ? votedOption : c.authorVoted;
-      return commentFilter === 'all' || displayVote === commentFilter;
-    })
-    .sort((a, b) => {
-      if (commentSort === 'likes') return b.likeCount - a.likeCount;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+  const threads = groupCommentThreads(comments, commentFilter, commentSort, currentUser.id, votedOption);
+  const filteredComments = repliesEnabled ? threads.flatMap(group => {
+    const root: Comment = group.root ?? { id: group.id, storyId: story.id, authorId: '', anonymousId: '', content: '', createdAt: '', likeCount: 0, reportsCount: 0, deletedAt: 'missing' };
+    return expandedThreads.has(group.id) ? [root, ...group.replies] : [root];
+  }) : comments.filter(c => !c.isBlind).filter(c => commentFilter === 'all' || (c.authorId === currentUser.id ? votedOption : c.authorVoted) === commentFilter).sort((a, b) => commentSort === 'likes' ? b.likeCount - a.likeCount : Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const replyTargetUnavailable = !!replyTarget && !comments.some(c => c.id === replyTarget.id && !c.deletedAt && !c.isBlind);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -265,22 +289,26 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isPrivate) return;
-    if (!commentText.trim() || isCommentSubmitting || !story) return;
+    if (!commentText.trim() || commentSubmittingRef.current || !story || replyTargetUnavailable) return;
+    if (isGuest) { onRequireLogin?.('답글을 남기려면 로그인이 필요해요.'); return; }
+    commentSubmittingRef.current = true;
 
     setIsCommentSubmitting(true);
     try {
       const sourceText = commentText.trim();
-      if (commentRequestRef.current?.sourceText !== sourceText) {
-        commentRequestRef.current = { sourceText, id: `comment-${crypto.randomUUID()}` };
+      if (commentRequestRef.current?.sourceText !== sourceText || commentRequestRef.current?.targetId !== replyTarget?.id) {
+        commentRequestRef.current = { sourceText, targetId: replyTarget?.id, id: `comment-${crypto.randomUUID()}` };
       }
       const targetStoryId = story.id;
-      const saved = await onAddComment(targetStoryId, sourceText, commentRequestRef.current.id);
+      const saved = await onAddComment(targetStoryId, sourceText, commentRequestRef.current.id, replyTarget?.id);
       if (currentStoryIdRef.current !== targetStoryId) return;
       if (!saved) {
         showToast('댓글을 검사·저장하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
         return;
       }
       setCommentText('');
+      if (replyTarget) setExpandedThreads(previous => new Set([...previous, replyTarget.replyRootId || replyTarget.id]));
+      setReplyTarget(null);
       commentRequestRef.current = null;
       showToast('댓글이 등록되었습니다.');
     } catch {
@@ -288,6 +316,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         showToast('댓글을 등록하지 못했습니다. 입력을 유지했으니 다시 시도해 주세요.');
       }
     } finally {
+      commentSubmittingRef.current = false;
       setIsCommentSubmitting(false);
     }
   };
@@ -302,7 +331,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       <div data-analytics-ignore="true" onClick={(e) => e.stopPropagation()} className="bg-[#f8f9fa] text-[#191c1d] rounded-lg w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative shadow-2xl border border-[#E5E7EB]">
         {/* Toast Alert */}
         {toastMessage && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1C1C1C] text-[#FF6B5A] px-4 py-2 rounded border border-[#FF6B5A]/40 font-mono text-xs font-bold shadow-md">
+          <div role="status" className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1C1C1C] text-[#FF6B5A] px-4 py-2 rounded border border-[#FF6B5A]/40 font-mono text-xs font-bold shadow-md">
             {toastMessage}
           </div>
         )}
@@ -546,19 +575,19 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span> {filteredComments.length}
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span> {comments.filter(c => !c.isBlind && !c.deletedAt).length}
                     </span>
                     <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
                       <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span> {totalVotes}
                     </span>
                   </div>
                   <div className="flex gap-2 text-xs font-mono">
-                    <select value={commentFilter} onChange={(e) => setCommentFilter(e.target.value as 'all' | 'A' | 'B')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
+                    <select aria-label="댓글 진영 필터" value={commentFilter} onChange={(e) => setCommentFilter(e.target.value as 'all' | 'A' | 'B')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
                       <option value="all">전체</option>
                       <option value="B">니 편</option>
                       <option value="A">내 편</option>
                     </select>
-                    <select value={commentSort} onChange={(e) => setCommentSort(e.target.value as 'latest' | 'likes')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
+                    <select aria-label="댓글 정렬" value={commentSort} onChange={(e) => setCommentSort(e.target.value as 'latest' | 'likes')} className="bg-transparent border-none outline-none text-[#5f5e5e] cursor-pointer">
                       <option value="latest">최신순</option>
                       <option value="likes">좋아요 순</option>
                     </select>
@@ -568,8 +597,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="space-y-3">
                   {filteredComments.map((c) => {
                     const displayVote = c.authorId === currentUser.id ? votedOption : c.authorVoted;
+                    const thread = threads.find(group => group.id === c.id);
                     return (
-                    <div key={c.id} className="bg-white border border-[#E5E7EB] p-4 rounded-lg space-y-2">
+                    <div key={c.id} id={`comment-${c.id}`} tabIndex={-1} className={`bg-white border border-[#E5E7EB] p-4 rounded-lg space-y-2 ${repliesEnabled && c.replyRootId ? 'ml-4 border-l-2 border-l-[var(--color-action-coral)]' : ''} ${focusCommentId === c.id ? 'ring-2 ring-[var(--color-action-coral)]' : ''}`}>
+                      {c.deletedAt ? <p className="text-xs text-[var(--color-secondary-grey)]">삭제되었거나 볼 수 없는 댓글입니다.</p> : <>
+                      {repliesEnabled && c.replyToId && <p className="text-[11px] text-[var(--color-secondary-grey)]">↳ {replyTargetLabel(c, comments)}님에게 답글</p>}
                       <div className="flex items-center justify-between font-mono text-xs">
                         <div className="flex items-center flex-wrap gap-1">
                           <span className="font-bold text-[#1C1C1C]">{c.anonymousId}</span>
@@ -664,6 +696,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                           )}
                         </div>
                       )}
+                      {repliesEnabled && !isPrivate && <button data-button-id="comment-reply-start" type="button" disabled={isCommentSubmitting} onClick={() => {
+                        if (isGuest) { onRequireLogin?.('답글을 남기려면 로그인이 필요해요.'); return; }
+                        setReplyTarget(c);
+                        composerRef.current?.focus();
+                        composerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                      }} className="min-h-9 text-xs font-bold text-[var(--color-my-side-ink)] disabled:opacity-50">답글 달기</button>}
+                      </>}
+                      {repliesEnabled && !!thread?.replies.length && <button data-button-id="comment-replies-toggle" type="button" aria-expanded={expandedThreads.has(c.id)} onClick={() => setExpandedThreads(previous => { const next = new Set(previous); next.has(c.id) ? next.delete(c.id) : next.add(c.id); return next; })} className="block min-h-9 text-xs font-bold text-[var(--color-secondary-grey)]">답글 {thread.replies.length}개 {expandedThreads.has(c.id) ? '접기' : '보기'}</button>}
                     </div>
                   )})}
                 </div>
@@ -692,11 +732,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   </div>
                 ) : (
                 <form onSubmit={handleCommentSubmit} className="relative mt-4 bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
+                  {replyTarget && <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] px-3 py-2 text-xs" role="status"><span>{replyTargetUnavailable ? '답글을 달 대상이 삭제되었거나 가려졌어요.' : `${replyTarget.anonymousId}님에게 답글`}</span><button data-button-id="comment-reply-cancel" type="button" disabled={isCommentSubmitting} onClick={() => { setReplyTarget(null); composerRef.current?.focus(); }} className="shrink-0 p-2 underline">답글 취소</button></div>}
                   <textarea
+                    ref={composerRef}
+                    aria-label={replyTarget ? '답글 내용' : '댓글 내용'}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     disabled={isCommentSubmitting}
-                    placeholder="댓글을 달아주세요"
+                    placeholder={replyTarget ? "답글을 남겨주세요" : "댓글을 달아주세요"}
                     rows={3}
                     maxLength={200}
                     className="w-full p-3 font-body-sm text-xs focus:outline-none resize-none border-b border-[#E5E7EB]"
@@ -709,7 +752,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </span>
                     <button data-button-id="story-detail-modal-button-20"
                       type="submit"
-                      disabled={isCommentSubmitting || !commentText.trim()}
+                      disabled={isCommentSubmitting || !commentText.trim() || replyTargetUnavailable}
                       className="bg-[#1C1C1C] text-[#FF6B5A] px-3 py-1.5 font-mono text-xs font-bold rounded hover:bg-black transition-colors"
                     >
                       {isCommentSubmitting ? '확인 중…' : '등록'}

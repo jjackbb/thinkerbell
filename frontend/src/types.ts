@@ -44,6 +44,9 @@ export interface Story {
 }
 
 export interface Comment {
+  replyRootId?: string | null;
+  replyToId?: string | null;
+  deletedAt?: string | null;
   id: string;
   storyId: string;
   authorId: string;
@@ -59,6 +62,10 @@ export interface Comment {
 }
 
 export interface AIPersona {
+  lastCompletedAt?: string | null;
+  expiresAt?: string | null;
+  retentionVersion?: number;
+  retentionBasis?: 'completed_turn' | 'legacy_updated_at' | 'created_at';
   id: string;
   name: string;
   role: string;

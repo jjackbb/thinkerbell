@@ -1,5 +1,21 @@
 # 니편내편: 기능 정상화부터 공개·데이터 개선 확인까지
 
+## 2026-10-13 알림·답글·AI 보관 — 제품 정책 승인, 기본 비활성 로컬 구현
+
+승인 근거: 2026-10-13 14:19 UTC 제품 담당자의 세 정책 묶음 승인. 아래는 승인된 제품 정책이며 운영 적용 완료를 뜻하지 않는다.
+
+- 앱 내 알림: 내 사연의 댓글, 투표 총합 10·20·…·90 및 100·200·300·… 도달, 내 댓글의 답글·공감. 한 댓글에 여러 답글을 달 수 있다. 도입 전 댓글·공감 알림을 소급 생성하지 않으며 기존 콘텐츠는 유지한다.
+- 부재 중에도 알림을 저장하고 30일 보관한다. 본인 행동은 알리지 않는다. 댓글 공감은 행위자별 최초 한 번, 투표 임계값은 사연별 최초 한 번만 알리고 취소·재공감/임계값 재도달로 반복 알리지 않는다. 개별/모두 읽음 처리한다.
+- 부모 댓글을 삭제해도 삭제 자리와 기존 답글을 유지한다. 실제 답글 대상 작성자와 사연 작성자에게 알리되 같은 수신자에게 중복 전송하지 않는다.
+- AI 방의 새 기준은 **마지막 정상 AI 답변이 DB에 저장된 시각부터 달력 기준 6개월**이다. 저장 실패·취소·단순 고정/관점/평가 변경은 보관을 연장하지 않는다. 만료 7일 전 안내하고 새 정상 답변 저장으로 연장되면 이전 경고를 무효화한다.
+- 기존 방은 정확한 과거 마지막 대화 시각을 복원할 수 없으므로 기존 `updatedAt`을 전환용 기준으로 사용하고 **전환 시점부터 최소 7일 유예**를 보장한다. `updatedAt`을 정확한 과거 대화 시각이라고 표현하지 않는다.
+
+운영은 여전히 2026-10-13 05:33–05:35 UTC에 확인한 `updatedAt < now() - interval '6 months'` 및 매일 00:01 KST 정리다. 새 보관 정책·30일 알림 정리는 기본 비활성 로컬 초안을 작성했으며 운영에 적용하지 않았다. 서버 `NOTIFICATIONS_REPLIES_ENABLED`·프론트 `VITE_NOTIFICATIONS_REPLIES_ENABLED`·DB `notification_feature_config.enabled`의 기본 비활성을 유지한다. SQL은 자동 적용 마이그레이션 밖의 초안이며, 제품 정책 승인은 운영 보안 마이그레이션·실제 데이터 삭제/전환·배포·커밋/push 승인으로 확대하지 않는다. 공개 개인정보 안내 변경도 실제 rollout과 검증을 기다린다.
+
+[구현·검증 체크리스트](docs/plan-execution/2026-10-13-notifications-foundation.md)에 승인 범위와 출시 게이트를 기록한다. 앞선 06:04 UTC 초안의 타입·빌드/비REST 82/82/PGlite 42/42 PASS는 이 후속 AI/정리 변경의 검증이 아니다. 최종 통합 확인(14:41:43 UTC)은 타입·빌드·diff 검사 PASS, 독립 격리 DB는 AI 89 assertions·알림 42 및 기존 quota/completion/feedback 계약 PASS다. 현재 SQL 해시 일치를 확인했다. 비REST 103/103 및 VITE_AI_RETENTION_ENABLED/VITE_NOTIFICATIONS_REPLIES_ENABLED를 모두 켠 빌드와 기본 비활성 빌드도 PASS다. 실제 Supabase REST·다중 세션·cron 활성화·상호작용 브라우저 검증은 완료하지 않았다.
+
+로컬 후속 구현은 Asia/Seoul 달력 월말 보정, 정상 저장 DB 시각, 현재 경고 세대, 기존 방 고정 전환 anchor와 최소 7일 유예를 적용한다. 신규 방은 첫 정상 저장 전에는 생성 시각이 기준이다. 만료 시 접근 차단과 다음 일일 정리의 실제 삭제는 구분한다. 30일 알림 delivery 정리와 once-ever 중복 기록 보관도 분리한다. `AI_RETENTION_ENABLED`·`VITE_AI_RETENTION_ENABLED`·AI DB gate와 기존 알림 gate는 기본 비활성이다. 별도 `ai-retention-activation.sql` 템플릿 및 경고/정리 5분 예약은 **미적용이며 운영 승인 필요**다. 기존 00:01 KST 운영 예약은 그대로다. [구현 계약/검증 한계](docs/plan-execution/2026-10-13-notifications-foundation.md)
+
 ## 2026-10-10 최신 확인 상태
 
 main63b4494 정상 푸시·Vercel 커밋 상태success·공개 승인문구4개/조회RPC/00:01안내 확인, 운영 보안 경계 적용·독립8항목 readback PASS. GA4 기존9개를 보존하고 누락4개만 event scope 등록/총13개 목록 readback PASS. 확장 실제수신과 최신 Vercel UI Source/Production은 미검증이다.
