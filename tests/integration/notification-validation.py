@@ -23,6 +23,27 @@ def cmd(*args, **kw):
 def docker(*args, **kw): return cmd('docker', *args, **kw)
 def sql(statement, app='validation'):
     return docker('exec','-i','-e','PGAPPNAME='+app, DB,'psql','-X','-qAt','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1', input=statement)
+def wait_for_final_postgres():
+    # This image uses docker-library's temporary socket-only server while running
+    # /docker-entrypoint-initdb.d. Socket SELECT 1 can race those migrations.
+    # Require final-server TCP readiness AND a successful authenticated TCP query.
+    # Source: supabase/postgres tag 17.6.1.171 Dockerfile-17, entrypoint pinned to
+    # docker-library/postgres 6edb0a8c4def40c371514b34aef9037ec82d9110
+    # (17/alpine3.23/docker-entrypoint.sh: listen_addresses='' during bootstrap).
+    deadline=time.monotonic()+120
+    while time.monotonic()<deadline:
+        try:
+            docker('exec',DB,'pg_isready','-h','127.0.0.1','-p','5432',
+                   '-U','postgres','-d','postgres','-t','2')
+            ready=docker('exec','-e','PGPASSWORD='+PASSWORD,'-e','PGCONNECT_TIMEOUT=2',
+                         DB,'psql','-X','-w','-qAt','-h','127.0.0.1','-p','5432',
+                         '-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1',
+                         '-c','select 1')
+            if ready=='1': return
+        except subprocess.CalledProcessError:
+            pass  # Only readiness probes retry; fixture SQL errors remain fatal.
+        time.sleep(.5)
+    raise RuntimeError('PostgreSQL final TCP server readiness timeout')
 def check(name, condition):
     if not condition: raise AssertionError(name)
     results.append('PASS: '+name); print(results[-1], flush=True)
@@ -68,12 +89,8 @@ try:
     (OUT/'images.json').write_text(json.dumps({i:json.loads(docker('image','inspect',i,'--format','{{json .RepoDigests}}')) for i in [PG_IMAGE,REST_IMAGE]},indent=2))
     docker('network','create','--internal',NET)
     docker('run','--rm','-d','--name',DB,'--network',NET,'-e','POSTGRES_PASSWORD='+PASSWORD,'-v',str(ROOT)+':/work:ro',PG_IMAGE)
-    for _ in range(120):
-        try:
-            if scalar('select 1')=='1': break
-        except subprocess.CalledProcessError: pass
-        time.sleep(.5)
-    else: raise RuntimeError('PostgreSQL readiness timeout')
+    wait_for_final_postgres()
+    check('final PostgreSQL server accepts authenticated loopback TCP connections',True)
     contract=docker('exec',DB,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-f','/work/tests/ai-retention-contract.sql')
     (OUT/'single-session.txt').write_text(contract)
     check('existing notification and AI SQL contracts on real PostgreSQL', True)

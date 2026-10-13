@@ -1,3 +1,11 @@
+## 2026-10-13 격리 CI 첫 실행과 시험 준비 보완
+
+- 요약/무엇을: 첫 검증 커밋 de86f766의 CI 실패를 확인하고 임시 DB 준비 대기와 브라우저 시험 선택자를 보완했다.
+- 왜: DB fixture는 Supabase 초기화 중의 소켓 응답을 준비 완료로 오인할 수 있어 최종 TCP 서버 응답과 인증된 SELECT 1을 기다린다. 계정 전환 시험은 같은 이름의 두 요소 대신 정확한 프로필 h2를 확인한다. SQL·권한·동시성·cron 계약과 오래된 응답 차단 assertion은 유지한다.
+- 확인: 첫 CI 타입 검사·비REST 103/103·브라우저 fixture 타입 검사 PASS, 브라우저 24/26 PASS. 두 계정 전환 시험은 선택자 중복으로 실패했고 DB는 GraphQL 스키마 초기화 오류로 중단했다. 로컬 Python AST/준비 대기 helper 회귀·브라우저 타입 검사/26개 수집·diff 검사 PASS. 수정 후 실제 DB/브라우저 CI는 재실행 대기이며 성공으로 기록하지 않는다.
+- 파일: tests/integration/notification-validation.py, tests/e2e/app-navigation.spec.ts, docs/CHANGELOG.md.
+- 한눈에 보기: 검증 브랜치만 수정하며 기본 비활성 플래그·정확한 브랜치의 Vercel 자동 배포 차단을 유지한다. 운영 DB·main·배포 변경 없음.
+
 ## 2026-10-13 알림·답글·AI 보관 초안과 격리 검증 준비
 
 - 요약: 앱 내 알림·여러 답글·AI 대화 보관 정책의 기본 비활성 초안과 전용 브랜치용 격리 CI를 준비했다. 출시·운영 적용 완료 기록이 아니다.

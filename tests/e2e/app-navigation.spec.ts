@@ -14,7 +14,7 @@ for(const interruption of ['account-switch','access-invalidation','comment-inval
  if(interruption==='account-switch'){
    await page.getByRole('button',{name:'시험 계정 B 전환'}).click();
    await page.getByRole('button',{name:'마이',exact:true}).click();
-   await expect(page.getByText('owner-b',{exact:true})).toBeVisible();
+   await expect(page.getByRole('heading',{name:'owner-b',level:2,exact:true})).toBeVisible();
  }else{
    if(interruption==='access-invalidation')api.storyVisible=false;
    await page.getByRole('button',{name:interruption==='access-invalidation'?'시험 접근 제한':'시험 댓글 변경'}).click();
