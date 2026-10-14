@@ -36,3 +36,8 @@ Preserve Jisun's current AI quota behavior and removed unused endpoints. Add rev
 Privacy: `frontend/src/components/{CreateStoryModal,MyPageView,PrivacyNoticeDraft,WelcomeModal}.tsx`, `frontend/src/lib/privacyNoticeDraft.ts`, `tests/privacy-notice-draft.test.mjs`, `tests/privacy.playwright.config.ts`, `tests/e2e/privacy*`, `tests/e2e/fixture/privacy*`, and `tests/e2e/PRIVACY_PREVIEW.md`.
 Adapter: `backend/providers/{contracts,schemas,gemini}.ts`, `tests/gemini-provider-draft.test.mjs`, and [integration gates](2026-10-14-gemini-adapter-integration-gates.md).
 Validation: `.github/workflows/notification-validation.yml`.
+
+## Isolated CI follow-up
+The first validation commit `ebe7f6fb095428fcc10babb053cd845b24237e3d` passed type/build, 176 offline unit tests, and isolated PostgreSQL/PostgREST/concurrency checks in run `38609315538`. Browser execution found two privacy-fixture problems: an operator-text locator also matched the hidden dialog, and the fixture's direct stylesheet import omitted frontend Tailwind source utilities (including modal max-height and scrolling).
+
+The fixture now imports the same explicit-source stylesheet as the existing app/component fixtures, and the standalone notice has a named region for precise assertions. No production layout, click forcing, timeout increase or security workaround is introduced. A regression test guards the shared stylesheet contract. Local app/fixture typechecks and 177 offline tests pass; emitted CSS includes modal height/overflow utilities. The corrected browser behaviors still require a new isolated CI run before main promotion.

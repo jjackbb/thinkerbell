@@ -11,13 +11,14 @@ test.beforeEach(async ({ page }) => {
 
 test('shared draft is explicitly incomplete and creates no consent requirement', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '개인정보처리방침 검토 초안' })).toBeVisible();
-  await expect(page.getByText('변종현 (개인 운영자)', { exact: false })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'ds5305naver@gmail.com' })).toHaveAttribute('href', 'mailto:ds5305naver@gmail.com');
+  const standalone = page.getByRole('region', { name: '개인정보 안내 본문' });
+  await expect(standalone.getByText('변종현 (개인 운영자)', { exact: false })).toBeVisible();
+  await expect(standalone.getByRole('link', { name: 'ds5305naver@gmail.com' })).toHaveAttribute('href', 'mailto:ds5305naver@gmail.com');
   await page.getByRole('button', { name: '거부', exact: true }).click();
   const storage = await page.evaluate(() => JSON.stringify(localStorage));
   await page.getByRole('button', { name: '가입 화면 검토하기' }).click();
   await page.getByRole('button', { name: '회원가입', exact: true }).click();
-  await expect(page.getByText('최소 이용 연령을 만 18세 이상으로 변경하기로 했습니다.', { exact: false }).last()).toBeVisible();
+  await expect(page.locator('aside > p').filter({ hasText: '최소 이용 연령을 만 18세 이상으로 변경하기로 했습니다.' })).toBeVisible();
   await expect(page.getByRole('checkbox')).toHaveCount(0);
   if (emailOwnership) await expect(page.locator('#signup-check-email')).toBeVisible();
   else await expect(page.getByRole('button', { name: '니편내편 시작하기' })).toBeVisible();

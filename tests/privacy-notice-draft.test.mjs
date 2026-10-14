@@ -45,3 +45,11 @@ test('misleading anonymity claims are removed without changing auth submission b
   assert.match(welcome, /\/api\/auth\/email-check\/signup/);
   assert.match(welcome, /!isLoginMode && recoveryPhase === 'idle' && !confirmationEmail && !showExpiredLink && signupNoticePreview/);
 });
+
+test('privacy fixture includes shared frontend Tailwind sources and a scoped standalone notice', () => {
+  const fixture = read('tests/e2e/fixture/privacy.tsx');
+  assert.match(fixture, /import '\.\/styles\.css'/);
+  assert.doesNotMatch(fixture, /import .*frontend\/src\/index\.css/);
+  assert.match(read('tests/e2e/fixture/styles.css'), /@source "\.\.\/\.\.\/\.\.\/frontend\/src"/);
+  assert.match(fixture, /<section aria-label="개인정보 안내 본문"><PrivacyNoticeDraftContent \/><\/section>/);
+});
