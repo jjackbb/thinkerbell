@@ -3,15 +3,50 @@ const enabled=process.env.ADULT_TEST_ENABLED==='true';
 const email=process.env.ADULT_TEST_EMAIL==='true';
 const status=(eligible=false)=>({enabled,eligible,policyVersion:'adult-self-attestation-v1',attestedAt:null});
 test('signup age assertion is opt-in, separate from consent, and resets on login switch',async({page})=>{
- const unexpected:string[]=[];
- await page.route('**/*',route=>{const u=new URL(route.request().url());if(u.pathname==='/api/account/adult-eligibility')return route.fulfill({json:status()});if(u.hostname!=='127.0.0.1'||u.pathname.startsWith('/api/')){unexpected.push(u.pathname);return route.abort();}return route.continue();});
+ const unexpected:string[]=[];let verifications=0;
+ await page.route('**/*',route=>{
+   const u=new URL(route.request().url());
+   if(u.pathname==='/api/account/adult-eligibility')return route.fulfill({json:status()});
+   if(email&&u.pathname==='/api/auth/email-check/verify'){
+     expect(route.request().method()).toBe('POST');
+     expect(route.request().postDataJSON()).toEqual({token:'synthetic-email-link'});
+     verifications++;
+     return route.fulfill({json:{status:'available',email:'adult@example.invalid',signupToken:'synthetic-signup-proof'}});
+   }
+   if(u.hostname!=='127.0.0.1'||u.pathname.startsWith('/api/')){unexpected.push(u.pathname);return route.abort();}
+   return route.continue();
+ });
  await page.goto('/adult.html');await page.getByRole('button',{name:'가입 보기',exact:true}).click();await page.getByRole('button',{name:'회원가입',exact:true}).click();
- // Banner checkbox is outside the signup panel; scope to its full signup label.
  const signup=page.getByRole('checkbox',{name:/가입 후 로그인하여/});
+ if(email){
+   // Email entry is not account creation. Exercise the real verified-link branch
+   // with a synthetic proof before expecting the account-creation assertion.
+   await expect(page.locator('#signup-check-email')).toBeVisible();
+   await expect(signup).toHaveCount(0);
+   await page.goto('/adult.html?verifiedEmail');
+   await expect(page.getByText('이메일 소유 확인이 끝났습니다.',{exact:false})).toBeVisible();
+   await expect(page.locator('input[type=email]')).toHaveValue('adult@example.invalid');
+ }
  await expect(signup).toHaveCount(enabled?1:0);
- if(enabled){await expect(signup).not.toBeChecked();await signup.check();await expect(signup).toBeChecked();await page.getByRole('button',{name:'로그인',exact:true}).click();await page.getByRole('button',{name:'회원가입',exact:true}).click();await expect(signup).not.toBeChecked();}
- if(email)await expect(page.locator('#signup-check-email')).toBeVisible();else await expect(page.getByRole('button',{name:'니편내편 시작하기'})).toBeVisible();
- expect(unexpected).toEqual([]);expect(await page.evaluate(()=>JSON.stringify(localStorage))).not.toContain('adult-self-attestation');
+ await expect(page.getByRole('button',{name:'니편내편 시작하기'})).toBeVisible();
+ if(enabled){
+   await expect(signup).toHaveAttribute('required','');
+   await expect(signup).not.toBeChecked();await signup.check();await expect(signup).toBeChecked();
+   await page.getByRole('button',{name:'로그인',exact:true}).click();
+   await expect(signup).toHaveCount(0);
+   await page.getByRole('button',{name:'회원가입',exact:true}).click();
+   if(email){
+     // Switching to login deliberately invalidates the prior signup proof.
+     await expect(page.locator('#signup-check-email')).toBeVisible();
+     await expect(signup).toHaveCount(0);
+     await page.goto('/adult.html?verifiedEmail');
+     await expect(page.getByText('이메일 소유 확인이 끝났습니다.',{exact:false})).toBeVisible();
+   }
+   await expect(signup).not.toBeChecked();
+ }
+ expect(verifications).toBe(email?(enabled?2:1):0);
+ expect(unexpected).toEqual([]);
+ expect(await page.evaluate(()=>JSON.stringify(localStorage))).not.toContain('adult-self-attestation');
 });
 test('existing account gate is default-off and requires explicit assertion; repeated clicks do not duplicate POST',async({page})=>{
  let posts=0;let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});
