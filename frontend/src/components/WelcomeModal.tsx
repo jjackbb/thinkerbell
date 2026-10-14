@@ -1,3 +1,4 @@
+import { ADULT_POLICY_VERSION } from '../lib/adultPolicy';
 import { createdSignupUser, finishCreatedSignup } from '../lib/signupLanding';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
@@ -29,6 +30,9 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  const [adultAttested, setAdultAttested] = useState(false);
+  const adultGateEnabled = import.meta.env.VITE_ADULT_ELIGIBILITY_ENABLED === 'true';
+  useEffect(() => { setAdultAttested(false); }, [isLoginMode, email, isOpen]);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
@@ -223,6 +227,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
         if (error) throw error;
         task.finish('success');
       } else {
+        if (adultGateEnabled && !adultAttested) throw new Error('만 18세 이상만 가입할 수 있습니다.');
         if (emailCheckEnabled && emailCheckPhase !== 'available') {
           throw new Error('이메일 소유 확인을 먼저 완료해 주세요.');
         }
@@ -233,7 +238,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
           if (!signupToken) throw new Error('이메일 소유 확인을 먼저 완료해 주세요.');
           const response = await fetch('/api/auth/email-check/signup', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, nickname: nickname.trim(), signupToken }),
+            body: JSON.stringify({ email, password, nickname: nickname.trim(), signupToken, ...(adultGateEnabled ? { isAdult: adultAttested, policyVersion: ADULT_POLICY_VERSION } : {}) }),
           });
           const result = await response.json().catch(() => ({}));
           if (response.status === 409 && ['registered', 'pending'].includes(result.status)) {
@@ -253,6 +258,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
           }
           const createdUserId = createdSignupUser(result);
           if (!response.ok || !createdUserId) {
+            if (result.error === 'ADULT_ATTESTATION_REQUIRED' || result.error === 'ADULT_POLICY_CHANGED') throw new Error('만 18세 이상 확인이 필요합니다. 새로고침 후 다시 확인해 주세요.');
             if (response.status === 400) throw new Error('가입 정보를 다시 확인해 주세요.');
             task.finish('error');
             setSignupToken(null);
@@ -570,6 +576,13 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
             </div>
           )}
 
+          {!isLoginMode && adultGateEnabled && (
+            <label data-analytics-exclude="true" className="flex gap-2 text-sm text-[#1C1C1C]">
+              <input type="checkbox" checked={adultAttested} onChange={event => setAdultAttested(event.target.checked)} required />
+              <span>저는 만 18세 이상입니다. 가입 후 로그인하여 이용 연령을 확인합니다. (신분증 인증이나 개인정보 처리 동의가 아닙니다.)</span>
+            </label>
+          )}
+
           {errorMsg && (
             <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
@@ -639,3 +652,4 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNotice
     </div>
   );
 };
+

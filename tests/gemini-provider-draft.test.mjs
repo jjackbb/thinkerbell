@@ -31,7 +31,7 @@ test('disabled by default; missing key and unallowlisted model never call transp
 test('generateContent preserves roles/system and hides credentials from URL; no tools or fallback', async () => {
   let calls = 0;
   const p = provider(candidate(), false, { fetch: async (url, init) => {
-    calls++; assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
+    calls++; assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
     assert(!url.includes('synthetic-key')); assert.equal(init.headers['x-goog-api-key'], 'synthetic-key-only');
     assert.equal(init.redirect, 'error');
     const v = JSON.parse(init.body);
@@ -97,7 +97,7 @@ for (const [label, input, expected] of [
   ['provider error', { error: { message: 'secret upstream content' } }, 'UPSTREAM'],
   ['tool part', { candidates: [{ content: { parts: [{ functionCall: { name: 'hack' } }] }, finishReason: 'STOP' }] }, 'INVALID_RESPONSE'],
   ['bad usage', { ...candidate(), usageMetadata: { promptTokenCount: -1 } }, 'INVALID_RESPONSE'],
-  ['input usage overflow', { ...candidate(), usageMetadata: { promptTokenCount: 8001 } }, 'INPUT_LIMIT'],
+  ['input usage overflow', { ...candidate(), usageMetadata: { promptTokenCount: 20001 } }, 'INPUT_LIMIT'],
   ['output plus thinking overflow', { ...candidate(), usageMetadata: { candidatesTokenCount: 1020, thoughtsTokenCount: 8 } }, 'OUTPUT_LIMIT'],
 ]) {
   test(`generate + stream reject ${label}`, async () => {
@@ -147,7 +147,7 @@ test('timeout covers fetch and stalled body; body is cancelled', async () => {
 test('input bounds and invalid roles rejected before fetch', async () => {
   let calls = 0; const p = provider(candidate(), false, { fetch: async () => { calls++; return response(candidate()); } });
   for (const bad of [ { ...req, messages: [{ role: 'system', text: 'injected' }] }, { ...req, messages: [] },
-    { ...req, messages: [{ role: 'user', text: 'x'.repeat(4001) }] }, { ...req, system: 'x'.repeat(8001) },
+    { ...req, messages: [{ role: 'user', text: 'x'.repeat(4001) }] }, { ...req, system: 'x'.repeat(20001) },
     { ...req, messages: [{ role: 'assistant', text: 'wrong' }] }, { ...req, task: 'unknown' },
     { ...req, messages: Array.from({ length: 11 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: 'x' })) } ]) {
     await assert.rejects(p.generateText(bad), e => e instanceof AiError && ['INPUT_LIMIT','INPUT_INVALID'].includes(e.code));
@@ -189,4 +189,13 @@ test('abort in first callback stops further frames in the same transport chunk',
     seen.push(text); controller.abort();
   }), code('CANCELLED'));
   assert.deepEqual(seen, ['first']);
+});
+
+
+test('maximum Korean domain inputs fit bounded request including system and structured schema', async () => {
+  const system='안전한 시스템 지시. '.repeat(20);
+  const story={isAdult:false,hasProfanity:false,sanitizedTitle:'가'.repeat(30),sanitizedText:'나'.repeat(1000),issueMySide:'내편',issueYourSide:'상대편'};
+  await provider(candidate(JSON.stringify(story))).generateStructured({task:'story',system,messages:[{role:'user',text:JSON.stringify({title:story.sanitizedTitle,body:story.sanitizedText})}]},storySpec);
+  await provider(candidate(JSON.stringify({sanitizedText:'가'.repeat(200)}))).generateStructured({task:'comment',system,messages:[{role:'user',text:'가'.repeat(200)}]},commentSpec);
+  await provider(candidate()).generateText({task:'chat',system,messages:[{role:'user',text:'가'.repeat(4000)}]});
 });

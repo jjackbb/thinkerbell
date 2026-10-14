@@ -51,3 +51,10 @@ jobs:
         env:
           PRIVACY_EMAIL_CHECK_ENABLED: 'true'
         run: node node_modules/@playwright/test/cli.js test --config tests/privacy.playwright.config.ts
+
+      - name: Adult eligibility UI, disabled and both signup paths
+        if: ${{ !cancelled() }}
+        run: |
+          ADULT_TEST_ENABLED=false node node_modules/@playwright/test/cli.js test --config tests/adult.playwright.config.ts
+          ADULT_TEST_ENABLED=true node node_modules/@playwright/test/cli.js test --config tests/adult.playwright.config.ts
+          ADULT_TEST_ENABLED=true ADULT_TEST_EMAIL=true node node_modules/@playwright/test/cli.js test --config tests/adult.playwright.config.ts

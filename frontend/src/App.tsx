@@ -1,3 +1,4 @@
+import { AdultEligibilityBanner } from './components/AdultEligibilityBanner';
 import { emptyVoteProjection, projectStoryVote, confirmStoryVote, isCurrentVoteRead, releaseVoteRequest, advanceVoteAccount, type VoteRow } from './lib/voteProjection';
 import { notificationsRepliesEnabled, aiRetentionEnabled } from './lib/notifications';
 import type { InAppNotification } from './lib/notificationModel';
@@ -1958,6 +1959,8 @@ export default function App() {
   return (
     <div data-analytics-screen={activeTab === "feed" ? "feed" : activeTab === "ai-chat" ? "ai_list" : "my_page"} data-analytics-layer="0" className="min-h-screen bg-[#f8f9fa] text-[#191c1d] flex flex-col font-sans selection:bg-[#FF6B5A] selection:text-[#1C1C1C]">
       
+      {import.meta.env.VITE_ADULT_ELIGIBILITY_ENABLED === 'true' && authUserId && !showWelcomeModal && !passwordRecoveryFlowRef.current && <AdultEligibilityBanner key={authUserId} userId={authUserId} />}
+
       {/* Header */}
       <Header
         user={user}

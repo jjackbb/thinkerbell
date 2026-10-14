@@ -135,6 +135,8 @@ try:
     contract=docker('exec',DB,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-f','/work/tests/ai-retention-contract.sql')
     (OUT/'single-session.txt').write_text(contract)
     check('existing notification and AI SQL contracts on real PostgreSQL', True)
+    from provider_budget_validation import validate_provider_budget
+    validate_provider_budget(ROOT, sql, scalar, session, release, blocked, pool, check)
     sql(f"""insert into public.stories(id,"authorId") values('validation-story','{OWNER}');
     select public.save_comment_with_reply('comment-12345678-1234-4234-8234-123456789abc','validation-story','{OTHER}','root');
     grant anon,authenticated to authenticator;

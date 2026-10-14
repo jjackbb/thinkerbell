@@ -60,6 +60,7 @@ export async function mockApi(page: Page, options: { ai?:boolean; empty?:boolean
     }
     if(path.startsWith('/fixture/open/')){state.openCalls.push(path);await state.openGate?.promise;await json({opened:true});state.releasedOpens.push(path);return;}
     if(path==='/fixture/comments' && request.method()==='POST'){state.comments.push(request.postDataJSON());await state.commentGate?.promise;await json({saved:true});return;}
+    if(path==='/api/account/adult-eligibility'){await json({enabled:false,eligible:false,policyVersion:'adult-self-attestation-v1',attestedAt:null});return;}
     if(path.startsWith('/api/') || path.startsWith('/fixture/') || ['fetch','xhr'].includes(request.resourceType())){state.unexpected.push(`${request.method()} ${path}`);await json({},500);return;}
     await route.continue();
   });

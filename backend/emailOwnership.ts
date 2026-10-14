@@ -1,3 +1,4 @@
+import { adultEligibilityEnabled, validateAdultAttestation, AdultEligibilityError } from './adultEligibility.js';
 import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -165,6 +166,16 @@ export function registerEmailOwnershipRoutes(app: Express, client: () => Supabas
     res.set("Cache-Control", "no-store");
     const config = settings();
     if (!config) return void res.status(503).json({ error: "EMAIL_CHECK_UNAVAILABLE" });
+    // Validate before consuming the mailbox proof or creating an Auth user.
+    // This signup assertion is not ledger authority; authenticated users attest
+    // through /api/account/adult-eligibility after login.
+    if (adultEligibilityEnabled()) {
+      try { validateAdultAttestation(req.body); }
+      catch (error) {
+        if (error instanceof AdultEligibilityError) return void res.status(error.status).json({ error: error.code });
+        return void res.status(503).json({ error: 'ADULT_ELIGIBILITY_UNAVAILABLE' });
+      }
+    }
     const email = normalizeEmail(req.body?.email);
     const signupToken = req.body?.signupToken;
     const password = req.body?.password;

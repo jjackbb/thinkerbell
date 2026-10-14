@@ -1,0 +1,348 @@
+import test, { before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+
+const originalFetch = globalThis.fetch;
+const owner = '11111111-1111-4111-8111-111111111111';
+const author = '22222222-2222-4222-8222-222222222222';
+const activation = '2020-01-01T15:00:00Z';
+const rooms = new Map(['one', 'partial', 'save-fail', 'old', 'closed-after-text', 'closed-before-text'].map((name) => [
+  `persona-${name}`, {
+    id: `persona-${name}`, userId: owner, storyId: 'foreign-story',
+    createdAt: name === 'old' ? '2019-12-31T00:00:00Z' : '2026-09-28T00:00:00Z',
+    systemInstruction: '합성 시험용 지시문', chatHistory: [],
+  },
+]));
+const reservations = new Map();
+const completed = new Set();
+const feedback = new Map();
+let providerCalls = 0;
+let providerStream = 'data: {"type":"text","text":"저장된 답변"}\n\ndata: {"type":"done"}\n\n';
+let failSave = false;
+let preflightGate = null;
+// 'after-text': 글자 하나를 보낸 뒤 멈춘다. 'silent': 아무것도 보내지 않고 멈춘다. 둘 다 연결이 끊기면 끝난다.
+let providerHang = null;
+
+process.env.SUPABASE_URL = 'https://example.supabase.co';
+process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
+Object.assign(process.env, {AI_PROVIDER:'gemini',GEMINI_RUNTIME_ENABLED:'true',GEMINI_PAID_PROJECT_VERIFIED:'true',GEMINI_PRIVACY_READY:'true',GEMINI_BUDGET_READY:'true',ADULT_ELIGIBILITY_READY:'true',GEMINI_API_KEY:'synthetic-only'});
+function geminiStream(source) {
+ return source.split('\n\n').filter(Boolean).map(frame=>{
+  const event=JSON.parse(frame.replace(/^data: /,''));
+  return 'data: '+JSON.stringify({candidates:[{content:{role:'model',parts:[{text:event.text || ''}]},...(event.type==='done'?{finishReason:'STOP'}:{})}],...(event.type==='done'?{usageMetadata:{promptTokenCount:10,candidatesTokenCount:5,thoughtsTokenCount:0,totalTokenCount:15}}:{})})+'\n\n';
+ }).join('');
+}
+process.env.AI_QUOTA_ACTIVATES_AT = activation;
+
+globalThis.fetch = async (input, init) => {
+  const url = new URL(typeof input === 'string' ? input : input.url);
+  const method = init?.method ?? 'GET';
+  const headers = new Headers(init?.headers);
+  if (url.hostname === 'generativelanguage.googleapis.com') {
+    providerCalls += 1;
+    if (providerHang) {
+      const mode = providerHang;
+      const body = new ReadableStream({
+        start(controller) {
+          if (mode === 'after-text') {
+            controller.enqueue(new TextEncoder().encode(geminiStream('data: {"type":"text","text":"받는 중인 답변"}\n\n')));
+          }
+          init?.signal?.addEventListener('abort', () => controller.error(new Error('aborted')));
+        },
+      });
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } });
+    }
+    return new Response(geminiStream(providerStream), { headers: { 'Content-Type': 'text/event-stream' } });
+  }
+  if (url.hostname !== 'example.supabase.co') return originalFetch(input, init);
+  if (url.pathname === '/auth/v1/user') {
+    if (preflightGate?.phase === 'auth') { preflightGate.started(); await preflightGate.promise; }
+    return Response.json({ id: owner, aud: 'authenticated', user_metadata: {}, app_metadata: {} });
+  }
+  if (url.pathname === '/rest/v1/ai_personas' && method === 'GET') {
+    const id = url.searchParams.get('id')?.slice(3);
+    return Response.json(id && rooms.has(id)
+      ? [{ opening: id === 'persona-old' ? null : 'apology', ratio: null, ...rooms.get(id) }] : []);
+  }
+  if (url.pathname === '/rest/v1/ai_feedback' && method === 'POST') {
+    const row = JSON.parse(init.body);
+    if (feedback.has(row.episode_id)) {
+      return Response.json({ code: '23505', message: 'duplicate key' }, { status: 409 });
+    }
+    feedback.set(row.episode_id, row);
+    return new Response(null, { status: 201 });
+  }
+  if (url.pathname === '/rest/v1/ai_feedback' && method === 'GET') {
+    const id = url.searchParams.get('episode_id')?.slice(3);
+    return Response.json(id && feedback.has(id) ? [feedback.get(id)] : []);
+  }
+  if (url.pathname === '/rest/v1/stories' && method === 'GET') {
+    return Response.json([{ id: 'foreign-story', authorId: author }]);
+  }
+  if (url.pathname === '/rest/v1/ai_quota_completed_rooms' && method === 'GET') {
+    const id = url.searchParams.get('persona_id')?.slice(3);
+    return Response.json(id && completed.has(id) ? [{ persona_id: id }] : []);
+  }
+  if (url.pathname.startsWith('/rest/v1/rpc/') && method === 'POST') {
+    const name = url.pathname.split('/').at(-1);
+    const args = JSON.parse(init.body);
+    const request = args.p_request_id;
+    if (name==='read_adult_eligibility') return Response.json({policy_version:'adult-self-attestation-v1',attested_at:'2020-01-01T00:00:00Z'});
+    if (name==='provider_budget_reserve') return Response.json({allowed:true,reason:'reserved'});
+    if (name==='provider_budget_dispatch') return Response.json(true);
+    if (name==='provider_budget_settle') return Response.json({settled:true});
+    if (name==='provider_budget_unknown' || name==='provider_budget_release') return Response.json(true);
+    if (name === 'reserve_ai_first_reply') {
+      if (preflightGate?.phase === 'reservation') { preflightGate.started(); await preflightGate.promise; }
+      const prior = reservations.get(request);
+      if (prior?.status === 'reserved') return Response.json([{ result: 'already_reserved', occupied_count: 1 }]);
+      reservations.set(request, { status: 'reserved', personaId: args.p_persona_id });
+      return Response.json([{ result: 'reserved', occupied_count: 1 }]);
+    }
+    if (name === 'complete_ai_turn') {
+      if (failSave) return Response.json({ code: 'P0001', message: 'synthetic save failure' }, { status: 400 });
+      const room = rooms.get(args.p_persona_id);
+      room.chatHistory.push(
+        { sender: 'user', text: args.p_prompt, requestId: request },
+        { sender: 'ai', text: args.p_answer, requestId: request },
+      );
+      completed.add(args.p_persona_id);
+      if (reservations.has(request)) reservations.get(request).status = 'completed';
+      return Response.json({ result: 'saved', charged: true });
+    }
+    if (name === 'finish_ai_first_reply') {
+      const status = args.p_success ? 'completed' : 'returned';
+      const reservation = reservations.get(request);
+      if (reservation) {
+        reservation.status = status;
+        if (args.p_success) completed.add(reservation.personaId);
+      }
+      return Response.json(status);
+    }
+  }
+  return Response.json({ code: 'TEST_UNEXPECTED_ROUTE', message: url.pathname }, { status: 500 });
+};
+
+const { default: app } = await import('../backend/app.ts');
+let server;
+let baseUrl;
+before(async () => {
+  server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+after(async () => {
+  await new Promise((resolve) => server.close(resolve));
+  globalThis.fetch = originalFetch;
+  delete process.env.AI_QUOTA_ACTIVATES_AT;
+  delete process.env.AI_QUOTA_SERVER_READY;
+});
+
+async function turn(roomName, requestId) {
+  const response = await originalFetch(`${baseUrl}/api/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-owner' },
+    body: JSON.stringify({ personaId: `persona-${roomName}`, prompt: '합성 요청', requestId }),
+  });
+  return { status: response.status, text: await response.text() };
+}
+
+test('server mode is closed before database migration readiness is declared', async () => {
+  const prior = providerCalls;
+  const response = await turn('one', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  assert.equal(response.status, 503);
+  assert.match(response.text, /AI_QUOTA_NOT_READY/);
+  assert.equal(providerCalls, prior);
+});
+
+test('first reply reserves, streams, persists, and completes once; same request replays saved answer', async () => {
+  process.env.AI_QUOTA_SERVER_READY = 'true';
+  const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const first = await turn('one', requestId);
+  assert.equal(first.status, 200, first.text);
+  assert.match(first.text, /"type":"provider_done"/);
+  assert.match(first.text, /"type":"done","persisted":true/);
+  assert.equal(rooms.get('persona-one').chatHistory.length, 2);
+  assert.equal(reservations.get(requestId).status, 'completed');
+  assert.equal(providerCalls, 1);
+
+  const replay = await turn('one', requestId);
+  assert.equal(replay.status, 200);
+  assert.match(replay.text, /"recovered":true/);
+  assert.equal(rooms.get('persona-one').chatHistory.length, 2);
+  assert.equal(providerCalls, 1);
+});
+
+test('missing provider done returns the reserved slot without persisting a partial reply', async () => {
+  providerStream = 'data: {"type":"text","text":"부분"}\n\n';
+  const requestId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const response = await turn('partial', requestId);
+  assert.equal(response.status, 200, response.text);
+  assert.match(response.text, /"error":"ai_provider_failed"/);
+  assert.doesNotMatch(response.text, /"type":"done"/);
+  assert.equal(rooms.get('persona-partial').chatHistory.length, 0);
+  assert.equal(reservations.get(requestId).status, 'returned');
+  providerStream = 'data: {"type":"text","text":"저장된 답변"}\n\ndata: {"type":"done"}\n\n';
+});
+
+test('database save failure keeps provider completion separate and returns the slot', async () => {
+  failSave = true;
+  const requestId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const response = await turn('save-fail', requestId);
+  assert.equal(response.status, 200, response.text);
+  assert.match(response.text, /"type":"provider_done"/);
+  assert.match(response.text, /"error":"ai_save_failed"/);
+  assert.doesNotMatch(response.text, /"type":"done"/);
+  assert.equal(rooms.get('persona-save-fail').chatHistory.length, 0);
+  assert.equal(reservations.get(requestId).status, 'returned');
+  failSave = false;
+});
+
+// 이용자가 응답을 받는 도중 연결을 끊는다. 서버가 예약 처리를 마칠 때까지 기다린다.
+async function closeDuringTurn(roomName, requestId, waitForText) {
+  const controller = new AbortController();
+  const response = await originalFetch(`${baseUrl}/api/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-owner' },
+    body: JSON.stringify({ personaId: `persona-${roomName}`, prompt: '합성 요청', requestId }),
+    signal: controller.signal,
+  });
+  assert.equal(response.status, 200);
+  if (waitForText) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = '';
+    while (!received.includes('"type":"text"')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      received += decoder.decode(value, { stream: true });
+    }
+    assert.match(received, /"type":"text"/);
+  }
+  controller.abort();
+  for (let i = 0; i < 100 && reservations.get(requestId)?.status === 'reserved'; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return reservations.get(requestId)?.status;
+}
+
+test('closing the connection after part of the answer arrived charges the reserved slot', async () => {
+  providerHang = 'after-text';
+  const requestId = '13131313-1313-4313-8313-131313131313';
+  const status = await closeDuringTurn('closed-after-text', requestId, true);
+  providerHang = null;
+  assert.equal(status, 'completed');
+  assert.equal(completed.has('persona-closed-after-text'), true);
+  assert.equal(rooms.get('persona-closed-after-text').chatHistory.length, 0);
+});
+
+test('closing the connection before any answer arrived returns the reserved slot', async () => {
+  providerHang = 'silent';
+  const requestId = '14141414-1414-4414-8414-141414141414';
+  const status = await closeDuringTurn('closed-before-text', requestId, false);
+  providerHang = null;
+  assert.equal(status, 'returned');
+  assert.equal(completed.has('persona-closed-before-text'), false);
+});
+
+test('a pre-activation room continues without a new reservation', async () => {
+  const requestId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const response = await turn('old', requestId);
+  assert.equal(response.status, 200, response.text);
+  assert.match(response.text, /"persisted":true/);
+  assert.equal(reservations.has(requestId), false);
+});
+
+test('a configured future cutover keeps legacy charging but saves the reply on the server', async () => {
+  process.env.AI_QUOTA_ACTIVATES_AT = '2030-01-01T15:00:00Z';
+  const requestId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  const response = await turn('old', requestId);
+  assert.equal(response.status, 200, response.text);
+  assert.match(response.text, /"persisted":true/);
+  assert.equal(reservations.has(requestId), false);
+  process.env.AI_QUOTA_ACTIVATES_AT = activation;
+});
+
+test('feedback requires a saved normal answer and stores score without conversation text', async () => {
+  const postFeedback = async (personaId, episodeId, score, schemaVersion) => {
+    const response = await originalFetch(`${baseUrl}/api/ai/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-owner' },
+      body: JSON.stringify({ personaId, episodeId, score, ...(schemaVersion === undefined ? {} : { schemaVersion }) }),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const episode = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const before = await postFeedback('persona-partial', episode, 5);
+  assert.equal(before.status, 409);
+  assert.equal(before.body.error, 'AI_FEEDBACK_NOT_READY');
+
+  const first = await postFeedback('persona-one', episode, 5);
+  assert.equal(first.status, 201);
+  assert.equal(first.body.saved, true);
+  const invented = await postFeedback('persona-one', '99999999-9999-4999-8999-999999999999', 5);
+  assert.equal(invented.status, 409);
+  assert.equal(invented.body.error, 'AI_FEEDBACK_NOT_READY');
+  assert.equal(feedback.get(episode).score, 5);
+  assert.equal(Object.hasOwn(feedback.get(episode), 'chatHistory'), false);
+  assert.equal(Object.hasOwn(feedback.get(episode), 'text'), false);
+
+  const replay = await postFeedback('persona-one', episode, 5);
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.recovered, true);
+  const changed = await postFeedback('persona-one', episode, 1);
+  assert.equal(changed.status, 409);
+  assert.equal(changed.body.error, 'AI_FEEDBACK_CONFLICT');
+
+  const modeUnknown = await postFeedback('persona-old', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', null);
+  assert.equal(modeUnknown.status, 409);
+  assert.equal(modeUnknown.body.error, 'AI_FEEDBACK_MODE_UNKNOWN');
+  assert.equal(feedback.has('dddddddd-dddd-4ddd-8ddd-dddddddddddd'), false);
+
+  const skipEpisode = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  const saved = await turn('partial', skipEpisode);
+  assert.match(saved.text, /"persisted":true/);
+  const skip = await postFeedback('persona-partial', skipEpisode, null);
+  assert.equal(skip.status, 201);
+  assert.equal(feedback.get(skipEpisode).outcome, 'skipped');
+  assert.equal(feedback.get(skipEpisode).mode, 'simulation');
+});
+
+ test('three-step feedback maps to legacy 1/3/5 and preserves old records', async () => {
+  const send = async (episodeId, score, schemaVersion) => {
+    const res = await originalFetch(`${baseUrl}/api/ai/feedback`, { method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer test-owner'},
+      body:JSON.stringify({personaId:'persona-one',episodeId,score,schemaVersion}) });
+    return {status:res.status, body:await res.json()};
+  };
+  const old = structuredClone(feedback.get('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
+  assert.equal(old.schema_version,1);
+  for (const score of [1,3,5]) {
+    const episode = `12345678-1234-4123-8123-${String(score).padStart(12,'0')}`;
+    assert.match((await turn('one',episode)).text,/"persisted":true/);
+    assert.equal((await send(episode,2,2)).status,400);
+    assert.equal((await send(episode,score,2)).status,201);
+    assert.equal(feedback.get(episode).schema_version,2);
+    assert.equal(feedback.get(episode).score,score);
+    assert.equal((await send(episode,score,2)).status,200);
+    assert.equal((await send(episode,score,1)).status,409);
+  }
+  assert.deepEqual(feedback.get('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),old);
+ });
+
+for (const phase of ['auth','reservation']) test(`disconnect during ${phase} preflight never dispatches provider`,async()=>{
+  let release, started;
+  const promise=new Promise(r=>{release=r;});const reached=new Promise(r=>{started=r;});
+  preflightGate={phase,promise,started};
+  const id=phase==='auth'?'abcdef01-1111-4111-8111-111111111111':'abcdef02-1111-4111-8111-111111111111';
+  const room=`persona-preflight-${phase}`;
+  rooms.set(room,{id:room,userId:owner,storyId:'foreign-story',createdAt:'2026-09-28T00:00:00Z',systemInstruction:'safe',chatHistory:[]});
+  process.env.AI_QUOTA_ACTIVATES_AT=activation;process.env.AI_QUOTA_SERVER_READY='true';
+  const before=providerCalls;const controller=new AbortController();
+  const pending=originalFetch(`${baseUrl}/api/chat-stream`,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Authorization:'Bearer test-owner'},body:JSON.stringify({personaId:room,prompt:'합성 요청',requestId:id})}).catch(()=>null);
+  await reached;controller.abort();await pending;await new Promise(r=>setTimeout(r,25));release();preflightGate=null;
+  for(let n=0;n<50&&reservations.get(id)?.status!=='returned';n++)await new Promise(r=>setTimeout(r,10));
+  assert.equal(providerCalls,before);assert.equal(reservations.get(id)?.status,'returned');assert.equal(rooms.get(room).chatHistory.length,0);
+});

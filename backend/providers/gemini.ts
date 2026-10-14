@@ -1,7 +1,8 @@
 import { AiError, type AiProvider, type AiRequest, type AiResult, type AiUsage, type StructuredSpec } from './contracts.js';
 
-const MODEL = 'gemini-3.5-flash-lite';
-const CAPS = { chat: { input: 8000, output: 1024 }, story: { input: 4000, output: 2048 }, comment: { input: 1000, output: 512 } };
+export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const MODEL = GEMINI_MODEL;
+const CAPS = { chat: { input: 20000, output: 1024 }, story: { input: 6000, output: 2048 }, comment: { input: 2000, output: 512 } };
 const encoder = new TextEncoder();
 type Obj = Record<string, unknown>;
 function object(v: unknown): Obj {
@@ -82,6 +83,10 @@ export type GeminiDraftOptions = {
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxFrameBytes?: number;
+  /** Called immediately before transport; failure prevents dispatch. */
+  beforeDispatch?: () => Promise<void>;
+  /** Raw accounting metadata; never contains request or response text. */
+  onUsage?: (usage: unknown) => void;
 };
 function limit(value: number | undefined, fallback: number): number {
   if (value === undefined) return fallback;
@@ -143,6 +148,8 @@ export function createGeminiDraft(options: GeminiDraftOptions): AiProvider {
         store: false,
       };
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${onText ? 'streamGenerateContent?alt=sse' : 'generateContent'}`;
+      if (options.beforeDispatch) await options.beforeDispatch();
+      if (controller.signal.aborted) throw cancelled();
       const response = await guard(options.fetch(url, { method: 'POST', redirect: 'error',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': options.apiKey },
         body: JSON.stringify(body), signal: controller.signal })).catch(() => {
@@ -163,7 +170,9 @@ export function createGeminiDraft(options: GeminiDraftOptions): AiProvider {
       let used: AiUsage = {};
       const accept = (payload: string) => {
         if (controller.signal.aborted) throw cancelled();
-        const decoded = event(json(payload));
+        const parsed = json(payload);
+        if (parsed && typeof parsed === 'object' && 'usageMetadata' in parsed) options.onUsage?.((parsed as Obj).usageMetadata);
+        const decoded = event(parsed);
         if (stopped && (decoded.text || decoded.stop)) throw new AiError('INVALID_RESPONSE');
         if (answer.length + decoded.text.length > 20_000) throw new AiError('OUTPUT_LIMIT');
         answer += decoded.text; used = { ...used, ...decoded.usage };
@@ -241,3 +250,4 @@ export function createGeminiDraft(options: GeminiDraftOptions): AiProvider {
     streamText: (request, onText) => run(request, onText),
   };
 }
+
