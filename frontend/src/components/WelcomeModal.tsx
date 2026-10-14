@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 
 interface WelcomeModalProps {
   isOpen: boolean;
+  /** Isolated review fixture only; the app never supplies this slot. */
+  signupNoticePreview?: React.ReactNode;
   onComplete: (nickname: string, provider: 'kakao' | 'apple' | 'google') => void;
   onGuestBrowse: () => void;
   onSignupCreated: (userId: string) => void;
@@ -22,7 +24,7 @@ type EmailCheckPhase = 'entry' | 'sent' | 'verifying' | 'registered' | 'pending'
 type RecoveryPhase = 'idle' | 'request' | 'sent' | 'updating' | 'done';
 const emailCheckEnabled = import.meta.env.VITE_EMAIL_CHECK_ENABLED === 'true';
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, onGuestBrowse, onSignupCreated, canStartSignupLogin, signupLinkExpired = false, emailCheckToken = null, passwordRecoveryReturn = false, passwordRecoveryReady = false, recoveryLinkExpired = false, onPasswordRecoveryComplete }) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, signupNoticePreview, onComplete, onGuestBrowse, onSignupCreated, canStartSignupLogin, signupLinkExpired = false, emailCheckToken = null, passwordRecoveryReturn = false, passwordRecoveryReady = false, recoveryLinkExpired = false, onPasswordRecoveryComplete }) => {
   const [isLoginMode, setIsLoginMode] = useState(!(emailCheckEnabled && emailCheckToken));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -344,7 +346,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
 
   return (
     <div data-analytics-screen={recoveryPhase !== "idle" ? "password_recovery" : confirmationEmail ? "email_pending" : isLoginMode ? "login" : emailCheckPhase !== "available" ? "email_check" : "signup"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
+      <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-md max-h-[calc(100dvh_-_2rem)] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6 text-center relative">
         
         {/* Header Branding */}
         <div className="space-y-2">
@@ -371,9 +373,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onComplete, 
               ? '가입 확인이 아직 끝나지 않았습니다.'
               : emailCheckEnabled && emailCheckPhase === 'available'
               ? '새 계정으로 가입할 수 있는 이메일입니다.'
-              : isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입하고 완전한 익명성으로 활동하세요.'}
+              : isLoginMode ? '로그인하고 감정을 마음껏 분출하세요.' : '가입 이메일은 다른 이용자에게 공개되지 않습니다.'}
           </p>
         </div>
+
+        {!isLoginMode && recoveryPhase === 'idle' && !confirmationEmail && !showExpiredLink && signupNoticePreview}
 
         {/* Form */}
         {recoveryPhase === 'request' ? (

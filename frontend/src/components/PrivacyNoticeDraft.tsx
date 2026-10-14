@@ -1,25 +1,77 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { privacyNoticeDraft as notice } from '../lib/privacyNoticeDraft';
 
-/** Review-only component. Not mounted by the app until processing facts and legal basis are approved. */
+/** Not imported by a production entry. Only the isolated review fixture mounts this. */
+export function PrivacyNoticeDraftContent() {
+  return <div data-privacy-version={notice.version} className="space-y-5 text-sm leading-relaxed">
+    <p className="font-bold">{notice.status} · {notice.version}</p>
+    <p>{notice.age}</p>
+    {notice.sections.map(section => <section key={section.title}>
+      <h3 className="mb-2 font-bold">{section.title}</h3>
+      {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2">{paragraph}</p>)}
+    </section>)}
+    <p>운영자: {notice.operator}<br />문의: <a className="underline break-all" href={`mailto:${notice.contact}`}>{notice.contact}</a></p>
+  </div>;
+}
+
 export function PrivacyNoticeDraft({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const close = useRef<HTMLButtonElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const closeHandler = useRef(onClose);
+  closeHandler.current = onClose;
+  const id = useId();
+  const closing = useRef(false);
+  const effectGeneration = useRef(0);
+  const requestClose = () => {
+    if (closing.current) return;
+    if (window.history.state?.privacyDraft === `privacy-draft-${id}`) {
+      closing.current = true;
+      window.history.back();
+    } else closeHandler.current();
+  };
   useEffect(() => {
     const node = dialog.current;
     if (!node || !isOpen) return;
+    const generation = ++effectGeneration.current;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
+    const marker = `privacy-draft-${id}`;
+    if (window.history.state?.privacyDraft !== marker) {
+      window.history.pushState({ ...window.history.state, privacyDraft: marker }, '', window.location.href);
+    }
+    closing.current = false;
+    const onPopState = () => { closing.current = false; closeHandler.current(); };
+    window.addEventListener('popstate', onPopState);
+    document.body.style.overflow = 'hidden';
     node.showModal();
-    close.current?.focus();
-    return () => { node.close(); previous?.focus(); };
-  }, [isOpen]);
-  return <dialog ref={dialog} aria-labelledby="privacy-draft-title" onCancel={event => { event.preventDefault(); onClose(); }} data-analytics-exclude="true" className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto rounded-2xl border border-[#1C1C1C] bg-white p-6 text-[#1C1C1C] backdrop:bg-black/50">
-    <p className="text-xs font-bold text-[#5F5E5E]">검토 초안 · 운영 미적용</p>
-    <h2 id="privacy-draft-title" className="mt-2 text-xl font-bold">가입 정보 처리 안내</h2>
-    <p className="mt-4 text-sm">현재 가입 화면에서 이메일, 비밀번호, 닉네임을 입력합니다. 인증 서비스와 계정 생성 경로에서 처리합니다. 비밀번호의 저장 방식과 전체 보유기간은 이 초안으로 확정하지 않습니다.</p>
-    <p className="mt-3 text-sm">사연은 작성자 계정 ID와 연결됩니다. 공개 화면의 표시 이름과 계정 연결은 별개이며, 본문에 적은 식별 정보는 다른 이용자가 볼 수 있습니다.</p>
-    <p className="mt-3 text-sm">선택적 이용 분석 동의는 별도이며 거부해도 기본 이용이 가능합니다.</p>
-    <p className="mt-3 text-sm">사용자 확인: 운영 주체·문의 책임자는 변종현 개인(현재 비사업자), 문의처는 ds5305naver@gmail.com, 만 14세 이상이며 성인 전용 콘텐츠는 지원하지 않습니다. 게시 전 확인: 항목별 처리 목적과 근거, 보유·파기 기준, 수탁 및 국외이전 여부와 범위, AI 입력 처리 조건. 동의가 필요한 항목은 목적·항목·보유기간·거부권과 불이익을 확정한 뒤 분리합니다.</p>
-    <p className="mt-3 text-sm font-bold">이 초안은 법적 동의를 받거나 가입을 완료하지 않습니다.</p>
-    <button ref={close} type="button" onClick={onClose} className="mt-6 min-h-11 w-full rounded-xl bg-[#1C1C1C] px-4 py-3 font-bold text-white">검토 닫기</button>
+    node.scrollTop = 0;
+    heading.current?.focus();
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      // StrictMode replays setup immediately: only a genuine close/unmount removes the entry.
+      queueMicrotask(() => {
+        if (effectGeneration.current === generation && window.history.state?.privacyDraft === marker) window.history.back();
+      });
+      node.close();
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [isOpen, id]);
+  return <dialog ref={dialog} aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); requestClose(); }} data-analytics-exclude="true" className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto overscroll-contain rounded-2xl border border-[#1C1C1C] bg-white p-5 sm:p-6 text-left text-[#1C1C1C] backdrop:bg-black/50">
+    <h2 ref={heading} tabIndex={-1} id={`${id}-title`} className="mb-4 text-xl font-bold">개인정보 처리 안내 검토</h2>
+    <PrivacyNoticeDraftContent />
+    <button type="button" onClick={requestClose} className="mt-6 min-h-11 w-full rounded-xl bg-[#1C1C1C] px-4 py-3 font-bold text-white">안내 닫기</button>
   </dialog>;
+}
+
+/** No checkbox: reading a notice must not become blanket processing consent. */
+export function SignupPrivacyNoticeDraft() {
+  const [open, setOpen] = useState(false);
+  return <aside data-analytics-exclude="true" className="space-y-2 rounded-xl border border-[#E5E7EB] p-3 text-left text-xs text-[#1C1C1C]">
+    <p className="font-bold">{notice.status}</p>
+    <p>{notice.age}</p>
+    <p>가입 정보 처리 안내와 선택적 이용 분석은 별개입니다. 분석을 거부해도 기본 서비스를 이용할 수 있습니다.</p>
+    <button type="button" aria-haspopup="dialog" onClick={() => setOpen(true)} className="min-h-11 underline font-bold">개인정보 처리 안내 보기</button>
+    <PrivacyNoticeDraft isOpen={open} onClose={() => setOpen(false)} />
+  </aside>;
 }

@@ -32,6 +32,7 @@ jobs:
         run: |
           mkdir -p validation-results
           npm run lint 2>&1 | tee validation-results/types.txt
+          npm run build 2>&1 | tee validation-results/build.txt
           mapfile -t unit_tests < <(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*-rest.test.mjs' | sort)
           node --import tsx --test "${unit_tests[@]}" 2>&1 | tee validation-results/unit.txt
       - name: Real PostgreSQL, PostgREST, and concurrent sessions
@@ -45,3 +46,8 @@ jobs:
       - name: Browser validation, desktop and mobile
         if: ${{ !cancelled() }}
         run: node node_modules/@playwright/test/cli.js test --config playwright.config.ts
+      - name: Privacy review with email ownership enabled
+        if: ${{ !cancelled() }}
+        env:
+          PRIVACY_EMAIL_CHECK_ENABLED: 'true'
+        run: node node_modules/@playwright/test/cli.js test --config tests/privacy.playwright.config.ts

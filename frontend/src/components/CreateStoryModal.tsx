@@ -193,7 +193,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                 setBody(e.target.value);
                 setErrorMessage(null);
               }}
-              placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 작성한 사연은 100% 완전한 익명으로 노출됩니다."
+              placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 가입 이메일은 다른 이용자에게 공개되지 않습니다. 본문에는 이름·연락처 등 식별 정보를 적지 마세요."
               rows={5}
               maxLength={1000}
               className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] resize-none"
