@@ -29,6 +29,30 @@ export function PrivacyNoticeDraft({ isOpen, onClose }: { isOpen: boolean; onClo
       window.history.back();
     } else closeHandler.current();
   };
+  const containTab = (event: React.KeyboardEvent<HTMLDialogElement>) => {
+    if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+    const node = dialog.current;
+    if (!node?.open) return;
+    // Native modal inertness blocks background controls, but Tab may still move
+    // to browser chrome. Keep the review's keyboard cycle within its controls.
+    const controls = Array.from<HTMLElement>(node.querySelectorAll(
+      'a[href], button, input, select, textarea, [tabindex]'
+    )).filter(control => control.tabIndex >= 0 && !control.matches(':disabled') &&
+      !control.closest('[hidden], [inert]') && control.getClientRects().length > 0 &&
+      getComputedStyle(control).visibility !== 'hidden');
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (!first || !last) {
+      event.preventDefault();
+      heading.current?.focus();
+    } else if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement as HTMLElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   useEffect(() => {
     const node = dialog.current;
     if (!node || !isOpen) return;
@@ -57,7 +81,7 @@ export function PrivacyNoticeDraft({ isOpen, onClose }: { isOpen: boolean; onClo
       if (previous?.isConnected) previous.focus();
     };
   }, [isOpen, id]);
-  return <dialog ref={dialog} aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); requestClose(); }} data-analytics-exclude="true" className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto overscroll-contain rounded-2xl border border-[#1C1C1C] bg-white p-5 sm:p-6 text-left text-[#1C1C1C] backdrop:bg-black/50">
+  return <dialog ref={dialog} onKeyDown={containTab} aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); requestClose(); }} data-analytics-exclude="true" className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto overscroll-contain rounded-2xl border border-[#1C1C1C] bg-white p-5 sm:p-6 text-left text-[#1C1C1C] backdrop:bg-black/50">
     <h2 ref={heading} tabIndex={-1} id={`${id}-title`} className="mb-4 text-xl font-bold">개인정보 처리 안내 검토</h2>
     <PrivacyNoticeDraftContent />
     <button type="button" onClick={requestClose} className="mt-6 min-h-11 w-full rounded-xl bg-[#1C1C1C] px-4 py-3 font-bold text-white">안내 닫기</button>
