@@ -1,3 +1,4 @@
+import { emptyVoteProjection, projectStoryVote, confirmStoryVote, isCurrentVoteRead, releaseVoteRequest, advanceVoteAccount, type VoteRow } from './lib/voteProjection';
 import { notificationsRepliesEnabled, aiRetentionEnabled } from './lib/notifications';
 import type { InAppNotification } from './lib/notificationModel';
 import { canContinueAiNavigation, readAiReturnStory } from './lib/aiNavigation';
@@ -5,7 +6,7 @@ import { fetchVisibleStories, fetchVisibleStory, fetchVisibleComments } from './
 import { createSignupLandingGate, signupLandingHref } from './lib/signupLanding';
 import { deleteOwnedStory, ownsStory } from './lib/storyOwnership';
 import { beginTask, blockedAction } from './lib/taskAnalytics';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { StoryCategory, Story, Comment, AIPersona, UserProfile, ChatSession, ChatMessage } from './types';
 import { INITIAL_STORIES, INITIAL_COMMENTS } from './data/mockData';
 import { Header } from './components/Header';
@@ -158,6 +159,9 @@ export default function App() {
   const authUserIdRef = useRef(authUserId);
   authUserIdRef.current = authUserId;
   const authTransitionVersion = useRef(0);
+  const voteAccountContext = useRef<{ accountId: string | null; epoch: number }>({ accountId: null, epoch: 0 });
+  const [voteProjection, setVoteProjection] = useState(emptyVoteProjection);
+  const voteReadRequest = useRef(0);
 
   // 로그인 없이 둘러보기: 홈 피드 탐색만 허용하고 나머지는 로그인 유도
   const [isGuest, setIsGuest] = useState<boolean>(wasBrowsingAsGuest);
@@ -221,6 +225,7 @@ export default function App() {
         if (recoveryCallbackAccessToken && session.access_token === recoveryCallbackAccessToken &&
             !recoveryLinkExpired) setPasswordRecoveryReady(true);
         setIsGuest(false);
+        voteAccountContext.current = advanceVoteAccount(voteAccountContext.current, session.user.id);
         authUserIdRef.current = session.user.id;
         setAuthUserId(session.user.id);
         setUser({
@@ -242,6 +247,7 @@ export default function App() {
       if (event === 'SIGNED_IN' && session) {
         authTransitionVersion.current += 1;
         if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        voteAccountContext.current = advanceVoteAccount(voteAccountContext.current, session.user.id);
         authUserIdRef.current = session.user.id;
         trackOnce(`login_success:${session.user.id}`, 'login_success');
         if (!passwordRecoveryFlowRef.current) setShowWelcomeModal(false);
@@ -256,6 +262,7 @@ export default function App() {
       } else if (event === 'PASSWORD_RECOVERY' && session) {
         authTransitionVersion.current += 1;
         if (authUserIdRef.current && authUserIdRef.current !== session.user.id) clearAccountBoundViews();
+        voteAccountContext.current = advanceVoteAccount(voteAccountContext.current, session.user.id);
         authUserIdRef.current = session.user.id;
         setPasswordRecoveryReady(true);
         setShowWelcomeModal(true);
@@ -277,6 +284,7 @@ export default function App() {
           로그인 전에는 게스트와 같은 제약(투표·AI 대화 차단)을 받아야 하므로
           isGuest도 함께 켠다.
         */
+        voteAccountContext.current = advanceVoteAccount(voteAccountContext.current, null);
         authUserIdRef.current = null;
         setAuthUserId(null);
         clearAccountBoundViews();
@@ -316,7 +324,10 @@ export default function App() {
   }, [authUserId]);
 
   // Main Feed State
-  const [stories, setStories] = useState<Story[]>([]);
+  const [publicStories, setStories] = useState<Story[]>([]);
+  const stories = useMemo(() => publicStories.map(story =>
+    projectStoryVote(story, voteProjection, authUserId, voteAccountContext.current.epoch)),
+    [publicStories, voteProjection, authUserId, voteAccountContext.current.epoch]);
   const [hiddenStoryIds, setHiddenStoryIds] = useState<string[]>([]);
   const [hiddenStoryOwnerId, setHiddenStoryOwnerId] = useState<string | null>(null);
   const [hiddenStoriesLoadError, setHiddenStoriesLoadError] = useState(false);
@@ -436,6 +447,7 @@ export default function App() {
       if (!storyResult.error && storyResult.data) {
         const visible = storyResult.data as Story[];
         setStories(visible);
+        void loadMyVotes();
         setSelectedStory(prev => {
           if (!prev) return prev;
           const fresh = visible.find(s => s.id === prev.id);
@@ -482,6 +494,7 @@ export default function App() {
         if (!active || current !== generation || authUserIdRef.current !== authUserId) return;
         if (!storyResult.error && storyResult.data) {
           const visible = storyResult.data as Story;
+          void loadMyVotes();
           setStories(prev => prev.some(s => s.id === id)
             ? prev.map(s => s.id === id ? visible : s) : [visible, ...prev]);
           setSelectedStory(prev => prev?.id === id ? visible : prev);
@@ -517,7 +530,10 @@ export default function App() {
   }, [analyticsConsent]);
 
   // Active Modals & Selected Items
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [selectedPublicStory, setSelectedStory] = useState<Story | null>(null);
+  const selectedStory = useMemo(() => selectedPublicStory
+    ? projectStoryVote(selectedPublicStory, voteProjection, authUserId, voteAccountContext.current.epoch) : null,
+    [selectedPublicStory, voteProjection, authUserId, voteAccountContext.current.epoch]);
   const [aiStoryContext, setAiStoryContext] = useState<{ account: string | null; storyId: string } | null>(null);
   useEffect(() => {
     if (selectedStory && (!hiddenStoriesReady || hiddenStoryIds.includes(selectedStory.id))) {
@@ -654,11 +670,13 @@ export default function App() {
 
   // My Activity Trackers — 투표 기록은 서버(votes 테이블)가 원본이다
   const [myVoteRecords, setMyVoteRecords] = useState<{ storyId: string; option: 'A' | 'B' }[]>([]);
-  const pendingVoteIds = useRef(new Set<string>());
+  const pendingVoteIds = useRef(new Map<string, symbol>());
 
   // A shared browser must drop the former account's in-memory content before
   // any request under the next account can finish.
   function clearAccountBoundViews() {
+    voteReadRequest.current++;
+    setVoteProjection(emptyVoteProjection());
     setStories([]);
     setCommentsMap({});
     notificationNavigation.current++;
@@ -707,34 +725,19 @@ export default function App() {
 
 
 
-  // 내 투표 기록을 서버에서 불러와 화면 상태에 반영한다.
-  // (RLS가 본인 행만 내려주므로 별도 필터가 필요 없다)
+  // RLS remains authoritative. Account epoch + request ordering reject delayed reads,
+  // including A → B → A and a read started before a confirmed vote mutation.
   const loadMyVotes = useCallback(async () => {
+    const ticket = { accountId: authUserIdRef.current, epoch: voteAccountContext.current.epoch, request: ++voteReadRequest.current };
+    const current = () => isCurrentVoteRead(ticket, authUserIdRef.current, voteAccountContext.current.epoch, voteReadRequest.current);
+    if (!ticket.accountId) return;
     const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) {
-      if (!authUserIdRef.current) setMyVoteRecords([]);
-      return;
-    }
-    const accountId = session.session.user.id;
-    if (authUserIdRef.current !== accountId) return;
-
+    if (!current() || session?.session?.user?.id !== ticket.accountId) return;
     const { data, error } = await supabase.from('votes').select('storyId, option, changeCount');
-    if (error || !data || authUserIdRef.current !== accountId) return;
-
-    const voteByStory = new Map<string, { option: 'A' | 'B'; changeCount: number }>(
-      data.map((v: any) => [v.storyId, { option: v.option, changeCount: v.changeCount }])
-    );
-
-    setStories(prev =>
-      prev.map(s => {
-        const v = voteByStory.get(s.id);
-        return v
-          ? { ...s, userVoted: v.option, voteChanged: v.changeCount >= 1 }
-          : { ...s, userVoted: undefined, voteChanged: false };
-      })
-    );
-
-    setMyVoteRecords(data.map((v: any) => ({ storyId: v.storyId, option: v.option as 'A' | 'B' })));
+    if (error || !data || !current()) return;
+    const rows = data as VoteRow[];
+    setVoteProjection({ accountId: ticket.accountId, epoch: ticket.epoch, rows });
+    setMyVoteRecords(rows.map(vote => ({ storyId: vote.storyId, option: vote.option })));
   }, []);
 
   /*
@@ -826,6 +829,9 @@ export default function App() {
   };
 
   const handleVote = async (storyId: string, option: 'A' | 'B'): Promise<boolean> => {
+    const voteAccount = authUserIdRef.current;
+    const voteEpoch = voteAccountContext.current.epoch;
+    const currentVoteAccount = () => Boolean(voteAccount) && authUserIdRef.current === voteAccount && voteAccountContext.current.epoch === voteEpoch;
     if (blockedForGuest('투표에 참여하려면 로그인이 필요해요.')) { blockedAction('vote', 'auth_required'); return false; }
     if (pendingVoteIds.current.has(storyId)) { blockedAction('vote', 'busy'); return false; }
 
@@ -848,14 +854,20 @@ export default function App() {
       blockedAction('vote', 'limit'); return false;
     }
 
-    pendingVoteIds.current.add(storyId);
+    const pendingVoteRequest = Symbol(storyId);
+    pendingVoteIds.current.set(storyId, pendingVoteRequest);
     const task = beginTask('vote');
     try {
       const { data, error } = await supabase.rpc('vote_story', {
         p_story_id: storyId,
         p_option: option,
       });
+      if (!currentVoteAccount()) { task.finish('error'); return false; }
       if (error || !data || data.id !== storyId) throw new Error('VOTE_RESULT_UNCONFIRMED');
+      voteReadRequest.current++;
+      setVoteProjection(previous => confirmStoryVote(previous, voteAccount!, voteEpoch,
+        { storyId, option, changeCount: isChange ? 1 : 0 }));
+      setMyVoteRecords(previous => [...previous.filter(vote => vote.storyId !== storyId), { storyId, option }]);
 
       // 투표 수는 추측해서 더하지 않고 DB 함수가 반환한 확정값으로 갱신한다.
       const confirmed = { ...story, ...(data as Story), userVoted: option, voteChanged: isChange };
@@ -870,12 +882,14 @@ export default function App() {
       await loadMyVotes();
       task.finish('success'); return true;
     } catch {
+      if (!currentVoteAccount()) { task.finish('error'); return false; }
       // 응답을 못 받았다고 DB가 쓰지 않았다고 단정할 수 없다. 가능한 범위에서
       // 서버의 사연·내 투표 기록을 다시 읽고 성공 이벤트는 보내지 않는다.
       setToastMessage('투표 결과를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
       setTimeout(() => setToastMessage(null), 3000);
       try {
         const { data: fresh } = await fetchVisibleStory(storyId);
+        if (!currentVoteAccount()) { task.finish('error'); return false; }
         if (fresh) setStories(prev => prev.map(s => s.id === storyId ? { ...s, ...(fresh as Story) } : s));
         await loadMyVotes();
       } catch {
@@ -883,7 +897,7 @@ export default function App() {
       }
       task.finish('error'); return false;
     } finally {
-      pendingVoteIds.current.delete(storyId);
+      releaseVoteRequest(pendingVoteIds.current, storyId, pendingVoteRequest);
     }
   };
 
