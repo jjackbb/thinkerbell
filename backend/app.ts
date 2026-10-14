@@ -98,47 +98,6 @@ app.get("/api/nickname/random", (req: Request, res: Response) => {
   res.json({ nickname: generateRandomNickname() });
 });
 
-// AI Chat (non-streaming). Only the server-held Potens key may call the provider.
-app.post("/api/chat", async (req: Request, res: Response) => {
-  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
-  if (!prompt) return res.status(400).json({ error: "INVALID_PROMPT" });
-  let context: Awaited<ReturnType<typeof authorizedChatContext>>;
-  try {
-    const user = await authenticatedStoryUser(req);
-    context = await authorizedChatContext(user.id, req.body?.personaId, prompt, req.body?.requestId);
-    if (aiRetentionEnabled() || aiQuotaMode() === "server") throw new StoryRequestFailure(503, "AI_QUOTA_NOT_READY");
-  } catch (error) {
-    return sendStorySaveError(res, error);
-  }
-  const apiKey = process.env.POTENS_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: "AI_PROVIDER_UNAVAILABLE" });
-
-  const instruction = context.instruction;
-  const fullPrompt = instruction
-    ? `[System Instruction: ${instruction}]\n\n[User Input]: ${prompt}`
-    : prompt;
-  try {
-    const response = await fetch("https://ai.potens.ai/api/chat", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt: fullPrompt, model: POTENS_MODEL }),
-    });
-    if (!response.ok) return res.status(502).json({ error: "AI_PROVIDER_FAILED" });
-    const data: unknown = await response.json();
-    const result = data && typeof data === "object" ? data as Record<string, unknown> : {};
-    const message = typeof result.message === "string" ? result.message : result.text;
-    if (typeof message !== "string" || !message.trim()) {
-      return res.status(502).json({ error: "AI_PROVIDER_FAILED" });
-    }
-    return res.json({ message, token_usage: result.token_usage ?? null, source: "potens-ai" });
-  } catch {
-    return res.status(502).json({ error: "AI_PROVIDER_FAILED" });
-  }
-});
-
 // AI Chat Streaming (SSE). Provider failure remains an error, never a mock answer.
 app.post("/api/chat-stream", async (req: Request, res: Response) => {
   const receivedAt = new Date();
@@ -306,7 +265,14 @@ async function streamServerAiTurn(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
-  res.on("close", () => { if (!res.writableEnded) controller.abort(); });
+  // 이용자가 답변을 받다가 창을 닫은 경우와 공급자 장애를 구분해야 예약을 맞게 처리할 수 있다
+  let clientClosed = false;
+  let answerShown = false;
+  res.on("close", () => {
+    if (res.writableEnded) return;
+    clientClosed = true;
+    controller.abort();
+  });
   let providerCompleted = false;
   try {
     const historyText = context.history.length > 0
@@ -325,7 +291,10 @@ async function streamServerAiTurn(
       signal: controller.signal,
     });
     if (!response.ok || !response.body) throw new Error("AI_PROVIDER_FAILED");
-    const answer = await consumePotensStream(response.body, (chunk) => send({ type: "text", text: chunk }));
+    const answer = await consumePotensStream(response.body, (chunk) => {
+      if (!res.destroyed) answerShown = true;
+      send({ type: "text", text: chunk });
+    });
     if (controller.signal.aborted) throw new Error("AI_REQUEST_CANCELLED");
     providerCompleted = true;
     send({ type: "provider_done" });
@@ -351,13 +320,17 @@ async function streamServerAiTurn(
   } finally {
     clearTimeout(timeout);
     if (heldReservation) {
+      // 답변 일부를 이미 받은 뒤 이용자가 연결을 끊었으면 1회로 차감한다.
+      // 그렇지 않으면 하루 횟수를 무한히 되돌려 받을 수 있다.
+      // 공급자 오류·응답 지연·저장 실패는 이용자 책임이 아니므로 예약을 돌려준다.
+      const charge = clientClosed && answerShown && !providerCompleted;
       const { error } = await client.rpc("finish_ai_first_reply", {
         p_user_id: userId,
         p_request_id: requestId,
-        p_success: false,
+        p_success: charge,
         p_finished_at: new Date().toISOString(),
       });
-      if (error) console.error("AI reservation return failed:", error.code ?? "unknown");
+      if (error) console.error(charge ? "AI reservation charge failed:" : "AI reservation return failed:", error.code ?? "unknown");
     }
   }
 }
@@ -1083,16 +1056,5 @@ app.put("/api/comments/:id", async (req: Request, res: Response) => {
     return sendStorySaveError(res, error);
   }
 });
-
-// 댓글 입력 검사는 로그인한 이용자만 요청할 수 있다.
-app.post("/api/sanitize-text", async (req: Request, res: Response) => {
-  try {
-    await authenticatedStoryUser(req);
-    return res.json({ sanitizedText: await sanitizeCommentText(req.body?.text) });
-  } catch (error) {
-    return sendStorySaveError(res, error);
-  }
-});
-
 
 export default app;

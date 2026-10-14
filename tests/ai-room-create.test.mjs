@@ -254,17 +254,28 @@ test('configured pre-cutover room is charged by the server RPC in one operation'
 test('chat endpoints fail closed after activation without the database readiness flag', async () => {
   process.env.AI_QUOTA_ACTIVATES_AT = '2020-01-01T15:00:00Z';
   const beforeCalls = providerCalls;
-  for (const endpoint of ['/api/chat', '/api/chat-stream']) {
+  const response = await originalFetch(`${baseUrl}/api/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token-owner' },
+    body: JSON.stringify({ personaId: `persona-${base.requestId}`, prompt: '합성 요청' }),
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'AI_QUOTA_NOT_READY');
+  assert.equal(providerCalls, beforeCalls);
+  delete process.env.AI_QUOTA_ACTIVATES_AT;
+});
+
+test('unused provider endpoints are no longer exposed', async () => {
+  const beforeCalls = providerCalls;
+  for (const endpoint of ['/api/chat', '/api/sanitize-text']) {
     const response = await originalFetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token-owner' },
-      body: JSON.stringify({ personaId: `persona-${base.requestId}`, prompt: '합성 요청' }),
+      body: JSON.stringify({ personaId: `persona-${base.requestId}`, prompt: '합성 요청', text: '합성 요청' }),
     });
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).error, 'AI_QUOTA_NOT_READY');
+    assert.equal(response.status, 404);
   }
   assert.equal(providerCalls, beforeCalls);
-  delete process.env.AI_QUOTA_ACTIVATES_AT;
 });
 
 test('legacy stream forwards only validated text and explicit completion', async () => {

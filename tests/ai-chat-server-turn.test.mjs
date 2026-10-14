@@ -6,7 +6,7 @@ const originalFetch = globalThis.fetch;
 const owner = '11111111-1111-4111-8111-111111111111';
 const author = '22222222-2222-4222-8222-222222222222';
 const activation = '2020-01-01T15:00:00Z';
-const rooms = new Map(['one', 'partial', 'save-fail', 'old'].map((name) => [
+const rooms = new Map(['one', 'partial', 'save-fail', 'old', 'closed-after-text', 'closed-before-text'].map((name) => [
   `persona-${name}`, {
     id: `persona-${name}`, userId: owner, storyId: 'foreign-story',
     createdAt: name === 'old' ? '2019-12-31T00:00:00Z' : '2026-09-28T00:00:00Z',
@@ -19,6 +19,8 @@ const feedback = new Map();
 let providerCalls = 0;
 let providerStream = 'data: {"type":"text","text":"저장된 답변"}\n\ndata: {"type":"done"}\n\n';
 let failSave = false;
+// 'after-text': 글자 하나를 보낸 뒤 멈춘다. 'silent': 아무것도 보내지 않고 멈춘다. 둘 다 연결이 끊기면 끝난다.
+let providerHang = null;
 
 process.env.SUPABASE_URL = 'https://example.supabase.co';
 process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
@@ -33,6 +35,18 @@ globalThis.fetch = async (input, init) => {
   const headers = new Headers(init?.headers);
   if (url.hostname === 'ai.potens.ai') {
     providerCalls += 1;
+    if (providerHang) {
+      const mode = providerHang;
+      const body = new ReadableStream({
+        start(controller) {
+          if (mode === 'after-text') {
+            controller.enqueue(new TextEncoder().encode('data: {"type":"text","text":"받는 중인 답변"}\n\n'));
+          }
+          init?.signal?.addEventListener('abort', () => controller.error(new Error('aborted')));
+        },
+      });
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } });
+    }
     return new Response(providerStream, { headers: { 'Content-Type': 'text/event-stream' } });
   }
   if (url.hostname !== 'example.supabase.co') return originalFetch(input, init);
@@ -85,8 +99,13 @@ globalThis.fetch = async (input, init) => {
       return Response.json({ result: 'saved', charged: true });
     }
     if (name === 'finish_ai_first_reply') {
-      if (reservations.has(request)) reservations.get(request).status = 'returned';
-      return Response.json('returned');
+      const status = args.p_success ? 'completed' : 'returned';
+      const reservation = reservations.get(request);
+      if (reservation) {
+        reservation.status = status;
+        if (args.p_success) completed.add(reservation.personaId);
+      }
+      return Response.json(status);
     }
   }
   return Response.json({ code: 'TEST_UNEXPECTED_ROUTE', message: url.pathname }, { status: 500 });
@@ -165,6 +184,53 @@ test('database save failure keeps provider completion separate and returns the s
   assert.equal(rooms.get('persona-save-fail').chatHistory.length, 0);
   assert.equal(reservations.get(requestId).status, 'returned');
   failSave = false;
+});
+
+// 이용자가 응답을 받는 도중 연결을 끊는다. 서버가 예약 처리를 마칠 때까지 기다린다.
+async function closeDuringTurn(roomName, requestId, waitForText) {
+  const controller = new AbortController();
+  const response = await originalFetch(`${baseUrl}/api/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-owner' },
+    body: JSON.stringify({ personaId: `persona-${roomName}`, prompt: '합성 요청', requestId }),
+    signal: controller.signal,
+  });
+  assert.equal(response.status, 200);
+  if (waitForText) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = '';
+    while (!received.includes('"type":"text"')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      received += decoder.decode(value, { stream: true });
+    }
+    assert.match(received, /"type":"text"/);
+  }
+  controller.abort();
+  for (let i = 0; i < 100 && reservations.get(requestId)?.status === 'reserved'; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return reservations.get(requestId)?.status;
+}
+
+test('closing the connection after part of the answer arrived charges the reserved slot', async () => {
+  providerHang = 'after-text';
+  const requestId = '13131313-1313-4313-8313-131313131313';
+  const status = await closeDuringTurn('closed-after-text', requestId, true);
+  providerHang = null;
+  assert.equal(status, 'completed');
+  assert.equal(completed.has('persona-closed-after-text'), true);
+  assert.equal(rooms.get('persona-closed-after-text').chatHistory.length, 0);
+});
+
+test('closing the connection before any answer arrived returns the reserved slot', async () => {
+  providerHang = 'silent';
+  const requestId = '14141414-1414-4414-8414-141414141414';
+  const status = await closeDuringTurn('closed-before-text', requestId, false);
+  providerHang = null;
+  assert.equal(status, 'returned');
+  assert.equal(completed.has('persona-closed-before-text'), false);
 });
 
 test('a pre-activation room continues without a new reservation', async () => {
