@@ -81,8 +81,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
             backgroundImage: 'linear-gradient(90deg, var(--vote-seal-b), var(--vote-seal-a))',
           }}
         />
-        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">투표하면 결과를 볼 수 있어요</p>
-        <p className="mt-1 text-xs text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
+        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
           <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
           {total > 0 ? (
             <span>

@@ -280,8 +280,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
               }`}
             >
-              <span className="block">니 편</span>
-              <span className="block mt-0.5 text-xs font-normal">사연 속 상대방</span>
+              니 편
             </button>
             <button data-button-id="story-card-button-09"
               onClick={(e) => {
@@ -304,8 +303,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
               }`}
             >
-              <span className="block">내 편</span>
-              <span className="block mt-0.5 text-xs font-normal">사연 작성자</span>
+              내 편
             </button>
           </div>
 
@@ -350,11 +348,11 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             }}
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
-            <span className="sr-only">댓글 </span>{comments.length}
+            <span>댓글 </span>{comments.length}
           </button>
           <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span>
-            <span className="sr-only">투표 </span>{totalVotes}
+            <span>투표 </span>{totalVotes}
           </span>
         </div>
 

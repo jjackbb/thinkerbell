@@ -25,7 +25,8 @@ async function render(component,props={}) {
 }
 test('unvoted ranking does not expose percentages, side counts, or outcome-dependent bars',async()=>{
  const html=await render('WeeklyTopBanner',{weeklyTopStories:[story]});
- assert.match(html,/투표하면 결과를 볼 수 있어요/);
+ assert.match(html,/니 편 \?\?%/);
+ assert.doesNotMatch(html,/투표하면 결과를 볼 수 있어요/);
  assert.doesNotMatch(html,/80%|20%|80표|20표|width:80|width:20/);
  assert.match(html,/<button type="button" data-action-id="weekly-top-banner-action-01"/);
  const reversed=await render('WeeklyTopBanner',{weeklyTopStories:[{...story,votesA:20,votesB:80}]});
@@ -53,10 +54,15 @@ test('public result sharing appears only for voters/authors; locked state explai
  const privateStory=await render('StoryDetailModal',{...props,story:{...story,visibility:'private'},currentUser:{id:'owner'}});
  assert.doesNotMatch(privateStory,/share-result-bar-button-03|투표한 뒤 화면 아래/);
 });
-test('feed and detail explain whose side each vote supports',async()=>{
+test('feed and detail keep the original vote button wording without new side descriptions',async()=>{
  for(const component of ['StoryCard','StoryDetailModal']){
   const html=await render(component,{story,currentUser:{id:'reader'},comments:[]});
-  assert.match(html,/사연 속 상대방/);assert.match(html,/사연 작성자/);
+  const ids=component==='StoryCard'?['story-card-button-08','story-card-button-09']:['story-detail-modal-button-09','story-detail-modal-button-10'];
+  for(const [index,id] of ids.entries()){
+   const button=html.match(new RegExp(`<button[^>]*data-button-id="${id}"[^>]*>([\\s\\S]*?)</button>`));
+   assert.ok(button,`${component} ${id}`);
+   assert.equal(button[1].trim(),index===0?'니 편':'내 편');
+  }
  }
 });
 test('share bar accurately discloses selected side, link and preview; author card has no selected side',async()=>{
@@ -65,11 +71,18 @@ test('share bar accurately discloses selected side, link and preview; author car
  const author=await render('ShareResultBar',{input:{title:'제목',votesA:8,votesB:2},url:'https://example.invalid/?story=synthetic'});
  assert.doesNotMatch(author,/내 선택/);
 });
-test('FAQ and login benefit copy match actual read/vote permissions',async()=>{
+test('FAQ and login benefit copy return to the prior wording requested by the user',async()=>{
  const source=await readFile('frontend/src/components/MyPageView.tsx','utf8');
- assert.doesNotMatch(source,/모든 유저가 실시간 투표 비율|사연 전체 내용을 읽고 내 편/);
- assert.match(source,/공개 사연의 전체 내용은 로그인 없이 읽을 수 있어요/);
- assert.match(source,/작성자는 본인 사연에 투표할 수 없지만 결과는 바로/);
+ assert.match(source,/사연을 열람하는 모든 유저가 실시간 투표 비율을 볼 수 있지만, 누가 어디에 투표했는지는 비공개입니다\./);
+ assert.match(source,/지금은 로그인 없이 둘러보는 중이에요\. 내 활동은 로그인한 뒤부터 쌓입니다\./);
+ assert.match(source,/사연 전체 내용을 읽고 내 편·니 편에 투표하기/);
+ assert.doesNotMatch(source,/공개 사연의 전체 내용은 로그인 없이 읽을 수 있어요|작성자는 본인 사연에 투표할 수 없지만 결과는 바로/);
+});
+test('card footer exposes visible comment and vote labels without changing the numbers',async()=>{
+ const html=await render('StoryCard',{story,currentUser:{id:'reader'},comments:[]});
+ assert.match(html,/<span>댓글 <\/span>0/);
+ assert.match(html,/<span>투표 <\/span>100/);
+ assert.doesNotMatch(html,/<span class="sr-only">(?:댓글|투표) /);
 });
 test('dark supporting-text tokens exceed 4.5:1 on both dark surfaces',async()=>{
  const css=await readFile('frontend/src/index.css','utf8');

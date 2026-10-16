@@ -4,17 +4,18 @@ test.beforeEach(async({page})=>{
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort('blockedbyclient'));
  await page.goto('/ui.html');
 });
-test('ranking keyboard entry, vote explanation and sharing remain visible at this viewport',async({page})=>{
+test('ranking keyboard entry, original vote wording and sharing remain visible at this viewport',async({page})=>{
  const visibleRank=page.locator('[data-action-id="weekly-top-banner-action-01"]:visible').first();
- await expect(visibleRank).toContainText('투표하면 결과를 볼 수 있어요');
+ await expect(visibleRank).toContainText('??%');
+ await expect(page.getByText('투표하면 결과를 볼 수 있어요',{exact:true})).toHaveCount(0);
  await expect(visibleRank).not.toContainText('80%');
  await visibleRank.focus();await page.keyboard.press('Enter');
  await expect(page.getByRole('button',{name:'사연 닫기',exact:true})).toBeVisible();
  await expect(page.locator('[data-button-id="share-result-bar-button-03"]')).toHaveCount(0);
  await expect(page.getByText('투표한 뒤 화면 아래의', {exact:false})).toBeVisible();
  await page.locator('[data-button-id="story-detail-modal-button-10"]').click();
- await expect(page.locator('[data-button-id="story-detail-modal-button-10"]')).toContainText('사연 작성자');
- await expect(page.locator('[data-button-id="story-detail-modal-button-09"]')).toContainText('사연 속 상대방');
+ await expect(page.locator('[data-button-id="story-detail-modal-button-10"]')).toHaveText('내 편');
+ await expect(page.locator('[data-button-id="story-detail-modal-button-09"]')).toHaveText('니 편');
  const share=page.getByRole('button',{name:'결과 공유하기',exact:true});await expect(share).toBeInViewport();
  const close=page.getByRole('button',{name:'사연 닫기',exact:true});await expect(close).toBeInViewport();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -22,6 +23,23 @@ test('ranking keyboard entry, vote explanation and sharing remain visible at thi
  await close.click();await expect(visibleRank).toContainText('80%');
  await visibleRank.click();await page.keyboard.press('Escape');
  await expect(page.getByRole('button',{name:'사연 닫기',exact:true})).toHaveCount(0);
+});
+test('comment and vote labels are visibly rendered for reader and author without viewport overflow',async({page})=>{
+ for(const role of ['reader','author']){
+  await page.getByRole('button',{name:`시험 ${role}`,exact:true}).click();
+  const comments=page.locator('[data-button-id="story-card-button-10"]');
+  const commentLabel=comments.getByText('댓글',{exact:true});
+  const voteLabel=page.getByText('투표',{exact:true});
+  await expect(commentLabel).toBeVisible();await expect(voteLabel).toBeVisible();
+  for(const label of [commentLabel,voteLabel]){
+   await expect(label).not.toHaveClass(/sr-only/);
+   const box=await label.boundingBox();expect(box?.width).toBeGreaterThan(15);expect(box?.height).toBeGreaterThan(8);
+  }
+  await expect(comments).toContainText('댓글 0');
+  await expect(page.locator('[data-button-id="story-card-button-08"]')).toHaveText('니 편');
+  await expect(page.locator('[data-button-id="story-card-button-09"]')).toHaveText('내 편');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ }
 });
 test('guest cannot reveal results or share; author can share only while public',async({page})=>{
  await page.getByRole('button',{name:'시험 guest',exact:true}).click();

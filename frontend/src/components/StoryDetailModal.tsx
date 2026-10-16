@@ -492,8 +492,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
                     }`}
                   >
-                    <span className="block">니 편</span>
-                    <span className="block mt-0.5 text-xs font-normal">사연 속 상대방</span>
+                    니 편
                   </button>
                   <button data-button-id="story-detail-modal-button-10"
                     onClick={() => handleVote('A')}
@@ -507,8 +506,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
                     }`}
                   >
-                    <span className="block">내 편</span>
-                    <span className="block mt-0.5 text-xs font-normal">사연 작성자</span>
+                    내 편
                   </button>
                 </div>
 
