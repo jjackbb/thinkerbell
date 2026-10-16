@@ -37,7 +37,7 @@ export const AIErrorReportModal: React.FC<AIErrorReportModalProps> = ({ persona,
             <ShieldAlert className="w-5 h-5 text-[#ba1a1a]" />
             <h2 className="font-headline-md text-base font-bold">오류 신고</h2>
           </div>
-          <button data-analytics-exclude="true" data-button-id="ai-error-report-modal-button-01" onClick={onClose} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer">
+          <button data-analytics-exclude="true" data-button-id="ai-error-report-modal-button-01" aria-label="오류 제보 닫기" onClick={onClose} className="text-[var(--color-secondary-on-dark)] hover:text-white transition-colors cursor-pointer p-2">
             <X className="w-5 h-5" />
           </button>
         </div>

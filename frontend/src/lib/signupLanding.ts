@@ -1,3 +1,4 @@
+import { campaignLinkParams } from './analyticsContext';
 type FunctionalStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 /** Only the successful new-account creation handler calls this gate.
@@ -40,13 +41,11 @@ export async function finishCreatedSignup(
   return loggedIn;
 }
 
-function fixedSource(source: unknown): string {
-  return source === 'qa' || source === 'community' || source === 'sns' ? `&source=${source}` : '';
+export function signupLandingHref(source: unknown, search?: string): string {
+  const suffix = campaignLinkParams(source, search).toString();
+  return `/landing${suffix ? '?' + suffix : ''}`;
 }
-export function signupLandingHref(source: unknown): string {
-  const suffix = fixedSource(source);
-  return `/landing${suffix ? '?' + suffix.slice(1) : ''}`;
-}
-export function landingCtaHref(action: 'write' | 'browse', source: unknown): string {
-  return (action === 'write' ? '/?action=write' : '/?browse=1') + fixedSource(source);
+export function landingCtaHref(action: 'write' | 'browse', source: unknown, search?: string): string {
+  const suffix = campaignLinkParams(source, search).toString();
+  return (action === 'write' ? '/?action=write' : '/?browse=1') + (suffix ? '&' + suffix : '');
 }

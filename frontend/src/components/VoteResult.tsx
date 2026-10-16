@@ -25,9 +25,6 @@ interface VoteResultProps {
 /** 이 수 미만이면 퍼센트 대신 점으로 표를 센다 */
 const SMALL_SAMPLE = 5;
 
-/** 투표 전 막대에서 경계를 녹이는 폭(막대 전체 대비 %). 좁으면 비율이 읽히고, 넓으면 사연끼리 구별이 안 된다 */
-const EDGE_BLUR = 35;
-
 /**
  * 투표 결과 표시. 세 가지 원칙을 담는다.
  *
@@ -67,23 +64,10 @@ export const VoteResult: React.FC<VoteResultProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  // ── 투표 전: 경계를 녹여서 가린다 ──────────────────────────────────
+  // ── 투표 전: 실제 비율과 무관한 중립 표시 ──────────────────────────────────
   if (!revealed) {
-    /*
-      투표 전에는 '어느 쪽이 얼마나'를 못 읽게 한다. 다만 아예 안 보이면
-      궁금하지도 않아서 투표할 이유가 없다. 그래서 진짜 비율 막대를 그대로
-      깔되, 경계선 자리를 막대 폭의 35%에 걸쳐 넓게 녹인다.
-
-      결과: "이쯤에서 넘어가는구나"는 느껴지는데 정확히 어디서 갈리는지는
-      짚을 수 없다. 표가 한쪽으로 크게 쏠린 사연은 전이가 막대 끝에 붙어
-      쏠렸다는 사실이 드러나는데, 그건 막을 수도 없고 막을 이유도 없다.
-
-      색은 진영 토큰을 배경색에 섞어 옅게 쓴다. 투표 후의 원색 막대와 한눈에
-      구분되어야 '아직 안 열렸다'가 읽힌다.
-    */
-    const edge = total > 0 ? percentB : 50;
-    const from = Math.max(0, edge - EDGE_BLUR / 2);
-    const to = Math.min(100, edge + EDGE_BLUR / 2);
+    // 실제 표 비율과 무관한 중립 막대만 표시한다. 흐림 처리로도 우세한 쪽이
+    // 드러날 수 있으므로 투표 전 렌더링에는 득표 비율을 사용하지 않는다.
 
     return (
       <div className={rootClass}>
@@ -94,10 +78,11 @@ export const VoteResult: React.FC<VoteResultProps> = ({
         <div
           className="w-full h-2 rounded-full bg-[var(--vote-track)]"
           style={{
-            backgroundImage: `linear-gradient(90deg, var(--vote-seal-b) 0 ${from}%, var(--vote-seal-a) ${to}% 100%)`,
+            backgroundImage: 'linear-gradient(90deg, var(--vote-seal-b), var(--vote-seal-a))',
           }}
         />
-        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
+        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">투표하면 결과를 볼 수 있어요</p>
+        <p className="mt-1 text-xs text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
           <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
           {total > 0 ? (
             <span>
@@ -129,7 +114,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
             <span key={`a${i}`} className="w-2 h-2 rounded-full bg-[var(--vote-fill-a)]" />
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center">
+        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">
           아직 {total}명이 투표했어요
         </p>
       </div>
@@ -145,7 +130,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
           <span className="text-[var(--vote-caption)]">{labels.a}</span>
         </div>
         <div className="w-full h-2 rounded-full bg-[var(--vote-track-empty)]" />
-        <p className="mt-2 text-[11px] text-[var(--vote-caption)] text-center">
+        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">
           아직 투표가 없어요
         </p>
       </div>
@@ -173,7 +158,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
           style={{ width: `${percentA}%` }}
         />
       </div>
-      <p className="mt-1.5 text-[11px] text-[var(--vote-caption)] text-center">
+      <p className="mt-1.5 text-xs text-[var(--vote-caption)] text-center">
         총 {total}명 참여
       </p>
     </div>

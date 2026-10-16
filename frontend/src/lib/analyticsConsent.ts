@@ -1,4 +1,5 @@
 import { RECRUITMENT_STORAGE_KEY } from './analyticsContext';
+import { hasAnalyticsAccountEligibility } from './analyticsAccountState';
 
 export type AnalyticsConsent = 'unknown' | 'accepted' | 'refused';
 
@@ -14,7 +15,7 @@ if (typeof window !== 'undefined') window.addEventListener('storage', event => {
 
 function disableGA4(disabled: boolean): void {
   if (measurementId && /^G-[A-Z0-9]+$/.test(measurementId)) {
-    (window as unknown as Record<string, boolean>)[`ga-disable-${measurementId}`] = disabled;
+    (window as unknown as Record<string, boolean>)[`ga-disable-${measurementId}`] = disabled || !hasAnalyticsAccountEligibility();
   }
 }
 

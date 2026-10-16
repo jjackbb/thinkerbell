@@ -18,6 +18,8 @@
     --color-action-coral: #FF6B5A;
     --color-primary-dark: #A32E1D;
     --color-secondary-grey: #5f5e5e;
+    --color-secondary-on-dark: #C7C7C7;
+    --color-danger-on-dark: #FFB4AB;
     --color-border-subtle: #E5E7EB;
     --color-border-strong: #1C1C1C;
     --color-surface-container: #f3f4f5;
@@ -104,8 +106,7 @@
 
 /* 투표 전 봉인 게이지 색
    ─────────────────────────────────────────────────────────────────────
-   투표 전 막대는 진짜 비율을 쓰되 경계를 넓게 녹여서(VoteResult.tsx의
-   EDGE_BLUR) 어디서 갈리는지 못 짚게 한다. 색은 투표 후 원색 막대와
+   투표 전 막대는 실제 비율과 무관한 중립 그라데이션이다. 색은 투표 후 원색 막대와
    한눈에 구분되도록 진영 토큰을 흰색에 섞어 옅게 만든다.
    여기서 새 hex를 정하지 않는다. */
 :root {
@@ -146,9 +147,8 @@
   --vote-ink-b: var(--color-your-side);
   --vote-fill-a: var(--color-my-side);
   --vote-fill-b: var(--color-your-side);
-  /* 캡션·바탕은 배너 바탕에 흰색을 얇게 얹는다. 브라우저 실측 대비 2.4~2.8:1로
-     '읽히되 앞으로 튀어나오지 않는' 값이라 임의로 조정하지 않는다 */
-  --vote-caption: color-mix(in srgb, #ffffff 60%, transparent);
+  /* 작은 보조 글씨도 어두운 배경에서 충분한 대비를 유지한다. */
+  --vote-caption: var(--color-secondary-on-dark);
   --vote-emphasis: #ffffff;
   --vote-track: color-mix(in srgb, #ffffff 10%, transparent);
   --vote-track-empty: color-mix(in srgb, #ffffff 10%, transparent);

@@ -120,7 +120,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-[#1C1C1C] flex items-center gap-2 font-display">
             <span aria-hidden="true" className="material-symbols-outlined text-[#FF6B5A] text-2xl font-bold">terminal</span> {initialData ? '사연 수정하기' : '새 사연 작성'}
           </h2>
-          <button data-button-id="create-story-modal-button-01" onClick={onClose} disabled={isSubmitting} className="text-[#5f5e5e] hover:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <button data-button-id="create-story-modal-button-01" aria-label="사연 작성 닫기" onClick={onClose} disabled={isSubmitting} className="text-[#5f5e5e] hover:text-[#1C1C1C] transition-colors cursor-pointer p-2 disabled:opacity-50 disabled:cursor-not-allowed">
             <X className="w-5 h-5" />
           </button>
         </div>

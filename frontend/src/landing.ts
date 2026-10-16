@@ -1,9 +1,12 @@
+import { supabase } from './lib/supabase';
+import { installAnalyticsAccountGuard } from './lib/analyticsAccountGuard';
 import { landingCtaHref } from './lib/signupLanding';
 import { enforceAnalyticsRefusal, getAnalyticsConsent, setAnalyticsConsent, ANALYTICS_CONSENT_CHANGED } from './lib/analyticsConsent';
 import { setupGA4 } from './lib/ga4';
 import { installUiAnalytics } from './lib/uiAnalytics';
 
 enforceAnalyticsRefusal();
+const disposeAccountGuard = installAnalyticsAccountGuard(supabase.auth);
 setupGA4();
 const dispose = installUiAnalytics();
 const banner = document.getElementById('landing-consent');
@@ -15,7 +18,7 @@ window.addEventListener('storage', event => {
   if (event.key === 'nipyeon_analytics_consent_v1') { enforceAnalyticsRefusal(); update(); }
 });
 update();
-if (import.meta.hot) import.meta.hot.dispose(dispose);
+if (import.meta.hot) import.meta.hot.dispose(() => { dispose(); disposeAccountGuard(); });
 // Demo handlers in landing.html change only their local example UI.
 // This module records fixed page_view/ui_click only, never vote/comment outcomes.
 

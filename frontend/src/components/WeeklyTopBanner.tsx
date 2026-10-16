@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Story } from '../types';
+import { Story, UserProfile } from '../types';
+import { VoteResult } from './VoteResult';
+import { ownsStory } from '../lib/storyOwnership';
 import { Trophy, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface WeeklyTopBannerProps {
   weeklyTopStories: Story[];
   realtimeTopStories?: Story[];
   onSelectStory: (story: Story) => void;
+  currentUser?: UserProfile;
+  isGuest?: boolean;
 }
 
 export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
   weeklyTopStories,
   realtimeTopStories = [],
   onSelectStory,
+  currentUser,
+  isGuest = false,
 }) => {
   /*
     보여줄 수 있는 칸만 모은다.
@@ -83,16 +89,14 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
 
   const renderStories = (stories: Story[], bannerType: 'weekly' | 'realtime') => {
     return stories.slice(0, 3).map((story, idx) => {
-      const total = story.votesA + story.votesB;
-      const percentageA = total > 0 ? Math.round((story.votesA / total) * 100) : 50;
       const rankColor = 'bg-[#B87514] text-white';
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
-        <div data-action-id="weekly-top-banner-action-01" data-analytics-exclude={story.visibility === "private" || story.isAdult || story.isBlind || story.isHidden ? "true" : undefined}
+        <button type="button" data-action-id="weekly-top-banner-action-01" data-button-id="weekly-top-banner-action-01" data-analytics-exclude={story.visibility === "private" || story.isAdult || story.isBlind || story.isHidden ? "true" : undefined}
           key={`${bannerType}-${story.id}`}
           onClick={() => onSelectStory(story)}
-          className="bg-white border border-[#B87514] rounded-lg p-4 cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs"
+          className="bg-white border border-[#B87514] rounded-lg p-4 text-left cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B87514]"
         >
           <div>
             <div className="flex items-center justify-between mb-2 font-mono text-xs">
@@ -102,49 +106,21 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
               <span className="text-[#5f5e5e] font-semibold">{story.category}</span>
             </div>
 
-            <h3 className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-2 leading-snug mb-3">
+            <h3 className="text-sm font-bold text-[#1C1C1C] line-clamp-2 leading-snug mb-3">
               {story.title}
             </h3>
           </div>
 
           <div>
-            {/*
-              표가 하나도 없으면 비율을 그리지 않는다.
-
-              예전에는 0표일 때도 50:50 막대가 그려졌다. 아무도 안 골랐는데
-              화면은 "팽팽하다"고 말하는 셈이라, 없는 여론을 지어내는 것과 같다.
-              빈 막대와 '아직 표 없음'으로 사실만 말한다.
-            */}
-            {total === 0 ? (
-              <>
-                <div className="w-full bg-[#E5E7EB] h-2 rounded-full mb-2" />
-                <div className="flex items-center justify-center font-mono text-[11px] text-[#5f5e5e]">
-                  <span>아직 표 없음</span>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* 왼쪽이 니 편, 오른쪽이 내 편 */}
-                <div className="w-full bg-[#E5E7EB] h-2 rounded-full overflow-hidden flex mb-2">
-                  <div
-                    className="bg-[#6C7BE8] h-full transition-all duration-500"
-                    style={{ width: `${100 - percentageA}%` }}
-                  />
-                  <div
-                    className="bg-[#FF6B5A] h-full transition-all duration-500"
-                    style={{ width: `${percentageA}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between font-mono text-[11px] text-[#5f5e5e]">
-                  <span className="text-[#4553C4] font-bold">니편 {100 - percentageA}%</span>
-                  <span>{total}표</span>
-                  <span className="text-[#D6452F] font-bold">내편 {percentageA}%</span>
-                </div>
-              </>
-            )}
+            <VoteResult
+              votesA={story.votesA}
+              votesB={story.votesB}
+              hasVoted={!isGuest && !!story.userVoted}
+              isMyStory={ownsStory(currentUser?.id, story.authorId, isGuest)}
+              compact
+            />
           </div>
-        </div>
+        </button>
       );
     });
   };
@@ -184,10 +160,11 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 mb-8 shadow-xs overflow-hidden">
       <div className="flex items-center justify-between mb-4 border-b border-[#E5E7EB] pb-3">
-        <div className="flex items-center gap-2 relative h-8 w-full max-w-[450px] overflow-hidden">
+        <div className="flex items-center gap-2 relative h-14 sm:h-8 w-full max-w-[450px] overflow-hidden">
           {panes.map((pane, idx) => (
             <div
               key={`header-${pane.key}`}
+              aria-hidden={idx !== safeIndex}
               className={`absolute inset-0 flex items-center gap-2 transition-transform duration-500 ${
                 idx === safeIndex ? 'translate-y-0' : idx < safeIndex ? '-translate-y-full' : 'translate-y-full'
               }`}
@@ -195,7 +172,7 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
               <div className="w-7 h-7 bg-[#B87514]/10 rounded flex items-center justify-center text-[#B87514] font-bold shrink-0">
                 {pane.key === 'weekly' ? <Trophy className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
               </div>
-              <h2 className="text-base font-bold text-[#1C1C1C] flex items-center gap-2 font-headline-md whitespace-nowrap">
+              <h2 className="text-sm sm:text-base font-bold text-[#1C1C1C] flex flex-wrap items-center gap-x-2 gap-y-1 font-headline-md">
                 {pane.key === 'weekly' ? '주간 랭킹 TOP 3' : '실시간 랭킹 TOP 3'}
                 <span className="text-xs px-2 py-0.5 bg-[#B87514] text-white font-mono rounded font-bold ml-1">
                   {pane.key === 'weekly' ? dateRangeStr : realtimeHourStr}
@@ -207,17 +184,17 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
 
         {/* 넘길 칸이 둘 이상일 때만 화살표를 낸다 */}
         {paneCount > 1 && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button data-button-id="weekly-top-banner-button-01"
               onClick={toggleBanner}
-              className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+              className="p-2 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
               aria-label="이전 배너 보기"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button data-button-id="weekly-top-banner-button-02"
               onClick={toggleBanner}
-              className="p-1 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+              className="p-2 rounded-md text-[#5f5e5e] hover:text-[#1C1C1C] hover:bg-[#f3f4f5] transition-colors cursor-pointer"
               aria-label="다음 배너 보기"
             >
               <ChevronRight className="w-5 h-5" />
@@ -246,6 +223,8 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
           {panes.map(pane => (
             <div
               key={`pane-${pane.key}`}
+              aria-hidden={pane.key !== panes[safeIndex].key}
+              inert={pane.key !== panes[safeIndex].key}
               className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 px-0.5"
               style={{ width: `${100 / paneCount}%` }}
             >

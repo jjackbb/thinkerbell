@@ -56,11 +56,11 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
   };
 
   return (
-    <div className="sticky bottom-0 z-30 bg-[#1C1C1C] border-t border-[#E5E7EB] px-4 py-3">
+    <div aria-label="투표 결과 공유" className="shrink-0 sticky bottom-0 z-30 bg-[#1C1C1C] border-t border-[#E5E7EB] px-4 py-3">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <div className="flex-1 min-w-0">
           {note ? (
-            <p className="flex items-center gap-1.5 text-xs text-[#FF6B5A] font-bold">
+            <p role="status" className="flex items-center gap-1.5 text-xs text-[#FF6B5A] font-bold">
               <Check className="w-3.5 h-3.5" /> {note}
             </p>
           ) : (
@@ -68,9 +68,9 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
               type="button"
               onClick={onPreview}
               disabled={!onPreview}
-              className="text-[11px] text-[#8b8b8b] hover:text-white transition-colors disabled:hover:text-[#8b8b8b] disabled:cursor-default cursor-pointer text-left"
+              className="text-xs text-[var(--color-secondary-on-dark)] hover:text-white transition-colors disabled:hover:text-[var(--color-secondary-on-dark)] disabled:cursor-default cursor-pointer text-left"
             >
-              닉네임 없이 결과만 담긴 카드로 나갑니다{onPreview ? ' · 미리보기' : ''}
+              제목·투표 결과{input.myChoice ? '·내 선택' : ''} 카드와 사연 링크{onPreview ? ' · 미리보기' : ''}
             </button>
           )}
         </div>

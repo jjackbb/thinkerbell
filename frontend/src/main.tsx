@@ -1,3 +1,5 @@
+import { supabase } from './lib/supabase';
+import { installAnalyticsAccountGuard } from './lib/analyticsAccountGuard';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
@@ -8,9 +10,10 @@ import {installUiAnalytics} from './lib/uiAnalytics';
 
 /* 이전 방문에서 거부했다면 태그 실행 전에 GA4 전송을 차단한다. */
 enforceAnalyticsRefusal();
+const disposeAccountGuard = installAnalyticsAccountGuard(supabase.auth);
 setupGA4();
 const disposeAnalytics = installUiAnalytics();
-if (import.meta.hot) import.meta.hot.dispose(disposeAnalytics);
+if (import.meta.hot) import.meta.hot.dispose(() => { disposeAnalytics(); disposeAccountGuard(); });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

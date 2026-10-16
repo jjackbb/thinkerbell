@@ -101,7 +101,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           <span className="font-label-sm text-xs px-2.5 py-0.5 bg-[#f3f4f5] border border-[#E5E7EB] text-[#5f5e5e] font-semibold rounded">
             {story.category}
           </span>
-          <span className="font-label-sm text-[11px] text-[#5f5e5e]/60">
+          <span className="font-label-sm text-xs text-[#5f5e5e]">
             {new Date(story.createdAt).toLocaleDateString()}
           </span>
         </div>
@@ -116,12 +116,12 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           </p>
         </div>
 
-        <p className="text-xs text-[#5f5e5e]/70 line-clamp-2 bg-[#f9fafb] rounded-lg p-3">
+        <p className="text-xs text-[#5f5e5e] line-clamp-2 bg-[#f9fafb] rounded-lg p-3">
           {story.title}
         </p>
 
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-[11px] text-[#5f5e5e]">
+          <span className="font-mono text-xs text-[#5f5e5e]">
             신고 {story.reportsCount}건 · 조회 {story.viewCount ?? 0}회
           </span>
           {appealed ? (
@@ -164,7 +164,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             </span>
             {/* 작성자 닉네임은 노출하지 않는다 — 여러 사연이 같은 닉네임으로 묶이면
                 조합만으로 신원이 좁혀지기 때문. 닉네임은 마이페이지에서만 쓴다 */}
-            <span className="font-label-sm text-[11px] text-[#5f5e5e]/60">
+            <span className="font-label-sm text-xs text-[#5f5e5e]">
               {new Date(story.createdAt).toLocaleDateString()}
             </span>
             {isMyStory && (
@@ -185,7 +185,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 setIsMenuOpen(!isMenuOpen);
               }}
               className="text-[#5f5e5e] hover:text-[#1C1C1C] p-1 transition-colors cursor-pointer"
-              title="메뉴 더보기"
+              aria-label="사연 메뉴 더보기"
+              aria-expanded={isMenuOpen}
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -220,7 +221,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             <h4 className="font-headline-md text-base sm:text-lg font-bold text-[#1C1C1C] mb-3 group-hover:text-[#FF6B5A] transition-colors leading-snug">
               {story.title}
             </h4>
-            <p className={`text-[#5f5e5e] font-body-sm text-xs sm:text-sm leading-relaxed ${!isExpanded ? 'line-clamp-3' : ''}`}>
+            <p className={`text-[#5f5e5e] font-body-sm text-sm leading-relaxed ${!isExpanded ? 'line-clamp-3' : ''}`}>
               {story.body}
             </p>
             {story.body.length > 100 && (
@@ -241,7 +242,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center shadow-sm mb-1.5 border border-red-100">
                 <span className="font-black text-xl font-mono">19</span>
               </div>
-              <span className="text-[11px] font-bold text-red-500 bg-white/90 px-3 py-1 rounded-full shadow-xs border border-red-100">성인 인증 필요</span>
+              <span className="text-xs font-bold text-red-500 bg-white/90 px-3 py-1 rounded-full shadow-xs border border-red-100">성인 인증 필요</span>
             </div>
           )}
         </div>
@@ -273,13 +274,14 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 isBlurRequired
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
                   : votedOption === 'B'
-                  ? 'bg-[#6C7BE8] text-white cursor-default'
+                  ? 'bg-[var(--color-your-side-ink)] text-white cursor-default'
                   : isMyStory
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
               }`}
             >
-              니 편
+              <span className="block">니 편</span>
+              <span className="block mt-0.5 text-xs font-normal">사연 속 상대방</span>
             </button>
             <button data-button-id="story-card-button-09"
               onClick={(e) => {
@@ -296,19 +298,20 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 isBlurRequired
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/30 cursor-not-allowed'
                   : votedOption === 'A'
-                  ? 'bg-[#FF6B5A] text-white cursor-default'
+                  ? 'bg-[#FF6B5A] text-[#1C1C1C] cursor-default'
                   : isMyStory
                   ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
               }`}
             >
-              내 편
+              <span className="block">내 편</span>
+              <span className="block mt-0.5 text-xs font-normal">사연 작성자</span>
             </button>
           </div>
 
           {/* 투표 변경 가능 여부 안내 (투표한 사연에만 노출) */}
           {!isMyStory && votedOption && (
-            <p className="mt-2 text-[11px] text-[#5f5e5e] text-center">
+            <p className="mt-2 text-xs text-[#5f5e5e] text-center">
               {story.voteChanged
                 ? '투표가 확정되어 더 이상 바꿀 수 없어요.'
                 : '투표는 한 번만 바꿀 수 있어요.'}
@@ -349,14 +352,14 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
             <span className="sr-only">댓글 </span>{comments.length}
           </button>
-          <span className="flex items-center gap-1 text-[#5f5e5e]/70 font-label-sm text-xs">
+          <span className="flex items-center gap-1 text-[#5f5e5e] font-label-sm text-xs">
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">how_to_vote</span>
             <span className="sr-only">투표 </span>{totalVotes}
           </span>
         </div>
 
         {isMyStory && (
-          <span className="text-[11px] text-[#F97316] font-semibold text-right">
+          <span className="text-xs text-[#F97316] font-semibold text-right">
             ※ 내가 작성한 사연은 여론 확인만 가능합니다.
           </span>
         )}
@@ -386,7 +389,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 니 편
               </button>
             </div>
-            <button data-button-id="story-card-button-14" onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
+            <button data-button-id="story-card-button-14" aria-label="댓글 미리보기 닫기" onClick={() => setActiveCommentTab(null)} className="text-[#5f5e5e] hover:text-[#1C1C1C]">
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>

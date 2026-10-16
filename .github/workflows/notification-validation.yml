@@ -46,6 +46,9 @@ jobs:
       - name: Browser validation, desktop and mobile
         if: ${{ !cancelled() }}
         run: node node_modules/@playwright/test/cli.js test --config playwright.config.ts
+      - name: Campaign and account exclusion, desktop and mobile
+        if: ${{ !cancelled() }}
+        run: node node_modules/@playwright/test/cli.js test --config tests/analytics.playwright.config.ts
       - name: Privacy review with email ownership enabled
         if: ${{ !cancelled() }}
         env:

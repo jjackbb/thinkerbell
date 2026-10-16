@@ -11,6 +11,7 @@ import { createProviderBudgetGuard } from "./providerBudget.js";
 import { AdultEligibilityError, createAdultEligibility, registerAdultEligibilityRoutes } from "./adultEligibility.js";
 import { consumePotensStream } from "./potensStream.js";
 import { registerEmailOwnershipRoutes } from "./emailOwnership.js";
+import { registerAnalyticsEligibilityRoute } from "./analyticsEligibility.js";
 
 import { notificationsRepliesEnabled, readReplyTarget, isExistingCommentId, sameCommentRequest, projectComment, NotificationInputError, registerNotificationRoutes } from "./notifications.js";
 
@@ -20,6 +21,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
+registerAnalyticsEligibilityRoute(app, { authenticate: authenticatedStoryUser });
 registerEmailOwnershipRoutes(app, storyWriteClient);
 const adultEligibility = createAdultEligibility({ client: storyWriteClient });
 registerAdultEligibilityRoutes(app, { authenticate: authenticatedStoryUser, eligibility: adultEligibility, sendError: sendStorySaveError });

@@ -1,3 +1,4 @@
+import { captureGA4EventContext, type GA4EventContext } from './lib/ga4EventContext';
 import { AdultEligibilityBanner } from './components/AdultEligibilityBanner';
 import { emptyVoteProjection, projectStoryVote, confirmStoryVote, isCurrentVoteRead, releaseVoteRequest, advanceVoteAccount, type VoteRow } from './lib/voteProjection';
 import { notificationsRepliesEnabled, aiRetentionEnabled } from './lib/notifications';
@@ -628,6 +629,7 @@ export default function App() {
   };
 
   const returnToAiStory = async (storyId: string) => {
+    const ga4Context = captureGA4EventContext();
     const generation = ++aiNavigationGeneration.current;
     const result = await readAiReturnStory({ generation, account: authUserId, storyId }, () => ({
       generation: aiNavigationGeneration.current, account: authUserIdRef.current,
@@ -647,7 +649,7 @@ export default function App() {
     }
     setStories(prev => prev.map(story => story.id === storyId ? result.story : story));
     setActiveTab('feed');
-    openStoryDetail(result.story, 'chat_return');
+    openStoryDetail(result.story, 'chat_return', ga4Context);
   };
 
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
@@ -878,8 +880,8 @@ export default function App() {
         setToastMessage('투표를 변경했습니다. 변경은 한 번뿐이라 이제 확정됩니다.');
         setTimeout(() => setToastMessage(null), 3000);
       }
-      if (isChange) track('vote_change_success');
-      else trackOnce(`vote_submit:${authUserId}:${storyId}`, 'vote_submit', { storyId, option });
+      if (isChange) track('vote_change_success', {}, task.ga4Context);
+      else trackOnce(`vote_submit:${authUserId}:${storyId}`, 'vote_submit', { storyId, option }, task.ga4Context);
       await loadMyVotes();
       task.finish('success'); return true;
     } catch {
@@ -921,7 +923,7 @@ export default function App() {
       if (authUserIdRef.current !== authUserId) { task.finish('error'); return false; }
       const saved = result?.comment as Comment | undefined;
       if (!saved || saved.id !== commentId || saved.storyId !== storyId || saved.authorId !== authUserId) { task.finish('error'); return false; }
-      trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success');
+      trackOnce(`comment_create_success:${authUserId}:${commentId}`, 'comment_create_success', {}, task.ga4Context);
       setCommentsMap(prev => ({
         ...prev,
         [storyId]: (prev[storyId] || []).some(comment => comment.id === commentId)
@@ -1250,6 +1252,7 @@ export default function App() {
     requestId: string;
   }) => {
     if (!authUserId) throw new Error('AUTH_REQUIRED');
+    const ga4Context = captureGA4EventContext();
     notifyIfCrisis(storyData.title, storyData.body);
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -1284,7 +1287,7 @@ export default function App() {
       setToastMessage('사연이 성공적으로 수정되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
     } else {
-      trackOnce(`story_publish_success:${authUserId}:${savedStory.id}`, 'story_publish_success');
+      trackOnce(`story_publish_success:${authUserId}:${savedStory.id}`, 'story_publish_success', {}, ga4Context);
       setStories(prev => prev.some(s => s.id === savedStory.id)
         ? prev.map(s => s.id === savedStory.id ? { ...s, ...savedStory } : s)
         : [savedStory, ...prev]);
@@ -1432,6 +1435,7 @@ export default function App() {
   };
 
   const handleSelectAiChatMode = async (mode: 'simulation' | 'explanation', opening: ChatOpening = 'oblivious') => {
+    const ga4Context = captureGA4EventContext();
     if (!aiChatModeStory) return;
     const navigation = aiNavigationGeneration.current;
     const story = aiChatModeStory;
@@ -1523,7 +1527,7 @@ export default function App() {
         analyticsEntryPoint: aiEntryPoint.current,
         conversationType,
       });
-      if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
+      if (!isGuest) track('ai_chat_open', { mode: 'simulation', entry_point: aiEntryPoint.current, conversation_type: conversationType }, ga4Context);
       suspendStoryForAi(story.id);
       setActiveTab('ai-chat');
       setAiChatModeStory(null);
@@ -1535,6 +1539,7 @@ export default function App() {
   };
 
   const handleConfirmExplainSettings = async (ratio: ExplainRatio) => {
+    const ga4Context = captureGA4EventContext();
     const navigation = aiNavigationGeneration.current;
     track('ai_settings_confirm', { mode: 'explanation', entry_point: aiExplainSettingsStory ? aiEntryPoint.current : activeChatSession?.analyticsEntryPoint });
     const story = aiExplainSettingsStory || (activeChatSession ? stories.find(s => s.id === activeChatSession.storyId) : null);
@@ -1627,7 +1632,7 @@ export default function App() {
         conversationType,
         explanationRatio: ratio
       });
-      if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType });
+      if (!isGuest) track('ai_chat_open', { mode: 'explanation', entry_point: aiEntryPoint.current, conversation_type: conversationType }, ga4Context);
       suspendStoryForAi(target.id);
       setActiveTab('ai-chat');
       setAiExplainSettingsStory(null);
@@ -1864,6 +1869,7 @@ export default function App() {
   };
 
   const handleOpenNotification = async (item: InAppNotification, signal?: AbortSignal): Promise<boolean> => {
+    const ga4Context = captureGA4EventContext();
     if (!authUserId || !notificationsRepliesEnabled) return false;
     const accountId = authUserId;
     const navigation = ++notificationNavigation.current;
@@ -1890,7 +1896,7 @@ export default function App() {
     if (item.commentId && !comments.data?.some(c => c.id === item.commentId && !c.deletedAt && !c.isBlind)) return false;
     setCommentsMap(previous => ({ ...previous, [item.storyId]: comments.data ?? [] }));
     notificationPendingTarget.current = null;
-    openStoryDetail(fresh.data);
+    openStoryDetail(fresh.data, 'my_page', ga4Context);
     setNotificationCommentId(item.commentId);
     return true;
   };
@@ -1904,7 +1910,7 @@ export default function App() {
     syncStoryUrl(null);
   };
 
-  const openStoryDetail = (story: Story, entryPoint: AnalyticsEntryPoint = activeTab === 'mypage' ? 'my_page' : 'feed') => {
+  const openStoryDetail = (story: Story, entryPoint: AnalyticsEntryPoint = activeTab === 'mypage' ? 'my_page' : 'feed', ga4Context: GA4EventContext = captureGA4EventContext()) => {
     if (!hiddenStoriesReady || hiddenStoryIds.includes(story.id) ||
         (story.isAdult && story.authorId !== user.id) ||
         (story.visibility === 'private' && story.authorId !== user.id)) return;
@@ -1924,7 +1930,7 @@ export default function App() {
 
     /* 공개 사연만 분석한다. 비공개·운영 차단 사연의 조회는 외부 계측에서 뺀다. */
     if (story.visibility !== 'private' && !story.isAdult && !story.isBlind && !story.isHidden) {
-      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category, entry_point: entryPoint });
+      trackOnce(`story_view:${authUserId ?? 'guest'}:${story.id}`, 'story_view', { storyId: story.id, category: story.category, entry_point: entryPoint }, ga4Context);
     }
 
     /*
@@ -2010,6 +2016,8 @@ export default function App() {
 
             {/* Weekly Top Banner */}
             <WeeklyTopBanner
+              currentUser={user}
+              isGuest={isGuest}
               weeklyTopStories={weeklyTopStories}
               realtimeTopStories={realtimeTopStories}
               onSelectStory={(story) => openStoryDetail(story, 'weekly_top')}

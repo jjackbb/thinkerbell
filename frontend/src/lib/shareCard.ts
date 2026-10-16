@@ -230,7 +230,7 @@ export async function shareResult(input: ShareCardInput, url: string): Promise<S
       const file = new File([blob], 'nipyeon-result.png', { type: 'image/png' });
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
       if (nav.share && nav.canShare?.({ files: [file] })) {
-        await nav.share({ files: [file], text, title: '니편내편' });
+        await nav.share({ files: [file], text, title: '니편내편', url });
         return 'shared';
       }
     }

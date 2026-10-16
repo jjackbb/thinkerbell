@@ -25,6 +25,6 @@ export default defineConfig({
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(''),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(''),
   },
-  build: { rollupOptions: { input: { components:path.join(here,'fixture/index.html'), app:path.join(here,'fixture/app.html') } } },
+  build: { rollupOptions: { input: { components:path.join(here,'fixture/index.html'), app:path.join(here,'fixture/app.html'), ui:path.join(here,'fixture/ui.html') } } },
   server: { hmr: false, host: '127.0.0.1', port: 4178, strictPort: true, fs: { allow: [root] } },
 });

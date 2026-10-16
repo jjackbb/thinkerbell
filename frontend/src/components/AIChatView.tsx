@@ -247,10 +247,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         task.finish('success');
         successfulTurns.current += 1;
         if (successfulTurns.current === 1) {
-          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', analyticsProps);
+          trackOnce(`ai_chat_turn1:${episodeKey.current}`, 'ai_chat_turn1', analyticsProps, task.ga4Context);
         }
         if (successfulTurns.current === 3) {
-          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', analyticsProps);
+          trackOnce(`ai_chat_turn3:${episodeKey.current}`, 'ai_chat_turn3', analyticsProps, task.ga4Context);
         }
       };
 
@@ -339,7 +339,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
           ...analyticsProps,
           operation: 'ai_reply_save',
           ...(saved ? { outcome: 'completed' } : { error_code: 'save_failed' }),
-        });
+        }, task.ga4Context);
       } else {
         throw new Error(completed ? 'empty_response' : 'incomplete_response');
       }
@@ -351,7 +351,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         대답한 줄 알고, 우리는 AI가 멈춘 줄 모른다. 둘 다 최악이다.
       */
       if (saveErrorOccurred) {
-        track('operation_error', { ...analyticsProps, operation: 'ai_reply_save', error_code: 'save_failed' });
+        track('operation_error', { ...analyticsProps, operation: 'ai_reply_save', error_code: 'save_failed' }, task.ga4Context);
       }
       setMessages(prev => [
         ...(saveErrorOccurred ? prev : prev.filter(m => m.id !== aiMsgId)),
@@ -475,7 +475,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
       track('ai_feedback_submit', {
         ...analyticsProps,
         outcome: score === null ? 'skipped' : 'submitted',
-      });
+      }, task.ga4Context);
       finishAndKeep();
     } catch {
       task.finish('error');
@@ -580,7 +580,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                     <div className="flex items-center gap-2 relative">
                       <span className="text-[#5f5e5e] font-medium">{persona.role}</span>
                       <div ref={openMenuId === persona.id ? menuRef : null}>
-                        <button data-button-id="ai-chat-view-button-02"
+                        <button data-button-id="ai-chat-view-button-02" aria-label="AI 대화 메뉴 더보기"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(openMenuId === persona.id ? null : persona.id);

@@ -1,3 +1,4 @@
+import type { GA4EventContext } from './ga4EventContext';
 import { supabase } from './supabase';
 import { hasAnalyticsConsent } from './analyticsConsent';
 import { sendGA4Event } from './ga4';
@@ -58,12 +59,13 @@ export const currentSessionId = (): string => {
   }
 };
 
-/** 선택적 행동 분석은 동의 상태에서만 기록한다. 두 전송 경로는 서로 기다리지 않는다. */
-export function track(name: EventName, props: Record<string, unknown> = {}): void {
+/** Optional ga4Context is captured before async work. It gates only GA4; the
+ * existing consent-based internal DB policy remains independent. */
+export function track(name: EventName, props: Record<string, unknown> = {}, ga4Context?: GA4EventContext): void {
   if (!hasAnalyticsConsent()) return;
 
   if (shouldSendToGA4(name, props)) {
-    try { sendGA4Event(name, safeEventProps(name, props)); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
+    try { sendGA4Event(name, safeEventProps(name, props), ga4Context); } catch { /* 계측 실패는 제품 동작에 영향이 없다. */ }
   }
 
   // 운영 DB는 현재 9개 이름만 허용한다. 새 결과 이벤트는 스키마 동기화 전까지 GA4 전용이다.
@@ -82,12 +84,12 @@ export function track(name: EventName, props: Record<string, unknown> = {}): voi
   })();
 }
 
-export function trackOnce(key: string, name: EventName, props: Record<string, unknown> = {}): void {
+export function trackOnce(key: string, name: EventName, props: Record<string, unknown> = {}, ga4Context?: GA4EventContext): void {
   if (!hasAnalyticsConsent()) return;
   const storageKey = `${ONCE_PREFIX}${key}`;
   try {
     if (sessionStorage.getItem(storageKey)) return;
     sessionStorage.setItem(storageKey, '1');
   } catch { /* 저장소를 못 쓰면 중복 방지 없이 기록한다. */ }
-  track(name, props);
+  track(name, props, ga4Context);
 }

@@ -343,12 +343,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
           <h2 className="font-headline-md text-base font-bold text-white">사연</h2>
           <div className="flex items-center gap-3">
             <div className="relative" ref={menuRef}>
-              <button data-button-id="story-detail-modal-button-01"
+              <button data-button-id="story-detail-modal-button-01" aria-label="사연 메뉴 더보기" aria-expanded={isMenuOpen}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsMenuOpen(!isMenuOpen);
                 }} 
-                className="text-[#5f5e5e] hover:text-[#FF6B5A] transition-colors cursor-pointer p-1"
+                className="text-[var(--color-secondary-on-dark)] hover:text-[#FF6B5A] transition-colors cursor-pointer p-2.5"
               >
                 <MoreVertical className="w-5 h-5" />
               </button>
@@ -375,22 +375,22 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     </button>
                   )}
                   {onHideStory && (
-                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-04" onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#5f5e5e] flex items-center gap-2 cursor-pointer">
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-04" onClick={async () => { setIsMenuOpen(false); if (await onHideStory(story.id)) onClose(); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[var(--color-secondary-on-dark)] flex items-center gap-2 cursor-pointer">
                       <EyeOff className="w-3.5 h-3.5" /> 숨기기
                     </button>
                   )}
-                  {!isPrivate && <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-05" onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer">
+                  {!isPrivate && <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-05" onClick={() => { setIsMenuOpen(false); onReportStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[var(--color-danger-on-dark)] flex items-center gap-2 cursor-pointer">
                     <ShieldAlert className="w-3.5 h-3.5" /> 신고
                   </button>}
                   {isMyStory && onDeleteStory && (
-                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-06" onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[#ba1a1a] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
+                    <button data-analytics-exclude="true" data-button-id="story-detail-modal-button-06" onClick={() => { setIsMenuOpen(false); onDeleteStory(story.id); }} className="w-full text-left px-4 py-2 hover:bg-[#3a3a3a] text-[var(--color-danger-on-dark)] flex items-center gap-2 cursor-pointer border-t border-[#3a3a3a]">
                       <Trash2 className="w-3.5 h-3.5" /> 삭제
                     </button>
                   )}
                 </div>
               )}
             </div>
-            <button data-button-id="story-detail-modal-button-07" onClick={onClose} className="text-[#5f5e5e] hover:text-white cursor-pointer">
+            <button data-button-id="story-detail-modal-button-07" aria-label="사연 닫기" onClick={onClose} className="text-[var(--color-secondary-on-dark)] hover:text-white cursor-pointer p-2">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -419,7 +419,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <h2 className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
                   {story.title}
                 </h2>
-                <div className="flex flex-wrap items-center gap-6 text-[#5f5e5e] font-mono text-xs">
+                <div className="flex flex-wrap items-center gap-6 text-[var(--color-secondary-on-dark)] font-mono text-xs">
                   <span>{new Date(story.createdAt).toLocaleDateString()}</span>
                   <span>조회 {story.viewCount}</span>
                   <span>댓글 {comments.length}</span>
@@ -486,13 +486,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'B'
-                        ? 'bg-[#6C7BE8] text-white cursor-default'
+                        ? 'bg-[var(--color-your-side-ink)] text-white cursor-default'
                         : isMyStory
                         ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
                     }`}
                   >
-                    니 편
+                    <span className="block">니 편</span>
+                    <span className="block mt-0.5 text-xs font-normal">사연 속 상대방</span>
                   </button>
                   <button data-button-id="story-detail-modal-button-10"
                     onClick={() => handleVote('A')}
@@ -500,15 +501,20 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     aria-busy={isVoteSubmitting}
                     className={`py-2 px-3 rounded-lg font-label-sm text-xs font-bold transition-all ${
                       votedOption === 'A'
-                        ? 'bg-[#FF6B5A] text-white cursor-default'
+                        ? 'bg-[#FF6B5A] text-[#1C1C1C] cursor-default'
                         : isMyStory
                         ? 'bg-[#f3f4f5] text-[#5f5e5e]/50 cursor-not-allowed'
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
                     }`}
                   >
-                    내 편
+                    <span className="block">내 편</span>
+                    <span className="block mt-0.5 text-xs font-normal">사연 작성자</span>
                   </button>
                 </div>
+
+                {!isPrivate && !isMyStory && !votedOption && (
+                  <p className="text-xs text-[#5f5e5e] text-center">투표한 뒤 화면 아래의 ‘결과 공유하기’를 이용할 수 있어요.</p>
+                )}
 
                 {isMyStory && (
                   <p className="text-xs text-[#F97316] text-center font-semibold mt-1">
@@ -518,7 +524,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
                 {/* 투표 변경 가능 여부 안내 (투표한 경우에만 노출) */}
                 {!isMyStory && votedOption && (
-                  <p className="text-[11px] text-[#5f5e5e] text-center">
+                  <p className="text-xs text-[#5f5e5e] text-center">
                     {story.voteChanged
                       ? '투표가 확정되어 더 이상 바꿀 수 없어요.'
                       : '투표는 한 번만 바꿀 수 있어요.'}
@@ -534,18 +540,18 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 <div className="p-4 sm:p-5 bg-[#1C1C1C] text-white rounded-xl flex items-center justify-between gap-4 border border-[#1C1C1C]">
                   <div className="min-w-0">
                     <h4 className="font-bold text-sm text-[#FF6B5A]">AI로 이 상황을 다시 겪어보기</h4>
-                    <p className="text-xs text-[#5f5e5e] mt-1 leading-relaxed">
+                    <p className="text-xs text-[var(--color-secondary-on-dark)] mt-1 leading-relaxed">
                       {isMyStory
                         ? '사연 속 상대방과 직접 대화해 보세요. 내 사연은 횟수 제한이 없어요.'
                         : '사연 속 상대방과 직접 대화해 보세요.'}
                     </p>
                     {isGuest ? (
-                      <p className="text-[11px] font-mono text-[#5f5e5e] mt-1.5">
+                      <p className="text-xs font-mono text-[var(--color-secondary-on-dark)] mt-1.5">
                         상대방이 먼저 말을 걸어요 · 답장하려면 로그인이 필요해요
                       </p>
                     ) : (
                       !isMyStory && typeof freeChatsLeft === 'number' && (
-                        <p className="text-[11px] font-mono text-[#5f5e5e] mt-1.5">
+                        <p className="text-xs font-mono text-[var(--color-secondary-on-dark)] mt-1.5">
                           {freeChatsLeft > 0
                             ? `오늘 무료로 ${freeChatsLeft}번 더 열 수 있어요`
                             : '오늘 무료 횟수를 다 썼어요 · 내일 다시 충전돼요'}
@@ -601,7 +607,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     return (
                     <div key={c.id} id={`comment-${c.id}`} tabIndex={-1} className={`bg-white border border-[#E5E7EB] p-4 rounded-lg space-y-2 ${repliesEnabled && c.replyRootId ? 'ml-4 border-l-2 border-l-[var(--color-action-coral)]' : ''} ${focusCommentId === c.id ? 'ring-2 ring-[var(--color-action-coral)]' : ''}`}>
                       {c.deletedAt ? <p className="text-xs text-[var(--color-secondary-grey)]">삭제되었거나 볼 수 없는 댓글입니다.</p> : <>
-                      {repliesEnabled && c.replyToId && <p className="text-[11px] text-[var(--color-secondary-grey)]">↳ {replyTargetLabel(c, comments)}님에게 답글</p>}
+                      {repliesEnabled && c.replyToId && <p className="text-xs text-[var(--color-secondary-grey)]">↳ {replyTargetLabel(c, comments)}님에게 답글</p>}
                       <div className="flex items-center justify-between font-mono text-xs">
                         <div className="flex items-center flex-wrap gap-1">
                           <span className="font-bold text-[#1C1C1C]">{c.anonymousId}</span>
@@ -632,7 +638,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                           </button>
                           {c.authorId === currentUser.id ? (
                             <div className="relative">
-                              <button data-button-id="story-detail-modal-button-13" onClick={() => setCommentMenuOpenId(commentMenuOpenId === c.id ? null : c.id)} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 rounded cursor-pointer">
+                              <button data-button-id="story-detail-modal-button-13" aria-label="댓글 메뉴 더보기" aria-expanded={commentMenuOpenId === c.id} onClick={() => setCommentMenuOpenId(commentMenuOpenId === c.id ? null : c.id)} className="text-[#5f5e5e] hover:text-[#1C1C1C] p-0.5 rounded cursor-pointer">
                                 <MoreVertical className="w-4 h-4" />
                               </button>
                               {commentMenuOpenId === c.id && (
@@ -788,7 +794,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
             >
               <img src={previewUrl} alt="공유 카드 미리보기" className="w-full block" />
               <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-[#f9fafb] border-t border-[#E5E7EB]">
-                <span className="text-[11px] text-[#5f5e5e]">공유하면 이 카드가 나갑니다</span>
+                <span className="text-xs text-[#5f5e5e]">공유하면 이 카드가 나갑니다</span>
                 <button data-button-id="story-detail-modal-button-21"
                   type="button"
                   onClick={closePreview}

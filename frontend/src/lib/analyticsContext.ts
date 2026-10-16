@@ -4,25 +4,64 @@ import { ANALYTICS_OPERATIONS } from './analyticsOperations';
 /** Only fixed categories enter analytics; query strings and user input never do. */
 export type AnalyticsEntryPoint = 'feed' | 'weekly_top' | 'my_page' | 'story_detail' | 'shared_link' | 'chat_list' | 'chat_return';
 export type ConversationType = 'new' | 'continuation';
-export type RecruitmentSource = 'community' | 'sns' | 'technical_test' | 'unattributed';
+export type RecruitmentSource = 'community' | 'sns' | 'meta' | 'technical_test' | 'unattributed';
 export const RECRUITMENT_STORAGE_KEY = 'nipyeon_recruitment_source_v1';
+export type CampaignAttribution = {
+  recruitment_source: RecruitmentSource;
+  campaign_code?: 'launch_202610';
+  creative_code?: 'a' | 'b';
+};
 
 export function recruitmentSource(value: unknown): RecruitmentSource {
-  return value === 'community' || value === 'sns' ? value : value === 'qa' ? 'technical_test' : 'unattributed';
+  return value === 'community' || value === 'sns' || value === 'meta' ? value : value === 'qa' ? 'technical_test' : 'unattributed';
 }
 
-/** Called only after analytics consent. Session persistence ends on refusal. */
-export function readRecruitmentSource(): RecruitmentSource {
+/** These are operator-owned codes, never free-form names, UTM values or ad IDs. */
+export function campaignAttribution(source: unknown, campaign: unknown, creative: unknown): CampaignAttribution {
+  const result: CampaignAttribution = { recruitment_source: recruitmentSource(source) };
+  if (result.recruitment_source === 'meta' && campaign === 'launch_202610') {
+    result.campaign_code = 'launch_202610';
+    if (creative === 'a' || creative === 'b') result.creative_code = creative;
+  }
+  return result;
+}
+
+/** Consent-only callers. Reuses the existing tab-session source storage. */
+export function readCampaignAttribution(): CampaignAttribution {
   const params = new URLSearchParams(location.search);
-  let source = recruitmentSource(params.get('source'));
+  let result = campaignAttribution(params.get('source'), params.get('campaign'), params.get('creative'));
   try {
     if (!params.has('source')) {
       const saved = sessionStorage.getItem(RECRUITMENT_STORAGE_KEY);
-      source = saved === 'community' || saved === 'sns' || saved === 'technical_test' ? saved : 'unattributed';
+      // Backward compatibility with previously saved single-category values.
+      if (saved === 'technical_test') result = { recruitment_source: 'technical_test' };
+      else if (saved === 'community' || saved === 'sns' || saved === 'meta') result = { recruitment_source: saved };
+      else if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          result = campaignAttribution(parsed?.recruitment_source === 'technical_test' ? 'qa' : parsed?.recruitment_source,
+            parsed?.campaign_code, parsed?.creative_code);
+        } catch { /* Invalid saved metadata is untrusted. */ }
+      }
     }
-    sessionStorage.setItem(RECRUITMENT_STORAGE_KEY, source);
+    sessionStorage.setItem(RECRUITMENT_STORAGE_KEY, JSON.stringify(result));
   } catch { /* A blocked storage area must not prevent events or app use. */ }
-  return source;
+  return result;
+}
+
+export function readRecruitmentSource(): RecruitmentSource {
+  return readCampaignAttribution().recruitment_source;
+}
+
+/** Navigation may carry only fixed public codes; it never persists analytics. */
+export function campaignLinkParams(source: unknown, search: string = typeof location === 'undefined' ? '' : location.search): URLSearchParams {
+  const input = new URLSearchParams(search);
+  const safe = campaignAttribution(source, input.get('campaign'), input.get('creative'));
+  const output = new URLSearchParams();
+  if (safe.recruitment_source !== 'unattributed') output.set('source', safe.recruitment_source === 'technical_test' ? 'qa' : safe.recruitment_source);
+  if (safe.campaign_code) output.set('campaign', safe.campaign_code);
+  if (safe.creative_code) output.set('creative', safe.creative_code);
+  return output;
 }
 
 const screens: Record<string, string> = {
