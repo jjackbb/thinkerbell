@@ -319,8 +319,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
       </div>
 
       {/* Card Footer Info */}
-      <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="p-4 px-6 bg-white border-t border-[#E5E7EB] flex flex-wrap items-center justify-between gap-4">
+        <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
           {/*
             댓글은 '누르는 것', 투표 수는 '읽는 것'이다.
 
