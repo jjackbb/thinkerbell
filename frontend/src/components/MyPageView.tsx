@@ -4,7 +4,8 @@ import type { InAppNotification } from '../lib/notificationModel';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Story, Comment } from '../types';
-import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock } from 'lucide-react';
+import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock, Pencil } from 'lucide-react';
+import { PROFILE_AVATARS, PROFILE_AVATAR_IDS, ProfileAvatar, normalizeAvatarId, type ProfileAvatarId } from '../lib/profileAvatars';
 import { supabase } from '../lib/supabase';
 import { checkIsAdmin, fetchMyInquiries, submitInquiry, fetchAllInquiries, replyToInquiry, type Inquiry } from '../lib/inquiries';
 import { AnalyticsConsentSettings } from './AnalyticsConsent';
@@ -20,15 +21,13 @@ interface MyPageViewProps {
   myVotes: { storyId: string; title: string; option: 'A' | 'B' }[];
   myComments: Comment[];
   onUpdateNickname: (nickname: string) => Promise<boolean>;
+  onUpdateAvatar: (avatar: ProfileAvatarId) => Promise<boolean>;
   onGenerateRandomNickname: () => Promise<string | null>;
   onSelectStory: (story: Story) => void;
   onOpenNotification: (item: InAppNotification, signal?: AbortSignal) => Promise<boolean>;
   /** 한도 안내에서 '내 사연 보기'를 눌렀을 때 작성한 사연 탭으로 이동한다. */
   storiesNavigationKey?: number;
   /** 지금 남아 있는 AI 대화방 수 */
-  aiChatCount?: number;
-  /** AI 대화 전체 삭제. 되돌릴 수 없다 */
-  onDeleteAllAiChats?: () => Promise<boolean>;
   /**
    * 로그인 없이 둘러보는 중인가.
    *
@@ -56,12 +55,11 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   myVotes,
   myComments,
   onUpdateNickname,
+  onUpdateAvatar,
   onGenerateRandomNickname,
   onSelectStory,
   onOpenNotification,
   storiesNavigationKey,
-  aiChatCount = 0,
-  onDeleteAllAiChats,
   isGuest = false,
   onRequireLogin,
 }) => {
@@ -77,10 +75,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
       .then(result => { if (!controller.signal.aborted) setUnread({ owner: user.id, count: result.unreadCount }); }).catch(() => {});
     return () => controller.abort();
   }, [user.id, isGuest]);
-  /** 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
-  const [confirmWipe, setConfirmWipe] = useState(false);
-  const [wiping, setWiping] = useState(false);
-  const [wipeError, setWipeError] = useState(false);
   const [activeTab, setActiveTab] = useState<'stories' | 'votes' | 'comments'>('stories');
   const [storyVisibilityFilter, setStoryVisibilityFilter] = useState<'all' | 'public' | 'private'>('all');
   const [viewMode, setViewMode] = useState<'summary' | 'more' | 'account' | 'notifications' | 'support' | 'inquiryAdmin'>('summary');
@@ -213,6 +207,39 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   ];
 
 
+  // 프로필 아이콘 고르기. 저장이 확인된 뒤에만 바꾸고, 실패하면 고른 것을 유지한다.
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarChoice, setAvatarChoice] = useState<ProfileAvatarId>(normalizeAvatarId(user.avatar));
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const openAvatarEditor = () => {
+    setAvatarChoice(normalizeAvatarId(user.avatar));
+    setAvatarError(null);
+    setIsEditingAvatar(true);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (avatarSaving) return;
+    if (avatarChoice === normalizeAvatarId(user.avatar)) { setIsEditingAvatar(false); return; }
+    setAvatarSaving(true);
+    setAvatarError(null);
+    let saved = false;
+    try {
+      saved = await onUpdateAvatar(avatarChoice);
+    } catch {
+      saved = false;
+    }
+    setAvatarSaving(false);
+    if (!saved) {
+      setAvatarError('프로필 아이콘을 저장하지 못했어요. 다시 시도해 주세요.');
+      return;
+    }
+    setIsEditingAvatar(false);
+    setSuccessMessage('프로필 아이콘을 바꿨어요.');
+    setTimeout(() => setSuccessMessage(null), 2500);
+  };
+
   const handleSaveNickname = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nicknameInput.trim() || nicknameSaving) return;
@@ -313,7 +340,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   */
   if (isGuest) {
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-28">
         <AnalyticsConsentSettings />
         <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C]">
           <div className="w-12 h-12 rounded-full bg-[#FF6B5A]/20 border border-[#FF6B5A]/30 flex items-center justify-center mb-4">
@@ -399,7 +426,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     const paginatedItems = currentList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
           <button data-button-id="my-page-view-button-03" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
@@ -462,7 +489,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   
   if (viewMode === 'account') {
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
           <button data-button-id="my-page-view-button-08" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
@@ -564,7 +591,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   if (viewMode === 'inquiryAdmin') {
     const waiting = allInquiries.filter(q => !q.reply);
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
           <button data-analytics-exclude="true" data-button-id="my-page-view-button-13" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
@@ -641,7 +668,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
   if (viewMode === 'notifications') {
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
           <button data-button-id="my-page-view-button-15" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
@@ -658,7 +685,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
 
   if (viewMode === 'support') {
     return (
-      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
+      <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
         <header className="flex items-center gap-3 py-4">
           <button data-analytics-exclude="true" data-button-id="my-page-view-button-19" aria-label="요약 화면으로 돌아가기" onClick={() => setViewMode('summary')} className="material-symbols-outlined text-[#1C1C1C] cursor-pointer hover:opacity-70 transition-opacity">
             arrow_back
@@ -761,13 +788,22 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   const summaryItems = currentList.slice(0, 3);
 
   return (
-    <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || confirmWipe || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-28">
+    <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-28">
       {/* Profile Banner */}
       <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center font-bold text-2xl">
-              <User className="w-8 h-8" />
+            <div className="relative shrink-0">
+              <ProfileAvatar id={user.avatar} />
+              <button data-button-id="my-page-view-avatar-edit"
+                type="button"
+                onClick={() => (isEditingAvatar ? setIsEditingAvatar(false) : openAvatarEditor())}
+                aria-label="프로필 아이콘 바꾸기"
+                aria-expanded={isEditingAvatar}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white text-[#1C1C1C] border-2 border-[#1C1C1C] flex items-center justify-center hover:bg-[#FF6B5A] transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
             </div>
 
             <div>
@@ -829,6 +865,51 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </div>
           </div>
         </div>
+
+        {isEditingAvatar && (
+          <div className="mt-6 pt-5 border-t border-white/10 space-y-4">
+            <p className="text-sm font-bold">프로필 아이콘 고르기</p>
+            <div role="radiogroup" aria-label="프로필 아이콘" className="grid grid-cols-5 gap-2 sm:gap-3 max-w-md">
+              {PROFILE_AVATAR_IDS.map((id) => {
+                const selected = avatarChoice === id;
+                return (
+                  <button data-button-id={`my-page-view-avatar-${id}`}
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={PROFILE_AVATARS[id].label}
+                    disabled={avatarSaving}
+                    onClick={() => setAvatarChoice(id)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 transition-colors cursor-pointer ${selected ? 'border-[#FF6B5A] bg-white/5' : 'border-transparent hover:border-white/20'}`}
+                  >
+                    <ProfileAvatar id={id} className="w-11 h-11" iconClassName="w-5 h-5" />
+                    <span className="text-[11px] text-white/70">{PROFILE_AVATARS[id].label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <button data-button-id="my-page-view-avatar-save"
+                type="button"
+                onClick={handleSaveAvatar}
+                disabled={avatarSaving}
+                className="px-4 py-1.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-60"
+              >
+                {avatarSaving ? '저장 중…' : '저장'}
+              </button>
+              <button data-button-id="my-page-view-avatar-cancel"
+                type="button"
+                onClick={() => setIsEditingAvatar(false)}
+                disabled={avatarSaving}
+                className="px-4 py-1.5 border border-white/20 text-white rounded-lg text-xs font-bold hover:border-white/40 transition-all cursor-pointer"
+              >
+                취소
+              </button>
+            </div>
+            {avatarError && <p role="alert" className="text-xs text-[#FF6B5A]">{avatarError}</p>}
+          </div>
+        )}
 
         {successMessage && (
           <div className="mt-4 p-2 bg-[#FF6B5A]/20 text-[#FF6B5A] font-mono text-xs font-bold rounded border border-[#FF6B5A]/30 flex items-center gap-2">
@@ -976,66 +1057,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           </span>
           <span className="font-mono text-lg font-bold text-[#D6452F]">109</span>
         </a>
-
-        {/*
-          털어놓은 이야기를 한 번에 없앨 수 있어야 한다. 대화방을 하나씩 지우게 하면
-          정작 급할 때 다 못 지운다. 되돌릴 수 없으므로 확인을 한 단계 둔다.
-        */}
-        {onDeleteAllAiChats && (
-          <div className="p-4 bg-white border border-[#E5E7EB] rounded-lg space-y-3">
-            <div className="flex items-start gap-2.5">
-              <Trash2 className="w-4 h-4 text-[#A32E1D] mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="text-left">
-                <p className="font-bold text-sm text-[#1C1C1C]">AI 대화 전체 삭제</p>
-                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-0.5">
-                  {aiChatCount > 0
-                    ? `지금 ${aiChatCount}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.`
-                    : '지울 대화가 없어요.'}
-                </p>
-              </div>
-            </div>
-
-            {aiChatCount > 0 && (
-              confirmWipe ? (
-                <div className="flex gap-2">
-                  <button data-analytics-exclude="true" data-button-id="my-page-view-button-36"
-                    onClick={() => { setConfirmWipe(false); setWipeError(false); }}
-                    disabled={wiping}
-                    className="flex-1 py-2.5 border border-[#E5E7EB] text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    그만두기
-                  </button>
-                  <button data-analytics-exclude="true" data-button-id="my-page-view-button-37"
-                    onClick={async () => {
-                      setWiping(true);
-                      setWipeError(false);
-                      try {
-                        if (await onDeleteAllAiChats()) setConfirmWipe(false);
-                        else setWipeError(true);
-                      } catch {
-                        setWipeError(true);
-                      } finally {
-                        setWiping(false);
-                      }
-                    }}
-                    disabled={wiping}
-                    className="flex-1 py-2.5 bg-[#A32E1D] text-white font-bold text-xs rounded-lg hover:bg-[#8d2718] transition-colors cursor-pointer disabled:opacity-60"
-                  >
-                    {wiping ? '지우는 중…' : '정말 전부 지우기'}
-                  </button>
-                </div>
-              ) : (
-                <button data-analytics-exclude="true" data-button-id="my-page-view-button-38"
-                  onClick={() => { setConfirmWipe(true); setWipeError(false); }}
-                  className="w-full py-2.5 border border-[#A32E1D] text-[#A32E1D] font-bold text-xs rounded-lg hover:bg-[#A32E1D]/5 transition-colors cursor-pointer"
-                >
-                  전부 지우기
-                </button>
-              )
-            )}
-            {wipeError && <p role="alert" className="text-xs font-bold text-[#A32E1D]">삭제하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.</p>}
-          </div>
-        )}
 
         <div className="pt-4">
           <button data-button-id="my-page-view-button-39"

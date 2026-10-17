@@ -1,7 +1,7 @@
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
 import { StoryCategory, Story } from '../types';
-import { X, Sparkles, AlertTriangle } from 'lucide-react';
+import { X, Sparkles, AlertTriangle, Globe, Lock } from 'lucide-react';
 
 interface CreateStoryModalProps {
   isOpen: boolean;
@@ -13,23 +13,44 @@ interface CreateStoryModalProps {
     opponentPersonality?: string;
     createAIPersona: boolean;
     requestId: string;
+    visibility: StoryVisibility;
   }) => Promise<void>;
   initialData?: Story | null;
+  /** 비공개 기능이 켜져 있고 DB가 준비됐을 때만 공개 범위를 고를 수 있다 */
+  privateAvailable?: boolean;
 }
 
+type StoryVisibility = 'public' | 'private';
+
+const VISIBILITY_OPTIONS: { value: StoryVisibility; label: string; desc: string; Icon: typeof Globe }[] = [
+  { value: 'public', label: '공개', desc: '모든 이용자가 보고 투표·댓글을 남길 수 있어요', Icon: Globe },
+  { value: 'private', label: '비공개', desc: '나만 볼 수 있어요. 마이페이지에서 확인해요', Icon: Lock },
+];
+
 const CATEGORIES: Exclude<StoryCategory, '전체'>[] = ['연애', '직장', '친구', '가족', '기타'];
+
+type FieldErrors = { category?: string; visibility?: string; title?: string; body?: string };
 
 export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   initialData,
+  privateAvailable = false,
 }) => {
   const [title, setTitle] = useState(initialData?.title || '');
-  const [category, setCategory] = useState<Exclude<StoryCategory, '전체'>>(initialData?.category || '직장');
+  // 새 사연은 카테고리를 고르지 않은 상태로 시작한다. 수정할 때만 기존 값을 채운다.
+  const [category, setCategory] = useState<Exclude<StoryCategory, '전체'> | null>(initialData?.category ?? null);
   const [body, setBody] = useState(initialData?.body || '');
+  // 공개 범위는 필수지만 기본값은 공개다. 수정할 때는 지금 상태를 채운다.
+  const [visibility, setVisibility] = useState<StoryVisibility>(initialData?.visibility ?? 'public');
   const [opponentPersonality, setOpponentPersonality] = useState(initialData?.personaInstruction || '');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 필수 항목별 안내. 등록을 눌렀을 때 비어 있는 칸을 한꺼번에 표시한다.
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitPendingRef = useRef(false);
   const requestIdRef = useRef(`story-${crypto.randomUUID()}`);
@@ -37,10 +58,12 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setTitle(initialData?.title || '');
-    setCategory(initialData?.category || '직장');
+    setCategory(initialData?.category ?? null);
     setBody(initialData?.body || '');
+    setVisibility(initialData?.visibility ?? 'public');
     setOpponentPersonality(initialData?.personaInstruction || '');
     setErrorMessage(null);
+    setFieldErrors({});
     requestIdRef.current = `story-${crypto.randomUUID()}`;
   }, [isOpen, initialData?.id]);
 
@@ -50,27 +73,27 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     e.preventDefault();
     if (submitPendingRef.current) { blockedAction(initialData ? 'story_edit' : 'story_publish', 'busy'); return; }
 
-    if (!title.trim()) {
+    const errors: FieldErrors = {};
+    if (!category) errors.category = '카테고리를 선택해 주세요.';
+    if (visibility !== 'public' && visibility !== 'private') errors.visibility = '공개 범위를 선택해 주세요.';
+    if (!title.trim()) errors.title = '제목을 입력해 주세요.';
+    else if (title.length > 30) errors.title = '제목은 최대 30자까지 입력할 수 있습니다.';
+    if (!body.trim()) errors.body = '사연 내용을 입력해 주세요.';
+    else if (body.trim().length < 20) errors.body = '사연 내용은 최소 20자 이상 작성해 주세요.';
+    else if (body.length > 1000) errors.body = '사연 내용은 최대 1,000자까지 작성할 수 있습니다.';
+
+    if (errors.category || errors.visibility || errors.title || errors.body || !category) {
       blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
-      setErrorMessage('제목을 입력해 주세요.');
-      return;
-    }
-    if (title.length > 30) {
-      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
-      setErrorMessage('제목은 최대 30자까지 입력할 수 있습니다.');
-      return;
-    }
-    if (body.trim().length < 20) {
-      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
-      setErrorMessage('사연 본문은 최소 20자 이상 작성해 주세요.');
-      return;
-    }
-    if (body.length > 1000) {
-      blockedAction(initialData ? 'story_edit' : 'story_publish', 'validation');
-      setErrorMessage('사연 본문은 최대 1,000자까지 작성할 수 있습니다.');
+      setFieldErrors(errors);
+      setErrorMessage('필수 항목을 입력해 주세요.');
+      // 첫 번째로 빠진 칸으로 이동해 바로 입력할 수 있게 한다
+      if (errors.category) categoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (errors.title) titleRef.current?.focus();
+      else bodyRef.current?.focus();
       return;
     }
 
+    setFieldErrors({});
     setErrorMessage(null);
     submitPendingRef.current = true;
     setIsSubmitting(true);
@@ -84,6 +107,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         opponentPersonality: opponentPersonality.trim(),
         createAIPersona: true,
         requestId: requestIdRef.current,
+        // 비공개 기능이 꺼져 있으면 고를 수 없으므로 항상 공개로 보낸다
+        visibility: privateAvailable ? visibility : 'public',
       });
 
       task.finish('success');
@@ -111,6 +136,16 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
   const isSubmitDisabled = isSubmitting;
 
+  // 고친 칸의 안내는 바로 지운다. 모든 칸이 채워지면 맨 위 안내도 지운다.
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors(prev => {
+      if (!prev[field]) return prev;
+      const next = { ...prev, [field]: undefined };
+      if (!next.category && !next.visibility && !next.title && !next.body) setErrorMessage(null);
+      return next;
+    });
+  };
+
   return (
     <div data-analytics-screen={initialData?.visibility === "private" || initialData?.isAdult || initialData?.isBlind || initialData?.isHidden ? "excluded" : initialData ? "story_edit" : "story_editor"} data-analytics-layer="20" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-[white] border border-[#E5E7EB] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col relative">
@@ -135,8 +170,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           )}
 
           {/* Category Select */}
-          <div>
-            <label className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
+          <div ref={categoryRef}>
+            <label id="create-story-category-label" className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
               카테고리 선택 <span className="text-[#FF6B5A]">*</span>
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -145,11 +180,12 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                   <button data-button-id="create-story-modal-button-02"
                     key={cat}
                     type="button"
-                    onClick={() => setCategory(cat)}
+                    aria-pressed={category === cat}
+                    onClick={() => { setCategory(cat); clearFieldError('category'); }}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       category === cat
                         ? 'bg-[#1C1C1C] text-white shadow-xs'
-                        : 'bg-[#f8f9fa] text-[#5f5e5e] hover:text-[#1C1C1C] border border-[#E5E7EB]'
+                        : `bg-[#f8f9fa] text-[#5f5e5e] hover:text-[#1C1C1C] border ${fieldErrors.category ? 'border-red-300' : 'border-[#E5E7EB]'}`
                     }`}
                   >
                     {cat}
@@ -158,8 +194,46 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               </div>
               
             </div>
+            {fieldErrors.category && <p role="alert" className="mt-1.5 text-[11px] font-semibold text-red-600">{fieldErrors.category}</p>}
             <p className="mt-2 text-[11px] text-[#5f5e5e]">성인 콘텐츠 등록은 첫 공개에서 지원하지 않습니다.</p>
           </div>
+
+          {/* Visibility */}
+          {privateAvailable && (
+            <div>
+              <label id="create-story-visibility-label" className="block text-xs font-bold text-[#1C1C1C] mb-1.5">
+                공개 범위 <span className="text-[#FF6B5A]">*</span>
+              </label>
+              <div role="radiogroup" aria-labelledby="create-story-visibility-label" className="grid grid-cols-2 gap-2">
+                {VISIBILITY_OPTIONS.map(({ value, label, desc, Icon }) => {
+                  const selected = visibility === value;
+                  return (
+                    <button data-button-id={`create-story-modal-visibility-${value}`}
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => { setVisibility(value); clearFieldError('visibility'); }}
+                      className={`text-left p-3 rounded-2xl border transition-all cursor-pointer ${
+                        selected
+                          ? 'border-[#1C1C1C] bg-[#1C1C1C] text-white'
+                          : `bg-[#f8f9fa] text-[#1C1C1C] hover:border-[#1C1C1C] ${fieldErrors.visibility ? 'border-red-300' : 'border-[#E5E7EB]'}`
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold">
+                        <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
+                      </span>
+                      <span className={`block mt-1 text-[11px] leading-snug ${selected ? 'text-white/70' : 'text-[#5f5e5e]'}`}>{desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {fieldErrors.visibility && <p role="alert" className="mt-1.5 text-[11px] font-semibold text-red-600">{fieldErrors.visibility}</p>}
+              {visibility === 'private' && (
+                <p className="mt-2 text-[11px] text-[#5f5e5e]">비공개 사연은 피드·랭킹에 나오지 않고, 다른 이용자가 투표·댓글을 남길 수 없어요. 나중에 사연 화면에서 공개로 바꿀 수 있어요.</p>
+              )}
+            </div>
+          )}
 
           {/* Title */}
           <div>
@@ -171,12 +245,15 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             </div>
             <input
               type="text"
+              ref={titleRef}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); clearFieldError('title'); }}
+              aria-invalid={Boolean(fieldErrors.title)}
               placeholder="예: 칼퇴 5분 전 일 던지고 나간 팀장님 진짜 이상하지 않나요?"
               maxLength={30}
-              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
+              className={`w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] ${fieldErrors.title ? 'border-red-300' : 'border-[#E5E7EB]'}`}
             />
+            {fieldErrors.title && <p role="alert" className="mt-1.5 text-[11px] font-semibold text-red-600">{fieldErrors.title}</p>}
           </div>
 
           {/* Story Body */}
@@ -188,16 +265,19 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               <span className="text-[11px] text-[#5f5e5e]">{body.length}/1000자 (최소 20자)</span>
             </div>
             <textarea
+              ref={bodyRef}
               value={body}
               onChange={(e) => {
                 setBody(e.target.value);
-                setErrorMessage(null);
+                clearFieldError('body');
               }}
+              aria-invalid={Boolean(fieldErrors.body)}
               placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 가입 이메일은 다른 이용자에게 공개되지 않습니다. 본문에는 이름·연락처 등 식별 정보를 적지 마세요."
               rows={5}
               maxLength={1000}
-              className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] resize-none"
+              className={`w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] resize-none ${fieldErrors.body ? 'border-red-300' : 'border-[#E5E7EB]'}`}
             />
+            {fieldErrors.body && <p role="alert" className="mt-1 text-[11px] font-semibold text-red-600">{fieldErrors.body}</p>}
           </div>
 
           {/* Opponent Personality (Optional) */}

@@ -445,7 +445,12 @@ function readStoryInput(value: unknown) {
       typeof category !== "string" || !STORY_CATEGORIES.has(category) || opponentPersonality.length > 100) {
     throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
   }
-  return { title, body, category, opponentPersonality };
+  // 공개 범위는 새 사연을 만들 때만 받는다. 값이 없으면 지금까지처럼 공개로 저장한다.
+  const visibility = input.visibility === undefined ? "public" : input.visibility;
+  if (visibility !== "public" && visibility !== "private") {
+    throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
+  }
+  return { title, body, category, opponentPersonality, visibility };
 }
 
 function readStoryRequestId(value: unknown): string {
@@ -942,6 +947,9 @@ app.post("/api/stories", async (req: Request, res: Response) => {
       isAdult: false,
       personaInstruction: input.opponentPersonality || null,
       cardColor: STORY_CARD_COLORS[Math.floor(Math.random() * STORY_CARD_COLORS.length)],
+      // 비공개는 처음부터 비공개로 저장해 공개 목록에 잠깐이라도 나타나지 않게 한다.
+      // 공개는 열 기본값('public')에 맡겨, 비공개 열이 없는 예전 DB에서도 그대로 동작한다.
+      ...(input.visibility === "private" ? { visibility: "private" } : {}),
     };
     const { data, error } = await client.from("stories").insert(row).select("*").single();
     if (error?.code === "23505") {

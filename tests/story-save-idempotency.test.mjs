@@ -70,7 +70,7 @@ after(async () => {
   globalThis.fetch = originalFetch;
 });
 
-async function save(requestId, token = 'token-owner') {
+async function save(requestId, token = 'token-owner', extra = {}) {
   const response = await originalFetch(`${baseUrl}/api/stories`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -80,6 +80,7 @@ async function save(requestId, token = 'token-owner') {
       body: '중복 저장을 확인하기 위한 충분히 긴 합성 사연 본문입니다.',
       category: '직장',
       opponentPersonality: '',
+      ...extra,
     }),
   });
   return { status: response.status, body: await response.json() };
@@ -121,4 +122,26 @@ test('an insert collision recovers the already-saved row', async () => {
   assert.equal(result.body.story.id, id);
   assert.equal(result.body.recovered, true);
   assert.equal(rows.size, 2);
+});
+
+test('a private story is inserted as private from the start; public keeps the column default', async () => {
+  const privateId = 'story-55555555-5555-4555-8555-555555555555';
+  const privateResult = await save(privateId, 'token-owner', { visibility: 'private' });
+  assert.equal(privateResult.status, 201);
+  assert.equal(rows.get(privateId).visibility, 'private');
+
+  const publicId = 'story-66666666-6666-4666-8666-666666666666';
+  const publicResult = await save(publicId, 'token-owner', { visibility: 'public' });
+  assert.equal(publicResult.status, 201);
+  assert.equal(Object.hasOwn(rows.get(publicId), 'visibility'), false);
+});
+
+test('an unknown visibility is rejected before content check or insert', async () => {
+  const previousProviderCalls = providerCalls;
+  const previousInsertCalls = insertCalls;
+  const result = await save('story-77777777-7777-4777-8777-777777777777', 'token-owner', { visibility: 'friends' });
+  assert.equal(result.status, 400);
+  assert.equal(result.body.error, 'INVALID_STORY_CONTENT');
+  assert.equal(providerCalls, previousProviderCalls);
+  assert.equal(insertCalls, previousInsertCalls);
 });

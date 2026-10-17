@@ -46,6 +46,8 @@ interface AIChatViewProps {
    * 나오므로, 앱이 한 곳에서 띄우도록 위로 올려 보낸다.
    */
   onRequireLogin?: (message: string) => void;
+  /** AI 대화 전체 삭제. 되돌릴 수 없다 */
+  onDeleteAllAiChats?: () => Promise<boolean>;
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
@@ -54,6 +56,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   personas,
   onGoToFeed,
   onReturnToStory,
+  onDeleteAllAiChats,
   activeSession,
   onStartSession,
   onEndSession,
@@ -68,6 +71,10 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   isGuest = false,
   onRequireLogin,
 }) => {
+  /** 전체 삭제는 되돌릴 수 없는 동작이라 한 번 더 묻는다 */
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const [wiping, setWiping] = useState(false);
+  const [wipeError, setWipeError] = useState(false);
   const [showChat, setShowChat] = useState<boolean>(false);
   const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -488,7 +495,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   // Persona Selection View
   if (!activeSession || !selectedPersona || !showChat) {
     return (
-      <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-4xl mx-auto space-y-8 pb-24">
+      <div data-analytics-screen={confirmWipe ? "excluded" : activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-24">
         {/* Banner */}
         <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
           <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
@@ -643,6 +650,63 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
             ))}
           </div>
         </div>
+
+        {/*
+          털어놓은 이야기를 한 번에 없앨 수 있어야 한다. 대화방을 하나씩 지우게 하면
+          정작 급할 때 다 못 지운다. 되돌릴 수 없으므로 확인을 한 단계 둔다.
+          대화 목록 바로 아래에 두어, 지울 대상을 보면서 지울 수 있게 한다.
+        */}
+        {onDeleteAllAiChats && !isGuest && personas.length > 0 && (
+          <div className="p-4 bg-white border border-[#E5E7EB] rounded-lg space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Trash2 className="w-4 h-4 text-[#A32E1D] mt-0.5 shrink-0" aria-hidden="true" />
+              <div className="text-left">
+                <p className="font-bold text-sm text-[#1C1C1C]">AI 대화 전체 삭제</p>
+                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-0.5">
+                  지금 {personas.length}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            {confirmWipe ? (
+              <div className="flex gap-2">
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-delete-all-cancel"
+                  onClick={() => { setConfirmWipe(false); setWipeError(false); }}
+                  disabled={wiping}
+                  className="flex-1 py-2.5 border border-[#E5E7EB] text-[#5f5e5e] font-bold text-xs rounded-lg hover:bg-[#f3f4f5] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  그만두기
+                </button>
+                <button data-analytics-exclude="true" data-button-id="ai-chat-view-delete-all-confirm"
+                  onClick={async () => {
+                    setWiping(true);
+                    setWipeError(false);
+                    try {
+                      if (await onDeleteAllAiChats()) setConfirmWipe(false);
+                      else setWipeError(true);
+                    } catch {
+                      setWipeError(true);
+                    } finally {
+                      setWiping(false);
+                    }
+                  }}
+                  disabled={wiping}
+                  className="flex-1 py-2.5 bg-[#A32E1D] text-white font-bold text-xs rounded-lg hover:bg-[#8d2718] transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  {wiping ? '지우는 중…' : '정말 전부 지우기'}
+                </button>
+              </div>
+            ) : (
+              <button data-analytics-exclude="true" data-button-id="ai-chat-view-delete-all"
+                onClick={() => { setConfirmWipe(true); setWipeError(false); }}
+                className="w-full py-2.5 border border-[#A32E1D] text-[#A32E1D] font-bold text-xs rounded-lg hover:bg-[#A32E1D]/5 transition-colors cursor-pointer"
+              >
+                전부 지우기
+              </button>
+            )}
+            {wipeError && <p role="alert" className="text-xs font-bold text-[#A32E1D]">삭제하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.</p>}
+          </div>
+        )}
       </div>
     );
   }
@@ -659,7 +723,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * dvh를 쓰는 건 모바일에서 주소창이 접히고 펴져도 맞추기 위해서다.
    */
   return (
-    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
+    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-3xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">

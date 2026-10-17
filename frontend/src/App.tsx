@@ -32,6 +32,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { PremiumModal } from './components/PremiumModal';
 import { Flame, Clock, Filter, Sparkles, MessageSquareHeart } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { normalizeAvatarId, type ProfileAvatarId } from './lib/profileAvatars';
 import { buildSimulationPrompt, buildEmpathyPrompt, OPENING_SCRIPTS, EMPATHY_OPENERS, EMPATHY_PERSONA_NAMES, ratioLabel } from './lib/prompts';
 import { detectCrisis } from './lib/crisis';
 import { DAILY_AI_QUOTA, fetchAiQuotaStatus, fetchAiQuotaUsed, consumeAiQuota } from './lib/aiQuota';
@@ -234,6 +235,7 @@ export default function App() {
           ...makeDefaultUser(),
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+          avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
         });
       } else if (!wasBrowsingAsGuest) {
         /*
@@ -259,6 +261,7 @@ export default function App() {
           ...makeDefaultUser(),
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+          avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
         });
         loadMyVotes();
       } else if (event === 'PASSWORD_RECOVERY' && session) {
@@ -274,6 +277,7 @@ export default function App() {
           ...makeDefaultUser(),
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
+          avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
         });
         loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
@@ -817,6 +821,19 @@ export default function App() {
     }
   };
 
+  const handleUpdateAvatar = async (avatar: ProfileAvatarId): Promise<boolean> => {
+    if (!authUserId) { blockedAction('avatar_update', 'not_ready'); return false; }
+    const task = beginTask('avatar_update');
+    try {
+      const { data, error } = await supabase.auth.updateUser({ data: { avatar } });
+      if (error || data.user?.id !== authUserId) { task.finish('error'); return false; }
+      setUser(prev => ({ ...prev, avatar }));
+      task.finish('success'); return true;
+    } catch {
+      task.finish('error'); return false;
+    }
+  };
+
   const handleGenerateRandomNickname = async (): Promise<string | null> => {
     const task = beginTask('nickname_generate');
     try {
@@ -1250,6 +1267,7 @@ export default function App() {
     opponentPersonality?: string;
     createAIPersona: boolean;
     requestId: string;
+    visibility: 'public' | 'private';
   }) => {
     if (!authUserId) throw new Error('AUTH_REQUIRED');
     const ga4Context = captureGA4EventContext();
@@ -1271,22 +1289,43 @@ export default function App() {
         category: storyData.category,
         opponentPersonality: storyData.opponentPersonality ?? '',
         requestId: editingStory ? undefined : storyData.requestId,
+        // 공개 범위는 새 사연에서만 보낸다. 수정 때는 아래에서 공개 상태 변경 경로를 쓴다.
+        visibility: editingStory ? undefined : storyData.visibility,
       }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'STORY_SAVE_FAILED');
-    const savedStory = result.story as Story | undefined;
+    let savedStory = result.story as Story | undefined;
     if (!savedStory || typeof savedStory.id !== 'string' || savedStory.authorId !== authUserId) {
       throw new Error('STORY_SAVE_FAILED');
     }
+    let privateSaveFailed = false;
 
     if (editingStory) {
       const updatedStory = { ...editingStory, ...savedStory };
       setStories(prev => prev.map(s => s.id === editingStory.id ? updatedStory : s));
       setEditingStory(null);
-      setToastMessage('사연이 성공적으로 수정되었습니다.');
-      setTimeout(() => setToastMessage(null), 3000);
+      const currentVisibility = updatedStory.visibility ?? 'public';
+      if (currentVisibility !== storyData.visibility) {
+        // 내용 저장은 끝났다. 공개 범위만 따로 바꾸고, 결과 안내는 그 함수가 띄운다.
+        await handleSetStoryVisibility(updatedStory.id, storyData.visibility);
+      } else {
+        setToastMessage('사연이 성공적으로 수정되었습니다.');
+        setTimeout(() => setToastMessage(null), 3000);
+      }
     } else {
+      if (storyData.visibility === 'private' && savedStory.visibility !== 'private') {
+        // 서버가 공개 범위를 저장하지 못한 경우(예전 서버). 사연 자체는 이미 저장됐으므로
+        // 실패로 되돌리지 않고, 바로 비공개로 옮긴 뒤 결과를 그대로 알린다.
+        const { data: moved, error: moveError } = await supabase.rpc('set_story_visibility', {
+          p_story_id: savedStory.id, p_visibility: 'private',
+        });
+        if (!moveError && moved?.id === savedStory.id && moved.visibility === 'private') {
+          savedStory = moved as Story;
+        } else {
+          privateSaveFailed = true;
+        }
+      }
       trackOnce(`story_publish_success:${authUserId}:${savedStory.id}`, 'story_publish_success', {}, ga4Context);
       setStories(prev => prev.some(s => s.id === savedStory.id)
         ? prev.map(s => s.id === savedStory.id ? { ...s, ...savedStory } : s)
@@ -1310,11 +1349,15 @@ export default function App() {
       }
     }
     if (!editingStory) {
-      setToastMessage(result.recovered === true
+      setToastMessage(privateSaveFailed
+        ? '사연은 공개로 등록됐어요. 비공개로 저장하지 못했으니 사연 화면에서 비공개로 바꿔 주세요.'
+        : result.recovered === true
         ? '이전에 저장된 사연을 확인했습니다. 내용이 다르면 수정하기에서 변경해 주세요.'
-        : personaSaved
-          ? '사연 등록이 완료되었습니다.'
-          : '사연은 저장됐지만 AI 대화 준비에 실패했습니다.');
+        : !personaSaved
+          ? '사연은 저장됐지만 AI 대화 준비에 실패했습니다.'
+          : savedStory.visibility === 'private'
+            ? '비공개 사연으로 등록했어요. 마이페이지에서 볼 수 있어요.'
+            : '사연 등록이 완료되었습니다.');
       setTimeout(() => setToastMessage(null), 3000);
     }
   };
@@ -2001,7 +2044,8 @@ export default function App() {
           </div>
         )}
         {activeTab === 'feed' && hiddenStoriesReady && (
-          <div className="space-y-8 pb-24 md:pb-44">
+          /* 홈·AI 대화·마이페이지는 같은 넓이(max-w-3xl)로 맞춘다. 탭을 오갈 때 화면 폭이 바뀌지 않게 한다 */
+          <div className="max-w-3xl mx-auto space-y-8 pb-24 md:pb-44">
             
             {/* Today's Balance Game (Hot Logic Hero) */}
             <BalanceGameSection
@@ -2068,7 +2112,7 @@ export default function App() {
             </div>
 
             {/* Story Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredStories.length === 0 ? (
                 <div className="col-span-full text-center py-16 bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-3">
                   <MessageSquareHeart className="w-10 h-10 text-[#FF6B5A] mx-auto opacity-80" />
@@ -2112,6 +2156,7 @@ export default function App() {
         {activeTab === 'ai-chat' && (
           <AIChatView
             isGuest={isGuest}
+            onDeleteAllAiChats={handleDeleteAllAiChats}
             /* 로그인 안내는 앱이 한 곳에서 띄운다 — 화면마다 다른 안내가 뜨면 안 된다 */
             onRequireLogin={(message) => {
               if (!blockedForGuest(message)) setLoginPromptMessage(message);
@@ -2165,13 +2210,12 @@ export default function App() {
             myVotes={myVotes}
             myComments={myComments}
             onUpdateNickname={handleUpdateNickname}
+            onUpdateAvatar={handleUpdateAvatar}
             onGenerateRandomNickname={handleGenerateRandomNickname}
             /* 마이페이지에서 열 때도 피드와 같은 길로 연다. 여기만 따로
                setSelectedStory를 부르면 조회수·주소(?story=) 처리가 빠져,
                같은 사연인데 어디서 들어왔느냐에 따라 다르게 동작한다 */
             onSelectStory={(story) => openStoryDetail(story)}
-            aiChatCount={personas.length}
-            onDeleteAllAiChats={handleDeleteAllAiChats}
           />
         )}
       </main>
@@ -2190,8 +2234,8 @@ export default function App() {
         모바일의 플로팅 버튼처럼 홈 탭에서는 계속 떠 있게 한다.
       */}
       {activeTab === 'feed' && (
-        <div className="hidden md:block fixed bottom-20 left-0 right-0 z-30 bg-white border-t-2 border-[#FF6B5A] shadow-[0_-4px_16px_rgba(28,28,28,0.06)]">
-          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-6">
+        <div className="hidden md:block fixed bottom-20 left-0 right-0 z-30 bg-white border-t-2 border-[#FF6B5A] shadow-[0_-4px_16px_rgba(28,28,28,0.06)] px-8">
+          <div className="max-w-3xl mx-auto py-4 flex items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div className="w-11 h-11 rounded-full bg-[#FF6B5A] flex items-center justify-center text-[#1C1C1C] shrink-0">
                 <MessageSquareHeart className="w-6 h-6" aria-hidden="true" />
@@ -2361,6 +2405,7 @@ export default function App() {
         }} 
         onSubmit={handleCreateStory} 
         initialData={editingStory}
+        privateAvailable={authorPrivateLaunchEnabled && storyPrivateReady}
       />
 
       <ReportModal

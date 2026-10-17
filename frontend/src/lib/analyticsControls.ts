@@ -448,15 +448,15 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
     "kind": "link",
     "excluded": true
   },
-  "my-page-view-button-36": {
+  "ai-chat-view-delete-all-cancel": {
     "kind": "button",
     "excluded": true
   },
-  "my-page-view-button-37": {
+  "ai-chat-view-delete-all-confirm": {
     "kind": "button",
     "excluded": true
   },
-  "my-page-view-button-38": {
+  "ai-chat-view-delete-all": {
     "kind": "button",
     "excluded": true
   },

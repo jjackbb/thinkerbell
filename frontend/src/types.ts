@@ -5,6 +5,8 @@ export type StoryCategory = '전체' | '연애' | '직장' | '친구' | '가족'
 export interface UserProfile {
   id: string;
   nickname: string;
+  /** 프로필 아이콘 이름(user_metadata.avatar). 없으면 기본 아이콘 */
+  avatar?: string;
   socialProvider?: 'kakao' | 'apple' | 'google' | 'guest';
   createdAt: string;
   isAdultVerified?: boolean;
