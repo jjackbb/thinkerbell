@@ -22,9 +22,6 @@ interface VoteResultProps {
   surface?: 'light' | 'onyx';
 }
 
-/** 이 수 미만이면 퍼센트 대신 점으로 표를 센다 */
-const SMALL_SAMPLE = 5;
-
 /**
  * 투표 결과 표시. 세 가지 원칙을 담는다.
  *
@@ -35,8 +32,9 @@ const SMALL_SAMPLE = 5;
  * 2) 퍼센트만 쓰지 않고 표수를 함께 쓴다. 소수점은 쓰지 않는다.
  *    3표 대 1표가 75%로 보이면 그건 여론이 아니라 착시다.
  *
- * 3) 표가 적으면 막대 대신 점을 찍는다.
- *    "아직 적다"가 숫자를 읽지 않아도 눈에 보여야 한다.
+ * 3) 표가 적어도 같은 막대로 보여준다.
+ *    예전에는 5표 미만이면 점으로 셌지만, 화면마다 모양이 달라져 헷갈렸다.
+ *    대신 2)의 표수와 '총 N명 참여'로 표가 적다는 것을 알린다.
  *
  * 사연 카드와 밸런스 게임 배너가 이 한 벌을 같이 쓴다. 규칙을 두 곳에
  * 복사해두면 한쪽만 고치고 넘어가게 된다 — 실제로 그런 적이 있다.
@@ -69,20 +67,25 @@ export const VoteResult: React.FC<VoteResultProps> = ({
     // 실제 표 비율과 무관한 중립 막대만 표시한다. 흐림 처리로도 우세한 쪽이
     // 드러날 수 있으므로 투표 전 렌더링에는 득표 비율을 사용하지 않는다.
 
+    // ??% 대신 막대 자체를 잠긴 상자로 보여주고, 왜 가려졌는지·어떻게 하면
+    // 보이는지를 그 안에 적는다. 처음 온 사람이 "오류인가?" 하고 헷갈리지 않게 한다.
+    // 막대 모양은 투표 후 결과 막대와 같은 자리에 두어 열리는 변화가 자연스럽다.
     return (
       <div className={rootClass}>
         <div className="flex justify-between font-label-sm text-xs mb-2 font-bold">
-          <span className="text-[var(--vote-ink-b)]">{labels.b} ??%</span>
-          <span className="text-[var(--vote-ink-a)]">??% {labels.a}</span>
+          <span className="text-[var(--vote-ink-b)]">{labels.b}</span>
+          <span className="text-[var(--vote-ink-a)]">{labels.a}</span>
         </div>
         <div
-          className="w-full h-2 rounded-full bg-[var(--vote-track)]"
+          className="w-full h-7 rounded-full bg-[var(--vote-track)] flex items-center justify-center gap-1.5 px-3 text-[11px] font-bold text-[var(--vote-emphasis)]"
           style={{
             backgroundImage: 'linear-gradient(90deg, var(--vote-seal-b), var(--vote-seal-a))',
           }}
-        />
-        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center flex items-center justify-center gap-1">
+        >
           <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+          <span className="truncate">투표하면 결과가 열려요</span>
+        </div>
+        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">
           {total > 0 ? (
             <span>
               벌써 <span className="font-bold text-[var(--vote-emphasis)]">{total}명</span>이 편을 골랐어요
@@ -92,29 +95,6 @@ export const VoteResult: React.FC<VoteResultProps> = ({
               아직 아무도 안 골랐어요 · <span className="font-bold text-[var(--vote-emphasis)]">첫 번째가 되어보세요</span>
             </span>
           )}
-        </p>
-      </div>
-    );
-  }
-
-  // ── 표가 아직 적을 때: 점으로 센다 ────────────────────────────────────
-  if (total > 0 && total < SMALL_SAMPLE) {
-    return (
-      <div className={rootClass}>
-        <div className="flex justify-between font-label-sm text-xs mb-2">
-          <span className="text-[var(--vote-ink-b)] font-bold">{labels.b} {votesB}표</span>
-          <span className="text-[var(--vote-ink-a)] font-bold">{labels.a} {votesA}표</span>
-        </div>
-        <div className="flex items-center justify-center gap-1.5 h-2">
-          {Array.from({ length: votesB }).map((_, i) => (
-            <span key={`b${i}`} className="w-2 h-2 rounded-full bg-[var(--vote-fill-b)]" />
-          ))}
-          {Array.from({ length: votesA }).map((_, i) => (
-            <span key={`a${i}`} className="w-2 h-2 rounded-full bg-[var(--vote-fill-a)]" />
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">
-          아직 {total}명이 투표했어요
         </p>
       </div>
     );

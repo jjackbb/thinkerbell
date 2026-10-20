@@ -6,7 +6,8 @@ test.beforeEach(async({page})=>{
 });
 test('ranking keyboard entry, original vote wording and sharing remain visible at this viewport',async({page})=>{
  const visibleRank=page.locator('[data-action-id="weekly-top-banner-action-01"]:visible').first();
- await expect(visibleRank).toContainText('??%');
+ await expect(visibleRank).toContainText('투표하면 결과가 열려요');
+ await expect(visibleRank).not.toContainText('??%');
  await expect(page.getByText('투표하면 결과를 볼 수 있어요',{exact:true})).toHaveCount(0);
  await expect(visibleRank).not.toContainText('80%');
  await visibleRank.focus();await page.keyboard.press('Enter');

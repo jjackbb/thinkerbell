@@ -25,7 +25,7 @@ async function render(component,props={}) {
 }
 test('unvoted ranking does not expose percentages, side counts, or outcome-dependent bars',async()=>{
  const html=await render('WeeklyTopBanner',{weeklyTopStories:[story]});
- assert.match(html,/니 편 \?\?%/);
+ assert.doesNotMatch(html,/\?\?%/);assert.match(html,/투표하면 결과가 열려요/);
  assert.doesNotMatch(html,/투표하면 결과를 볼 수 있어요/);
  assert.doesNotMatch(html,/80%|20%|80표|20표|width:80|width:20/);
  assert.match(html,/<button type="button" data-action-id="weekly-top-banner-action-01"/);
@@ -39,11 +39,11 @@ test('voter and signed-in author can see ranking results, guest ownership does n
  const guest=await render('WeeklyTopBanner',{weeklyTopStories:[{...story,userVoted:'A'}],currentUser:{id:'owner'},isGuest:true});
  assert.doesNotMatch(guest,/80%|20%/);
 });
-test('zero and small samples keep the common result policy; hidden panels are inert',async()=>{
+test('zero and small samples keep the common result policy (bar with vote counts); hidden panels are inert',async()=>{
  const zero=await render('WeeklyTopBanner',{weeklyTopStories:[{...story,votesA:0,votesB:0}],currentUser:{id:'owner'}});
  assert.match(zero,/아직 투표가 없어요/);assert.doesNotMatch(zero,/50%/);
  const small=await render('WeeklyTopBanner',{weeklyTopStories:[{...story,votesA:2,votesB:1,userVoted:'B'}],realtimeTopStories:[story]});
- assert.match(small,/내 편 2표/);assert.match(small,/니 편 1표/);assert.match(small,/aria-hidden="true" inert=""/);
+ assert.match(small,/\(2표\)/);assert.match(small,/\(1표\)/);assert.match(small,/총 3명 참여/);assert.doesNotMatch(small,/명이 투표했어요/);assert.match(small,/aria-hidden="true" inert=""/);
 });
 test('public result sharing appears only for voters/authors; locked state explains where it will appear',async()=>{
  const props={story,comments:[],currentUser:{id:'reader',nickname:'reader',createdAt:''}};

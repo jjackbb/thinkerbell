@@ -7,9 +7,6 @@
  * 공유가 안전한 기능이 된다.
  */
 
-/** 이 수 미만이면 퍼센트를 쓰지 않는다 (VoteResult 와 같은 기준) */
-const SMALL_SAMPLE = 5;
-
 const W = 1080;
 const H = 1350;
 
@@ -76,7 +73,8 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
   const total = votesA + votesB;
   const pctA = total > 0 ? Math.round((votesA / total) * 100) : 0;
   const pctB = total > 0 ? 100 - pctA : 0;
-  const enough = total >= SMALL_SAMPLE;
+  // 화면(VoteResult)과 같이 표가 적어도 막대로 그린다. 표수를 함께 적어 적은 표본임을 알린다
+  const enough = total > 0;
 
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, W, H);
@@ -152,22 +150,10 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
     }
     ctx.textAlign = 'left';
   } else {
-    // 표가 적으면 퍼센트 대신 점으로 센다. 적은 표본을 %로 부풀리지 않는다
+    // 표가 하나도 없으면 빈 막대만 그린다
     roundRect(ctx, pad, barY, barW, barH, 20);
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     ctx.fill();
-    const dotR = 14;
-    const gap = 46;
-    let x = pad + 34;
-    for (let i = 0; i < votesB; i++, x += gap) {
-      ctx.beginPath(); ctx.arc(x, barY + barH / 2, dotR, 0, Math.PI * 2);
-      ctx.fillStyle = YOUR_SIDE; ctx.fill();
-    }
-    x = W - pad - 34;
-    for (let i = 0; i < votesA; i++, x -= gap) {
-      ctx.beginPath(); ctx.arc(x, barY + barH / 2, dotR, 0, Math.PI * 2);
-      ctx.fillStyle = MY_SIDE; ctx.fill();
-    }
   }
 
   // 표 수
@@ -181,7 +167,7 @@ export function drawShareCard(canvas: HTMLCanvasElement, { title, votesA, votesB
   ctx.font = `500 30px ${FONT}`;
   ctx.fillStyle = MUTED;
   ctx.fillText(
-    enough ? `총 ${total}명이 편을 갈랐어요` : `아직 ${total}명이 투표했어요`,
+    enough ? `총 ${total}명이 편을 갈랐어요` : '아직 투표가 없어요',
     pad,
     barY + barH + 130
   );
