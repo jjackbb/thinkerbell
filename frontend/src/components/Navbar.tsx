@@ -10,8 +10,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
 }) => {
+  // 높이 64px(h-16). 바꾸면 App의 하단 고정 안내 바·작성 버튼 위치와 AIChatView 대화방 높이 계산도 함께 맞춘다
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#1C1C1C] flex justify-around items-center h-20 px-4 border-t border-[#1C1C1C]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#1C1C1C] flex justify-around items-center h-16 px-4 border-t border-[#1C1C1C]">
       <button data-button-id="navbar-button-01"
         onClick={() => onTabChange('feed')}
         className={`flex flex-col items-center justify-center gap-1 font-mono transition-all cursor-pointer ${
@@ -33,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[24px]">memory</span>
-        <span className="font-label-sm text-[11px]">Ai 대화</span>
+        <span className="font-label-sm text-[11px]">AI 대화</span>
       </button>
 
       <button data-button-id="navbar-button-03"

@@ -9,6 +9,7 @@ const rows = new Map();
 let providerCalls = 0;
 let insertCalls = 0;
 let simulateInsertConflict = false;
+let simulateMissingLabelColumns = false;
 
 process.env.SUPABASE_URL = 'https://example.supabase.co';
 process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
@@ -22,6 +23,10 @@ globalThis.fetch = async (input, init) => {
   const headers = new Headers(init?.headers);
   if (url.hostname === 'ai.potens.ai') {
     providerCalls += 1;
+    const prompt = JSON.parse(init.body).prompt;
+    // 역할 이름 검사(댓글과 같은 비속어 치환)는 받은 텍스트를 그대로 돌려준다
+    const labelMatch = prompt.includes('치환한 텍스트를 반환해라') && prompt.match(/텍스트: "(.*)"$/s);
+    if (labelMatch) return Response.json({ message: labelMatch[1] });
     return Response.json({ message: JSON.stringify({
       isAdult: false,
       hasProfanity: false,
@@ -42,6 +47,9 @@ globalThis.fetch = async (input, init) => {
     if (method === 'POST') {
       insertCalls += 1;
       const row = JSON.parse(init.body);
+      if (simulateMissingLabelColumns && ('sideLabelA' in row || 'sideLabelB' in row)) {
+        return Response.json({ code: 'PGRST204', message: "Could not find the 'sideLabelA' column of 'stories' in the schema cache" }, { status: 400 });
+      }
       if (simulateInsertConflict) {
         simulateInsertConflict = false;
         rows.set(row.id, row);
@@ -144,4 +152,38 @@ test('an unknown visibility is rejected before content check or insert', async (
   assert.equal(result.body.error, 'INVALID_STORY_CONTENT');
   assert.equal(providerCalls, previousProviderCalls);
   assert.equal(insertCalls, previousInsertCalls);
+});
+
+test('side labels are checked and saved; empty labels are not sent', async () => {
+  const id = 'story-88888888-8888-4888-8888-888888888888';
+  const before = providerCalls;
+  const result = await save(id, 'token-owner', { sideLabelA: ' 신입사원 ', sideLabelB: '직장동료' });
+  assert.equal(result.status, 201);
+  assert.equal(rows.get(id).sideLabelA, '신입사원');
+  assert.equal(rows.get(id).sideLabelB, '직장동료');
+  assert.equal(providerCalls - before, 3, 'story check plus one check per label');
+
+  const plainId = 'story-99999999-9999-4999-8999-999999999999';
+  const plainBefore = providerCalls;
+  assert.equal((await save(plainId)).status, 201);
+  assert.equal(Object.hasOwn(rows.get(plainId), 'sideLabelA'), false);
+  assert.equal(providerCalls - plainBefore, 1);
+});
+
+test('a side label longer than 10 characters is rejected before any provider call', async () => {
+  const before = providerCalls;
+  const result = await save('story-aaaaaaaa-1111-4111-8111-111111111111', 'token-owner', { sideLabelB: '열한글자가넘는역할이름입니다' });
+  assert.equal(result.status, 400);
+  assert.equal(result.body.error, 'INVALID_STORY_CONTENT');
+  assert.equal(providerCalls, before);
+});
+
+test('before the label columns exist, the story is still saved without labels', async () => {
+  simulateMissingLabelColumns = true;
+  const id = 'story-bbbbbbbb-2222-4222-8222-222222222222';
+  const result = await save(id, 'token-owner', { sideLabelB: '직장동료' });
+  simulateMissingLabelColumns = false;
+  assert.equal(result.status, 201);
+  assert.equal(rows.get(id).id, id);
+  assert.equal(Object.hasOwn(rows.get(id), 'sideLabelB'), false);
 });

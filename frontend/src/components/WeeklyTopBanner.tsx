@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Story, UserProfile } from '../types';
 import { VoteResult } from './VoteResult';
 import { ownsStory } from '../lib/storyOwnership';
-import { Trophy, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface WeeklyTopBannerProps {
   weeklyTopStories: Story[];
@@ -89,7 +89,6 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
 
   const renderStories = (stories: Story[], bannerType: 'weekly' | 'realtime') => {
     return stories.slice(0, 3).map((story, idx) => {
-      const rankColor = 'bg-[#B87514] text-white';
       const inactiveRankColor = 'bg-[#1C1C1C] text-white';
 
       return (
@@ -100,9 +99,14 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
         >
           <div>
             <div className="flex items-center justify-between mb-2 font-mono text-xs">
-              <span className={`px-2 py-0.5 rounded font-bold ${idx === 0 ? rankColor : inactiveRankColor}`}>
-                #{idx + 1}
-              </span>
+              {idx === 0 ? (
+                // 1위는 빛줄기가 스치는 금색 배지(index.css .rank-gold)
+                <span className="rank-gold px-2 py-0.5 rounded font-bold">#1</span>
+              ) : (
+                <span className={`px-2 py-0.5 rounded font-bold ${inactiveRankColor}`}>
+                  #{idx + 1}
+                </span>
+              )}
               <span className="text-[#5f5e5e] font-semibold">{story.category}</span>
             </div>
 
@@ -118,6 +122,8 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
               hasVoted={!isGuest && !!story.userVoted}
               isMyStory={ownsStory(currentUser?.id, story.authorId, isGuest)}
               compact
+              /* 랭킹 카드에는 투표 버튼이 없으므로 사연을 열어야 한다는 것까지 알린다 */
+              lockedHint="열어서 투표"
             />
           </div>
         </button>
@@ -157,10 +163,11 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
   const paneLabel = (key: 'weekly' | 'realtime') =>
     key === 'weekly' ? '주간 랭킹 보기' : '실시간 랭킹 보기';
 
+  // 휴대폰(640px 미만)에서만 제목 위아래 여백을 줄인다. 넓은 화면은 이전 여백 그대로
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 mb-8 shadow-xs overflow-hidden">
-      <div className="flex items-center justify-between mb-4 border-b border-[#E5E7EB] pb-3">
-        <div className="flex items-center gap-2 relative h-14 sm:h-8 w-full max-w-[450px] overflow-hidden">
+    <div className="bg-white border border-[#E5E7EB] rounded-lg px-5 pt-3 pb-5 sm:pt-5 mb-8 shadow-xs overflow-hidden">
+      <div className="flex items-center justify-between mb-3 pb-2 sm:mb-4 sm:pb-3 border-b border-[#E5E7EB]">
+        <div className="flex items-center gap-2 relative h-11 sm:h-8 w-full max-w-[450px] overflow-hidden">
           {panes.map((pane, idx) => (
             <div
               key={`header-${pane.key}`}
@@ -169,9 +176,15 @@ export const WeeklyTopBanner: React.FC<WeeklyTopBannerProps> = ({
                 idx === safeIndex ? 'translate-y-0' : idx < safeIndex ? '-translate-y-full' : 'translate-y-full'
               }`}
             >
-              <div className="w-7 h-7 bg-[#B87514]/10 rounded flex items-center justify-center text-[#B87514] font-bold shrink-0">
-                {pane.key === 'weekly' ? <Trophy className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-              </div>
+              {/* 아이콘 상자 없이 표시만 둔다. 실시간은 방송의 LIVE처럼 깜빡이는 점 */}
+              {pane.key === 'weekly' ? (
+                <Trophy className="w-4 h-4 text-[#B87514] shrink-0" aria-hidden="true" />
+              ) : (
+                <span className="relative flex w-2.5 h-2.5 shrink-0 mx-0.5" aria-hidden="true">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#FF6B5A] opacity-60 animate-ping motion-reduce:animate-none" />
+                  <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-[#FF6B5A]" />
+                </span>
+              )}
               <h2 className="text-sm sm:text-base font-bold text-[#1C1C1C] flex flex-wrap items-center gap-x-2 gap-y-1 font-headline-md">
                 {pane.key === 'weekly' ? '주간 랭킹 TOP 3' : '실시간 랭킹 TOP 3'}
                 <span className="text-xs px-2 py-0.5 bg-[#B87514] text-white font-mono rounded font-bold ml-1">

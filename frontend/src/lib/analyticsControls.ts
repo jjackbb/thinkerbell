@@ -688,6 +688,10 @@ export const ANALYTICS_CONTROLS: Record<string, { kind: 'button' | 'link' | 'car
     "kind": "button",
     "excluded": false
   },
+  "story-detail-modal-preview-save": {
+    "kind": "button",
+    "excluded": false
+  },
   "weekly-top-banner-action-01": {
     "kind": "card",
     "excluded": false

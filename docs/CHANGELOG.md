@@ -1,3 +1,25 @@
+## 2026-10-21 화면 다듬기·마이페이지 정리·랜딩 축약 (jisun-summer)
+
+- 요약: 프론트 담당 사용자 요청으로 사연 작성·투표 표시·랭킹·공유·AI 목록·마이페이지·랜딩을 다듬었다. 사연 공개 범위 저장과 니 편·내 편 역할 저장을 위해 서버를 일부 바꿨고, 역할 칸 마이그레이션은 **미적용** 파일로만 추가했다.
+- 무엇을:
+  - 사연 작성: 카테고리 기본 선택 해제, 필수 항목 일괄 안내, 공개 범위(기본 공개) 선택, 니 편·내 편 역할(선택, 10자), 안내 문구·버튼 정리.
+  - 투표 표시: 5표 미만 점 표시 제거(공유 이미지 포함), 투표 전 `??%`를 '투표 후 공개' 이름 줄 안내 + 얇은 중립 막대로 교체(랭킹 카드는 '열어서 투표').
+  - 랭킹·홈: 실시간 LIVE 점, 1위 금색 배지(가벼운 빛줄기, 동작 줄이기 존중), 오늘의 밸런스 게임 표시, 한글 고정폭 글꼴 간격 정리(`--font-mono`에 한글 대체 글꼴), 하단 메뉴 64px·'AI 대화', 세 탭 넓이 통일(max-w-3xl), 토스트 폭·위치.
+  - 사연 상세·공유: 스크롤 시 상단에 사연 제목, 댓글 안내·글자 수, 결과 공유 바 정리(이미지 저장 → 미리보기 → 저장).
+  - AI 목록: 상단 배너 축약, '사연으로 AI 대화 시작하기' 안내, 전체 삭제를 보조 버튼으로, 횟수 확인 실패 시 '지금은 남은 횟수를 확인할 수 없어요'.
+  - 마이페이지: 표정 프로필 아이콘(user_metadata.avatar, 상단 이름표에도 표시), 나의 편 성향, 함께한 날(가입일·N일째), 닉네임 변경 버튼, 목록 10개씩 페이지, 투표·댓글에서 사연 열기, 사연 수정·삭제, 댓글 선택/전체 삭제, FAQ 갱신.
+  - 랜딩: 현재 기능 반영 후 핵심(첫 화면·이용 방법 3단계·AI·안심 한 줄·FAQ 3개)으로 축약, 상단 홈 버튼, '사연 올리기'는 로그인 세션이 있을 때만 표시.
+  - 서버(`backend/app.ts`): `POST /api/stories`가 `visibility`(private이면 처음부터 비공개 저장)와 `sideLabelA/B`(공백 정리·10자·댓글 비속어 검사)를 받는다. 역할 칸이 없는 DB(`PGRST204`/`42703`)에서는 역할만 빼고 저장한다.
+- 왜: 처음 온 이용자가 헷갈리던 화면(`??%`, 빈 아이콘, 겹치는 드롭다운 등)을 정리하고, 마이페이지에서 내 활동을 찾고 정리할 수 있게 하기 위해서다.
+- 확인: `npm run lint`, `npm run build` PASS. `tests/*.test.mjs` 290개 중 280개 PASS이며, 실패 10개는 이번 변경 전부터 실패하던 격리 REST 3개(환경변수 없음)와 `gemini-routes` 7개다. 랜딩·홈·랭킹·공유 바·마이페이지 하네스는 Playwright·헤드리스 Chrome으로 360~1280px 캡처·클릭을 확인했다(운영 DB 쓰기 요청 차단, 마이페이지는 합성 데이터). 실제 계정 등록·삭제·공개 범위·역할 저장, 브라우저 e2e(`tests/e2e`), 운영 DB 마이그레이션은 **NOT_RUN**. 로컬 `.env`에 서버 비밀키가 없어 사연·댓글 저장, AI 횟수 확인은 로컬에서 실패한다(BLOCKED).
+- 정책·영향:
+  - 10/16 결정과 다르다: 투표 전 `??%` 제거와 버튼 보조 글씨(역할). 팀 확인 필요.
+  - 댓글 안내의 '반복되면 서비스 이용이 제한될 수 있어요'는 제한 기능·이용 정책이 아직 없다([기록](plan-execution/2026-10-20-comment-restriction-notice.md)).
+  - 역할 칸은 [적용 요청](plan-execution/2026-10-20-story-side-labels.md)의 마이그레이션·`read_visible_stories` 수정 전까지 저장·표시되지 않는다.
+  - 테스트 갱신: `ui-clarity-render`(점 표시·`??%`·FAQ 문구), `e2e/ui-clarity`(미실행), `story-save-idempotency`(공개 범위·역할).
+- 파일: backend/app.ts, backend/supabase/migrations/20261020120000_story_side_labels.sql(미적용), frontend/landing.html, frontend/src/landing.ts, frontend/src/App.tsx, frontend/src/index.css, frontend/src/types.ts, frontend/src/lib/analyticsControls.ts, frontend/src/components/(AIChatView, BalanceGameSection, CreateStoryModal, Header, MyPageView, Navbar, ShareResultBar, SideVoteLabel, StoryCard, StoryDetailModal, VoteResult, WeeklyTopBanner).tsx, tests/(story-save-idempotency, ui-clarity-render).test.mjs, tests/e2e/ui-clarity.spec.ts, docs/plan-execution/2026-10-20-*.md, docs/CHANGELOG.md.
+- 한눈에 보기: 사용자 요청으로 main에 push한다(Vercel 자동 배포 가능). 운영 DB 변경은 하지 않았다.
+
 ## 2026-10-13 검증 브랜치 의존성 보안 패치
 
 - 요약/무엇을: package.json 범위 안에서 lockfile의 Express 4.22.3, body-parser 1.20.8, proxy-addr 2.0.8, qs 6.16.0, PostCSS 8.5.23, nanoid 3.3.18, source-map-js 1.2.2 호환 패치를 반영했다. Playwright와 package.json은 변경하지 않았다.
@@ -112,6 +134,8 @@ main63b4494 공개 문구/조회RPC 확인, 운영 보안8항목 readback, GA4 �
 팀회의 후 확정한 일반 화면·행동·기능 결과 계측을 연결했다. 신규 이벤트는 GA4만, 내부 DB 9종은 유지한다. 190개 행동의 고정 ID와 민감 영역 차단, 동의·철회 경계, 입력값 미전송을 적용했다. 기존 AI 완료/저장 분리 지표는 유지한다. 검사 결과와 기존 테스트/팀원 계정의 재동의 전환 생략 결정·운영 미배포는 [인수인계](plan-execution/README.md)에 기록했다.
 
 ## 현재 변경 한눈에 보기
+
+2026-10-21: 화면 다듬기·마이페이지 정리·랜딩 축약을 main에 push했다. 공개 범위·역할 저장 서버 변경이 포함되며, 역할 칸 마이그레이션은 미적용이다. 상세는 맨 위 2026-10-21 기록을 따른다.
 
 2026-09-30: 구현·문서 정리 `fee5ea5`를 푸시하고 `dpl_GUTu8R7iugosXTqQS6bv1az8qzXe`를 운영에 반영했습니다. 후속 문서 커밋에는 그 배포 결과와 검증 범위를 기록합니다.
 

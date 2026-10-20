@@ -262,7 +262,12 @@ export const BalanceGameSection: React.FC<BalanceGameSectionProps> = ({ onRequir
     >
       {/* 화살표 및 타이틀 상단 바 */}
       <div className="absolute top-4 left-6 right-6 flex items-center justify-between z-20">
-        <div className="inline-block px-3 py-1 bg-[#FF6B5A]/10 border border-[#FF6B5A]/20 rounded text-[#FF6B5A] font-mono text-xs">
+        {/* 상자 대신 니 편(인디고)·내 편(코랄) 점이 맞붙은 표시를 쓴다. 한글은 고정폭 글꼴을 쓰지 않는다 */}
+        <div className="flex items-center gap-2 text-xs font-bold text-white/80">
+          <span aria-hidden="true" className="flex items-center">
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-your-side)]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-my-side)] -ml-1 ring-2 ring-[#1C1C1C]" />
+          </span>
           오늘의 밸런스 게임
         </div>
 

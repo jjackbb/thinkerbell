@@ -5,9 +5,10 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Story, Comment, UserProfile } from '../types';
 import { detectCrisis } from '../lib/crisis';
 import { VoteResult } from './VoteResult';
+import { SideVoteLabel } from './SideVoteLabel';
 import { ShareResultBar } from './ShareResultBar';
 import { renderShareCard, ShareCardInput } from '../lib/shareCard';
-import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle } from 'lucide-react';
+import { X, Send, ShieldAlert, MoreVertical, Edit2, EyeOff, Trash2, MessageCircle, Vote, Heart, Share2, CheckCircle, ImageDown } from 'lucide-react';
 
 interface StoryDetailModalProps {
   story: Story | null;
@@ -25,6 +26,8 @@ interface StoryDetailModalProps {
   onStartAIChat: (story: Story) => void;
   /** 오늘 남은 무료 AI 대화 횟수 (내 사연이면 무제한이라 표시하지 않는다) */
   freeChatsLeft?: number;
+  /** 남은 횟수를 서버에서 확인하지 못했다. "다 썼어요"로 잘못 안내하지 않는다 */
+  aiQuotaUnknown?: boolean;
 
   /**
    * 로그인 없이 둘러보는 중인가.
@@ -61,6 +64,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   likePendingIds = [],
   onStartAIChat,
   freeChatsLeft,
+  aiQuotaUnknown = false,
   isGuest = false,
   onRequireLogin,
   onReportStory,
@@ -73,6 +77,24 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onDeleteComment,
 }) => {
   const scrollContentRef = useRef<HTMLDivElement>(null);
+  /*
+    본문 제목이 위로 완전히 지나가면 상단 바의 '사연' 자리에 제목을 띄운다.
+    아래로 내려 읽는 중에도 어떤 사연인지 알 수 있게 한다.
+  */
+  const storyTitleRef = useRef<HTMLHeadingElement>(null);
+  const [titlePassed, setTitlePassed] = useState(false);
+  useEffect(() => {
+    const target = storyTitleRef.current;
+    const root = scrollContentRef.current;
+    setTitlePassed(false);
+    if (!target || !root || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      // 제목의 아래쪽 끝까지 화면 위로 넘어갔을 때만 바꾼다(아래쪽으로 벗어난 경우는 제외)
+      setTitlePassed(!entry.isIntersecting && entry.boundingClientRect.bottom <= (entry.rootBounds?.top ?? 0));
+    }, { root, threshold: 0 });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [story?.id]);
   const scrollPosition = useRef(0);
   const returnFocus = useRef<HTMLButtonElement | null>(null);
   const wasSuspended = useRef(false);
@@ -263,6 +285,26 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     }
   };
 
+  // 미리보기에서 본 바로 그 카드를 저장한다. 다시 그리지 않으므로 본 것과 저장되는 것이 같다
+  const handleSavePreview = () => {
+    if (!previewUrl) return;
+    const task = beginTask('share_download');
+    try {
+      const a = document.createElement('a');
+      a.href = previewUrl;
+      a.download = '니편내편-투표결과.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      task.finish('success');
+      closePreview();
+      showToast('이미지를 저장했어요.');
+    } catch {
+      task.finish('error');
+      showToast('이미지를 저장하지 못했어요.');
+    }
+  };
+
   const handleVote = async (option: 'A' | 'B') => {
     if (isPrivate) return;
     if (voteSubmittingRef.current || votedOption === option) { blockedAction('vote', voteSubmittingRef.current ? 'busy' : 'unchanged'); return; }
@@ -340,7 +382,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
         <header className="sticky top-0 z-40 bg-[#1C1C1C] text-white flex justify-between items-center px-6 py-4 border-b border-[#1C1C1C]">
           {/* 앱 로고 대신 모달 제목을 둔다. 로고는 눌릴 것처럼 생겼지만
               모달 안에서 홈으로 갈 일이 없어 붙일 동작이 없었다 */}
-          <h2 className="font-headline-md text-base font-bold text-white">사연</h2>
+          <h2 className="font-headline-md text-base font-bold text-white min-w-0 truncate mr-3" title={titlePassed ? story.title : undefined}>
+            {titlePassed ? story.title : '사연'}
+          </h2>
           <div className="flex items-center gap-3">
             <div className="relative" ref={menuRef}>
               <button data-button-id="story-detail-modal-button-01" aria-label="사연 메뉴 더보기" aria-expanded={isMenuOpen}
@@ -416,7 +460,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
             
             <div>
               <div>
-                <h2 className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
+                <h2 ref={storyTitleRef} className="font-display-lg text-xl sm:text-2xl font-bold mb-4 leading-tight">
                   {story.title}
                 </h2>
                 <div className="flex flex-wrap items-center gap-6 text-[var(--color-secondary-on-dark)] font-mono text-xs">
@@ -492,7 +536,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
                     }`}
                   >
-                    니 편
+                    <SideVoteLabel side="니 편" role={story.sideLabelB} />
                   </button>
                   <button data-button-id="story-detail-modal-button-10"
                     onClick={() => handleVote('A')}
@@ -506,7 +550,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
                     }`}
                   >
-                    내 편
+                    <SideVoteLabel side="내 편" role={story.sideLabelA} />
                   </button>
                 </div>
 
@@ -550,7 +594,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     ) : (
                       !isMyStory && typeof freeChatsLeft === 'number' && (
                         <p className="text-xs font-mono text-[var(--color-secondary-on-dark)] mt-1.5">
-                          {freeChatsLeft > 0
+                          {aiQuotaUnknown
+                            ? '지금은 남은 횟수를 확인할 수 없어요'
+                            : freeChatsLeft > 0
                             ? `오늘 무료로 ${freeChatsLeft}번 더 열 수 있어요`
                             : '오늘 무료 횟수를 다 썼어요 · 내일 다시 충전돼요'}
                         </p>
@@ -743,7 +789,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     disabled={isCommentSubmitting}
-                    placeholder={replyTarget ? "답글을 남겨주세요" : "댓글을 달아주세요"}
+                    placeholder={replyTarget
+                      ? "욕설이나 성적 수치심을 줄 수 있는 표현이 담긴 답글은 가려지거나 삭제될 수 있고, 반복되면 서비스 이용이 제한될 수 있어요."
+                      : "욕설이나 성적 수치심을 줄 수 있는 표현이 담긴 댓글은 가려지거나 삭제될 수 있고, 반복되면 서비스 이용이 제한될 수 있어요."}
                     rows={3}
                     maxLength={200}
                     className="w-full p-3 font-body-sm text-xs focus:outline-none resize-none border-b border-[#E5E7EB]"
@@ -752,7 +800,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     {/* 익명은 선택이 아니라 유일한 방식이다. 체크박스를 두면 실수로
                         닉네임이 노출되고, 사연에서 닉네임을 감춘 의미도 사라진다 */}
                     <span className="text-xs font-mono text-[#5f5e5e]">
-                      {isMyStory ? '글쓴이로 표시됩니다' : '익명으로 등록됩니다'}
+                      {isMyStory ? '글쓴이로 표시됩니다.' : '익명으로 등록됩니다.'}
+                    </span>
+                    <div className="flex items-center gap-2.5">
+                    {/* 최대 글자 수와 지금 글자 수. 다 차면 색으로 알린다 */}
+                    <span aria-live="polite" className={`text-[11px] font-mono tabular-nums ${commentText.length >= 200 ? 'text-[#D6452F] font-bold' : 'text-[#5f5e5e]'}`}>
+                      {commentText.length}/200
                     </span>
                     <button data-button-id="story-detail-modal-button-20"
                       type="submit"
@@ -761,6 +814,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     >
                       {isCommentSubmitting ? '확인 중…' : '등록'}
                     </button>
+                    </div>
                   </div>
                 </form>
                 )}
@@ -792,14 +846,23 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
             >
               <img src={previewUrl} alt="공유 카드 미리보기" className="w-full block" />
               <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-[#f9fafb] border-t border-[#E5E7EB]">
-                <span className="text-xs text-[#5f5e5e]">공유하면 이 카드가 나갑니다</span>
-                <button data-button-id="story-detail-modal-button-21"
-                  type="button"
-                  onClick={closePreview}
-                  className="px-3 py-1.5 rounded bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
-                >
-                  닫기
-                </button>
+                <span className="text-xs text-[#5f5e5e]">이 카드로 저장·공유돼요</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button data-button-id="story-detail-modal-button-21"
+                    type="button"
+                    onClick={closePreview}
+                    className="px-3 py-1.5 rounded border border-[#E5E7EB] bg-white text-[#1C1C1C] text-xs font-bold hover:bg-[#f3f4f5] transition-colors cursor-pointer"
+                  >
+                    닫기
+                  </button>
+                  <button data-button-id="story-detail-modal-preview-save"
+                    type="button"
+                    onClick={handleSavePreview}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded bg-[#1C1C1C] text-white text-xs font-bold hover:bg-black transition-colors cursor-pointer"
+                  >
+                    <ImageDown className="w-3.5 h-3.5" aria-hidden="true" /> 이미지 저장
+                  </button>
+                </div>
               </div>
             </div>
           </div>

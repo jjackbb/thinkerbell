@@ -1,7 +1,7 @@
 import { aiRetentionEnabled } from '../lib/notifications';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Send, Settings, Sparkles, Pin, MoreVertical, ShieldAlert, Trash2, X, MessageSquareHeart } from 'lucide-react';
 import { AIPersona, ChatMessage, ChatSession } from '../types';
 import { SessionSummaryCard } from './SessionSummaryCard';
 import { detectSimEnd, stripSimEnd } from '../lib/prompts';
@@ -48,6 +48,8 @@ interface AIChatViewProps {
   onRequireLogin?: (message: string) => void;
   /** AI 대화 전체 삭제. 되돌릴 수 없다 */
   onDeleteAllAiChats?: () => Promise<boolean>;
+  /** 사연 작성 창을 연다. AI 대화가 사연에서 시작된다는 안내 옆에 둔다 */
+  onCreateStory?: () => void;
 }
 
 export const AIChatView: React.FC<AIChatViewProps> = ({
@@ -57,6 +59,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
   onGoToFeed,
   onReturnToStory,
   onDeleteAllAiChats,
+  onCreateStory,
   activeSession,
   onStartSession,
   onEndSession,
@@ -497,12 +500,12 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
     return (
       <div data-analytics-screen={confirmWipe ? "excluded" : activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-24">
         {/* Banner */}
-        <div className="bg-[#1C1C1C] text-white p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
-          <h2 className="text-xl sm:text-2xl font-bold font-headline-lg mb-2 text-white">
+        <div className="bg-[#1C1C1C] text-white px-6 py-5 sm:px-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
+          <h2 className="text-lg sm:text-xl font-bold font-headline-lg mb-1 text-white">
             1:1 AI 대화 시뮬레이션
           </h2>
-          <p className="text-[#5f5e5e] font-body-sm text-xs sm:text-sm max-w-xl">
-            갈등 상대방의 페르소나와 안전하고 이성적인 1:1 디베이트를 진행하세요.
+          <p className="text-[var(--color-secondary-on-dark)] font-body-sm text-xs sm:text-sm max-w-xl break-keep">
+            사연 속 상대와 1:1로 대화하며, 하지 못한 말을 편하게 해 보세요.
           </p>
         </div>
 
@@ -652,23 +655,55 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
         </div>
 
         {/*
+          새 AI 대화는 사연에서 시작된다. 내 사연을 올리거나(횟수 제한 없음),
+          다른 사람의 사연에서 시작할 수 있다(하루 3회). 이 화면에서 바로 시작할 수
+          없어서 헷갈리지 않도록 두 길을 함께 알려준다.
+        */}
+        {onCreateStory && (
+          <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0 break-keep">
+              <p className="font-bold text-sm text-[#1C1C1C]">사연으로 AI 대화 시작하기</p>
+              <p className="text-xs text-[#5f5e5e] leading-relaxed mt-1">
+                AI 대화는 사연이 있어야 시작돼요. 내 사연을 올리면 그 사연 속 상대와 횟수 제한 없이 대화할 수 있어요.
+                {personas.length > 0 && ' 다른 사람의 사연에서는 하루 3번까지 새로 시작할 수 있어요.'}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {personas.length > 0 && onGoToFeed && (
+                <button data-button-id="ai-chat-view-go-feed" type="button" onClick={onGoToFeed}
+                  className="px-4 py-2.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1C1C1C] font-bold text-xs hover:bg-[#f3f4f5] transition-colors cursor-pointer">
+                  사연 보러 가기
+                </button>
+              )}
+              <button data-button-id="ai-chat-view-create-story" type="button" onClick={onCreateStory}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#FF6B5A] text-[#1C1C1C] font-bold text-xs hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer">
+                <MessageSquareHeart className="w-4 h-4" aria-hidden="true" /> 사연 올리기
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/*
           털어놓은 이야기를 한 번에 없앨 수 있어야 한다. 대화방을 하나씩 지우게 하면
           정작 급할 때 다 못 지운다. 되돌릴 수 없으므로 확인을 한 단계 둔다.
           대화 목록 바로 아래에 두어, 지울 대상을 보면서 지울 수 있게 한다.
         */}
+        {/*
+          되돌릴 수 없는 버튼이라 다른 칸과 같은 상자로 두지 않는다. 평소에는 맨 아래의
+          회색 보조 버튼으로 두고, 누르면 그때 경고와 확인 단계를 펼친다.
+        */}
         {onDeleteAllAiChats && !isGuest && personas.length > 0 && (
-          <div className="p-4 bg-white border border-[#E5E7EB] rounded-lg space-y-3">
-            <div className="flex items-start gap-2.5">
-              <Trash2 className="w-4 h-4 text-[#A32E1D] mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="text-left">
-                <p className="font-bold text-sm text-[#1C1C1C]">AI 대화 전체 삭제</p>
-                <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-0.5">
-                  지금 {personas.length}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.
-                </p>
+          confirmWipe ? (
+            <div className="p-4 bg-white border border-[#A32E1D]/40 rounded-lg space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Trash2 className="w-4 h-4 text-[#A32E1D] mt-0.5 shrink-0" aria-hidden="true" />
+                <div className="text-left">
+                  <p className="font-bold text-sm text-[#1C1C1C]">AI 대화를 모두 지울까요?</p>
+                  <p className="text-[11px] text-[#5f5e5e] leading-relaxed mt-0.5">
+                    지금 {personas.length}개의 대화가 있어요. 지우면 되돌릴 수 없습니다.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            {confirmWipe ? (
               <div className="flex gap-2">
                 <button data-analytics-exclude="true" data-button-id="ai-chat-view-delete-all-cancel"
                   onClick={() => { setConfirmWipe(false); setWipeError(false); }}
@@ -696,16 +731,19 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   {wiping ? '지우는 중…' : '정말 전부 지우기'}
                 </button>
               </div>
-            ) : (
+              {wipeError && <p role="alert" className="text-xs font-bold text-[#A32E1D]">삭제하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.</p>}
+            </div>
+          ) : (
+            <div className="flex justify-center pt-2">
+              {/* 보이되 앞에 나서지 않게: 회색 테두리 보조 버튼, 마우스를 올리면 붉게 */}
               <button data-analytics-exclude="true" data-button-id="ai-chat-view-delete-all"
                 onClick={() => { setConfirmWipe(true); setWipeError(false); }}
-                className="w-full py-2.5 border border-[#A32E1D] text-[#A32E1D] font-bold text-xs rounded-lg hover:bg-[#A32E1D]/5 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-bold text-[#5f5e5e] hover:text-[#A32E1D] hover:border-[#A32E1D]/50 transition-colors cursor-pointer"
               >
-                전부 지우기
+                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> AI 대화 전체 삭제
               </button>
-            )}
-            {wipeError && <p role="alert" className="text-xs font-bold text-[#A32E1D]">삭제하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.</p>}
-          </div>
+            </div>
+          )
         )}
       </div>
     );
@@ -715,15 +753,15 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
    * 대화방 화면.
    *
    * 높이를 vh 어림값으로 잡으면 안 된다. 예전에는 h-[82vh]에 mb-24까지 붙어
-   * 있었는데, 상단 헤더(64px)·main의 상하 패딩(각 32px)·하단 네비게이션(80px)을
+   * 있었는데, 상단 헤더(64px)·main의 상하 패딩(각 32px)·하단 네비게이션(64px)을
    * 계산에 넣지 않아 입력창이 네비게이션에 가렸다. 타자를 치려면 페이지 전체를
    * 스크롤해야 했고, 스크롤하면 대화 헤더가 상단 헤더 밑으로 말려 들어갔다.
    *
-   * 빼는 값: 헤더 64 + 위 패딩 32 + 네비 80 = 176, 여기에 여백 8을 더해 184.
+   * 빼는 값: 헤더 64 + 위 패딩 32 + 네비 64 = 160, 여기에 여백 8을 더해 168.
    * dvh를 쓰는 건 모바일에서 주소창이 접히고 펴져도 맞추기 위해서다.
    */
   return (
-    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-3xl mx-auto flex flex-col h-[calc(100dvh-184px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
+    <div data-analytics-screen={activeSession && showChat ? (showFeedback ? "ai_feedback" : simEndResult ? "ai_summary" : "ai_chat") : "ai_list"} data-analytics-layer="1" className="max-w-3xl mx-auto flex flex-col h-[calc(100dvh-168px)] bg-white border border-[#E5E7EB] rounded-lg overflow-hidden relative shadow-sm">
       {/* Header */}
       <header className="bg-[#1C1C1C] text-white px-6 py-4 flex items-center justify-between z-50 border-b border-[#1C1C1C]">
         <div className="flex items-center gap-3">
@@ -964,8 +1002,8 @@ export const AIChatView: React.FC<AIChatViewProps> = ({
                   말을 하면 새로고침 뒤 사라졌을 때 잃어버린 것처럼 느낀다 */}
               <p className="text-sm text-[#5f5e5e] mb-5 leading-relaxed">
                 {isGuest
-                  ? "남겨두면 'Ai 대화' 탭에서 다시 열어볼 수 있어요. 다만 로그인 전까지는 이 브라우저에만 남습니다."
-                  : "아직 대화를 시작하지 않았어요. 남겨두면 'Ai 대화' 탭에서 이어서 할 수 있습니다."}
+                  ? "남겨두면 'AI 대화' 탭에서 다시 열어볼 수 있어요. 다만 로그인 전까지는 이 브라우저에만 남습니다."
+                  : "아직 대화를 시작하지 않았어요. 남겨두면 'AI 대화' 탭에서 이어서 할 수 있습니다."}
               </p>
 
               <div className="flex flex-col gap-2">

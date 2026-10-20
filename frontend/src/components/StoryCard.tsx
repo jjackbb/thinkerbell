@@ -2,6 +2,7 @@ import { ownsStory } from '../lib/storyOwnership';
 import React, { useState, useRef, useEffect } from 'react';
 import { Story, UserProfile, Comment } from '../types';
 import { VoteResult } from './VoteResult';
+import { SideVoteLabel } from './SideVoteLabel';
 import { ShieldAlert, Share2, Heart, MoreVertical, Edit2, EyeOff, Trash2, CheckCircle } from 'lucide-react';
 
 interface StoryCardProps {
@@ -248,7 +249,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
         </div>
 
         {/* Live Vote Gauge */}
-        <div data-analytics-ignore="true" className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+        {/* 아래 가로선(카드 하단)과 붙지 않도록 투표 영역 아래 여백을 일정하게 둔다 */}
+        <div data-analytics-ignore="true" className="mt-auto pt-2 pb-5" onClick={(e) => e.stopPropagation()}>
 
           <VoteResult
             votesA={story.votesA}
@@ -258,7 +260,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           />
 
           {/* Quick Vote Buttons — 왼쪽 니 편(B), 오른쪽 내 편(A) */}
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-2">
             <button data-button-id="story-card-button-08"
               onClick={(e) => {
                 e.stopPropagation();
@@ -280,7 +282,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#6C7BE8]/20 cursor-pointer'
               }`}
             >
-              니 편
+              <SideVoteLabel side="니 편" role={story.sideLabelB} />
             </button>
             <button data-button-id="story-card-button-09"
               onClick={(e) => {
@@ -303,13 +305,13 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                   : 'bg-[#f3f4f5] text-[#1C1C1C] hover:bg-[#FF6B5A]/20 cursor-pointer'
               }`}
             >
-              내 편
+              <SideVoteLabel side="내 편" role={story.sideLabelA} />
             </button>
           </div>
 
           {/* 투표 변경 가능 여부 안내 (투표한 사연에만 노출) */}
           {!isMyStory && votedOption && (
-            <p className="mt-2 text-xs text-[#5f5e5e] text-center">
+            <p className="mt-3 text-xs text-[#5f5e5e] text-center">
               {story.voteChanged
                 ? '투표가 확정되어 더 이상 바꿀 수 없어요.'
                 : '투표는 한 번만 바꿀 수 있어요.'}

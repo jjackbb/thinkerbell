@@ -1,7 +1,7 @@
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
 import { StoryCategory, Story } from '../types';
-import { X, Sparkles, AlertTriangle, Globe, Lock } from 'lucide-react';
+import { X, MessagesSquare, AlertTriangle, Globe, Lock } from 'lucide-react';
 
 interface CreateStoryModalProps {
   isOpen: boolean;
@@ -14,6 +14,8 @@ interface CreateStoryModalProps {
     createAIPersona: boolean;
     requestId: string;
     visibility: StoryVisibility;
+    sideLabelA: string;
+    sideLabelB: string;
   }) => Promise<void>;
   initialData?: Story | null;
   /** 비공개 기능이 켜져 있고 DB가 준비됐을 때만 공개 범위를 고를 수 있다 */
@@ -22,9 +24,9 @@ interface CreateStoryModalProps {
 
 type StoryVisibility = 'public' | 'private';
 
-const VISIBILITY_OPTIONS: { value: StoryVisibility; label: string; desc: string; Icon: typeof Globe }[] = [
-  { value: 'public', label: '공개', desc: '모든 이용자가 보고 투표·댓글을 남길 수 있어요', Icon: Globe },
-  { value: 'private', label: '비공개', desc: '나만 볼 수 있어요. 마이페이지에서 확인해요', Icon: Lock },
+const VISIBILITY_OPTIONS: { value: StoryVisibility; label: string; Icon: typeof Globe }[] = [
+  { value: 'public', label: '공개', Icon: Globe },
+  { value: 'private', label: '비공개', Icon: Lock },
 ];
 
 const CATEGORIES: Exclude<StoryCategory, '전체'>[] = ['연애', '직장', '친구', '가족', '기타'];
@@ -45,6 +47,9 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   // 공개 범위는 필수지만 기본값은 공개다. 수정할 때는 지금 상태를 채운다.
   const [visibility, setVisibility] = useState<StoryVisibility>(initialData?.visibility ?? 'public');
   const [opponentPersonality, setOpponentPersonality] = useState(initialData?.personaInstruction || '');
+  // 니 편(B)·내 편(A) 역할 이름(선택). 투표 버튼에 작은 글씨로 함께 보인다.
+  const [sideLabelB, setSideLabelB] = useState(initialData?.sideLabelB || '');
+  const [sideLabelA, setSideLabelA] = useState(initialData?.sideLabelA || '');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 필수 항목별 안내. 등록을 눌렀을 때 비어 있는 칸을 한꺼번에 표시한다.
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -62,6 +67,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     setBody(initialData?.body || '');
     setVisibility(initialData?.visibility ?? 'public');
     setOpponentPersonality(initialData?.personaInstruction || '');
+    setSideLabelB(initialData?.sideLabelB || '');
+    setSideLabelA(initialData?.sideLabelA || '');
     setErrorMessage(null);
     setFieldErrors({});
     requestIdRef.current = `story-${crypto.randomUUID()}`;
@@ -109,6 +116,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         requestId: requestIdRef.current,
         // 비공개 기능이 꺼져 있으면 고를 수 없으므로 항상 공개로 보낸다
         visibility: privateAvailable ? visibility : 'public',
+        sideLabelA: sideLabelA.trim(),
+        sideLabelB: sideLabelB.trim(),
       });
 
       task.finish('success');
@@ -116,6 +125,8 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
       setTitle('');
       setBody('');
       setOpponentPersonality('');
+      setSideLabelA('');
+      setSideLabelB('');
       onClose();
 
     } catch (error) {
@@ -205,7 +216,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                 공개 범위 <span className="text-[#FF6B5A]">*</span>
               </label>
               <div role="radiogroup" aria-labelledby="create-story-visibility-label" className="grid grid-cols-2 gap-2">
-                {VISIBILITY_OPTIONS.map(({ value, label, desc, Icon }) => {
+                {VISIBILITY_OPTIONS.map(({ value, label, Icon }) => {
                   const selected = visibility === value;
                   return (
                     <button data-button-id={`create-story-modal-visibility-${value}`}
@@ -214,16 +225,13 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                       role="radio"
                       aria-checked={selected}
                       onClick={() => { setVisibility(value); clearFieldError('visibility'); }}
-                      className={`text-left p-3 rounded-2xl border transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                         selected
                           ? 'border-[#1C1C1C] bg-[#1C1C1C] text-white'
                           : `bg-[#f8f9fa] text-[#1C1C1C] hover:border-[#1C1C1C] ${fieldErrors.visibility ? 'border-red-300' : 'border-[#E5E7EB]'}`
                       }`}
                     >
-                      <span className="flex items-center gap-1.5 text-xs font-bold">
-                        <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
-                      </span>
-                      <span className={`block mt-1 text-[11px] leading-snug ${selected ? 'text-white/70' : 'text-[#5f5e5e]'}`}>{desc}</span>
+                      <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
                     </button>
                   );
                 })}
@@ -272,12 +280,49 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                 clearFieldError('body');
               }}
               aria-invalid={Boolean(fieldErrors.body)}
-              placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 가입 이메일은 다른 이용자에게 공개되지 않습니다. 본문에는 이름·연락처 등 식별 정보를 적지 마세요."
+              placeholder="억울했던 당시 상황, 상대방 대사, 내가 느낀 감정을 구체적으로 편안하게 적어주세요. 본문에는 이름·연락처 등 식별 정보를 적지 마세요."
               rows={5}
               maxLength={1000}
               className={`w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A] resize-none ${fieldErrors.body ? 'border-red-300' : 'border-[#E5E7EB]'}`}
             />
             {fieldErrors.body && <p role="alert" className="mt-1 text-[11px] font-semibold text-red-600">{fieldErrors.body}</p>}
+          </div>
+
+          {/* Side labels (Optional) */}
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-[#1C1C1C]">
+                니 편·내 편 역할 <span className="text-[#5f5e5e] font-normal">(선택사항)</span>
+              </label>
+              <span className="text-[11px] text-[#5f5e5e]">각 10자</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor="create-story-side-label-b" className="block mb-1 text-[11px] font-bold text-[var(--color-your-side-ink)]">니 편 (상대방)</label>
+                <input
+                  id="create-story-side-label-b"
+                  type="text"
+                  value={sideLabelB}
+                  onChange={(e) => setSideLabelB(e.target.value)}
+                  placeholder="예: 직장동료"
+                  maxLength={10}
+                  className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
+                />
+              </div>
+              <div>
+                <label htmlFor="create-story-side-label-a" className="block mb-1 text-[11px] font-bold text-[var(--color-my-side-ink)]">내 편 (나)</label>
+                <input
+                  id="create-story-side-label-a"
+                  type="text"
+                  value={sideLabelA}
+                  onChange={(e) => setSideLabelA(e.target.value)}
+                  placeholder="예: 신입사원"
+                  maxLength={10}
+                  className="w-full p-3 text-xs sm:text-sm bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FF6B5A]"
+                />
+              </div>
+            </div>
+            <p className="mt-1.5 text-[11px] text-[#5f5e5e]">적으면 투표 버튼에 함께 보여서, 읽는 사람이 누구 편을 드는지 알기 쉬워요.</p>
           </div>
 
           {/* Opponent Personality (Optional) */}
@@ -298,22 +343,11 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             />
           </div>
 
-          {/* AI Persona Auto Generation Policy Notice */}
-          <div className="p-3.5 bg-[#f8f9fa] border border-[#E5E7EB] rounded-2xl flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center font-bold shrink-0">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#1C1C1C]">
-                  사연의 내용과 상대방 성격을 토대로, AI와 대화하실 수 있습니다.
-                </p>
-                <p className="text-[11px] text-[#5f5e5e]">
-                  사연 등록 후 곧바로 내 상대방 AI 페르소나와 1:1 대화를 나눌 수 있습니다.
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* AI 대화 안내. 입력칸(회색 상자)과 헷갈리지 않도록 상자 없이 안내 글줄로만 둔다 */}
+          <p className="flex items-center gap-1.5 px-1 text-[11px] text-[#5f5e5e]">
+            <MessagesSquare className="w-3.5 h-3.5 text-[#D6452F] shrink-0" aria-hidden="true" />
+            사연의 내용과 상대방 성격을 토대로, AI와 대화하실 수 있습니다.
+          </p>
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2">

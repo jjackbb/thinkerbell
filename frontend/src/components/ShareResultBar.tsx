@@ -7,7 +7,10 @@ interface ShareResultBarProps {
   input: ShareCardInput;
   /** 공유 링크. 이 사연으로 바로 열리는 주소여야 한다 */
   url: string;
-  /** 카드 미리보기를 열고 싶을 때 */
+  /**
+   * 이미지 저장 전에 카드를 먼저 보여준다. 넘어오면 '이미지 저장'이 미리보기를 열고,
+   * 실제 저장은 미리보기 화면의 저장 버튼에서 한다. 없으면 바로 저장한다.
+   */
   onPreview?: () => void;
 }
 
@@ -55,44 +58,47 @@ export const ShareResultBar: React.FC<ShareResultBarProps> = ({ input, url, onPr
     }
   };
 
+  /*
+    한 줄로 둔다: 왼쪽은 공유 카드에 무엇이 들어가는지 알리는 작은 설명(버튼처럼 보이지 않게),
+    오른쪽은 '이미지 저장' → '결과 공유하기'. 하단 바 높이를 줄이려고 설명을 버튼 옆에 둔다.
+    '이미지 저장'은 저장될 카드를 먼저 보여주고(미리보기), 그 화면에서 저장을 확정한다.
+  */
   return (
-    <div aria-label="투표 결과 공유" className="shrink-0 sticky bottom-0 z-30 bg-[#1C1C1C] border-t border-[#E5E7EB] px-4 py-3">
-      <div className="max-w-4xl mx-auto flex items-center gap-2">
+    <div aria-label="투표 결과 공유" className="shrink-0 sticky bottom-0 z-30 bg-[#1C1C1C] border-t border-[#E5E7EB] px-4 py-2.5">
+      <div className="max-w-4xl mx-auto flex items-center gap-3">
+        {/* 무엇이 공유되는지 알리는 안내라 잘라내지 않는다. 좁은 화면에서는 단어 단위로 두 줄이 된다 */}
         <div className="flex-1 min-w-0">
           {note ? (
-            <p role="status" className="flex items-center gap-1.5 text-xs text-[#FF6B5A] font-bold">
-              <Check className="w-3.5 h-3.5" /> {note}
+            <p role="status" className="flex items-center gap-1.5 text-[11px] text-[#FF6B5A] font-bold">
+              <Check className="w-3.5 h-3.5 shrink-0" /> {note}
             </p>
           ) : (
-            <button data-button-id="share-result-bar-button-01"
-              type="button"
-              onClick={onPreview}
-              disabled={!onPreview}
-              className="text-xs text-[var(--color-secondary-on-dark)] hover:text-white transition-colors disabled:hover:text-[var(--color-secondary-on-dark)] disabled:cursor-default cursor-pointer text-left"
-            >
-              제목·투표 결과{input.myChoice ? '·내 선택' : ''} 카드와 사연 링크{onPreview ? ' · 미리보기' : ''}
-            </button>
+            <p className="text-[11px] leading-snug text-[var(--color-secondary-on-dark)] break-keep">
+              제목·투표 결과{input.myChoice ? '·내 선택' : ''} 카드와 사연 링크
+            </p>
           )}
         </div>
 
-        <button data-button-id="share-result-bar-button-02"
-          type="button"
-          onClick={handleDownload}
-          disabled={busy}
-          aria-label="결과 카드 이미지 저장"
-          className="shrink-0 p-2.5 rounded-lg border border-white/20 text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <ImageDown className="w-4 h-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button data-button-id="share-result-bar-button-02"
+            type="button"
+            onClick={onPreview ?? handleDownload}
+            disabled={busy}
+            aria-label="결과 카드 이미지 저장"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/25 text-xs font-bold text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <ImageDown className="w-4 h-4" aria-hidden="true" /> 이미지 저장
+          </button>
 
-        <button data-button-id="share-result-bar-button-03"
-          type="button"
-          onClick={handleShare}
-          disabled={busy}
-          className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#FF6B5A] text-[#1C1C1C] text-xs font-bold hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer disabled:opacity-60"
-        >
-          <Share2 className="w-4 h-4" /> 결과 공유하기
-        </button>
+          <button data-button-id="share-result-bar-button-03"
+            type="button"
+            onClick={handleShare}
+            disabled={busy}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF6B5A] text-[#1C1C1C] text-xs font-bold hover:bg-[#FF6B5A]/90 transition-colors cursor-pointer disabled:opacity-60"
+          >
+            <Share2 className="w-4 h-4" aria-hidden="true" /> 결과 공유하기
+          </button>
+        </div>
       </div>
     </div>
   );

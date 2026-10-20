@@ -42,6 +42,10 @@ export interface Story {
   isHidden?: boolean;
   /** 작성자만 볼 수 있는 비공개 상태. 이전 DB에는 컬럼이 없다. */
   visibility?: 'public' | 'private';
+  /** 내 편(A) 역할 이름. 작성자가 적은 경우만 있다 (예: 신입사원) */
+  sideLabelA?: string | null;
+  /** 니 편(B) 역할 이름. 작성자가 적은 경우만 있다 (예: 직장동료) */
+  sideLabelB?: string | null;
   cardColor: 'pink' | 'teal' | 'lavender' | 'peach' | 'ochre' | 'cream';
 }
 

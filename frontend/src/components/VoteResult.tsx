@@ -20,6 +20,11 @@ interface VoteResultProps {
    * 실제 색은 index.css의 .vote-surface-* 가 들고 있다.
    */
   surface?: 'light' | 'onyx';
+  /**
+   * 투표 전 잠긴 막대 안의 안내. 투표 버튼이 바로 옆에 없는 곳(랭킹 카드 등)은
+   * 어디서 투표하는지까지 알려주도록 바꿔 넣는다.
+   */
+  lockedHint?: string;
 }
 
 /**
@@ -47,6 +52,7 @@ export const VoteResult: React.FC<VoteResultProps> = ({
   compact = false,
   labels = { a: '내 편', b: '니 편' },
   surface = 'light',
+  lockedHint = '투표 후 공개',
 }) => {
   const total = votesA + votesB;
   const percentA = total > 0 ? Math.round((votesA / total) * 100) : 0;
@@ -67,24 +73,24 @@ export const VoteResult: React.FC<VoteResultProps> = ({
     // 실제 표 비율과 무관한 중립 막대만 표시한다. 흐림 처리로도 우세한 쪽이
     // 드러날 수 있으므로 투표 전 렌더링에는 득표 비율을 사용하지 않는다.
 
-    // ??% 대신 막대 자체를 잠긴 상자로 보여주고, 왜 가려졌는지·어떻게 하면
-    // 보이는지를 그 안에 적는다. 처음 온 사람이 "오류인가?" 하고 헷갈리지 않게 한다.
-    // 막대 모양은 투표 후 결과 막대와 같은 자리에 두어 열리는 변화가 자연스럽다.
+    // 막대는 얇은 그라데이션으로만 두고, 왜 가려졌는지는 이름 줄 가운데에 짧게 적는다.
+    // 화면 높이를 늘리지 않으면서 "이 막대는 잠겨 있다"가 막대 바로 위에서 읽힌다.
     return (
       <div className={rootClass}>
-        <div className="flex justify-between font-label-sm text-xs mb-2 font-bold">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 font-label-sm text-xs mb-2 font-bold">
           <span className="text-[var(--vote-ink-b)]">{labels.b}</span>
+          <span className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-medium text-[var(--vote-caption)]">
+            <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{lockedHint}</span>
+          </span>
           <span className="text-[var(--vote-ink-a)]">{labels.a}</span>
         </div>
         <div
-          className="w-full h-7 rounded-full bg-[var(--vote-track)] flex items-center justify-center gap-1.5 px-3 text-[11px] font-bold text-[var(--vote-emphasis)]"
+          className="w-full h-2 rounded-full bg-[var(--vote-track)]"
           style={{
             backgroundImage: 'linear-gradient(90deg, var(--vote-seal-b), var(--vote-seal-a))',
           }}
-        >
-          <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">투표하면 결과가 열려요</span>
-        </div>
+        />
         <p className="mt-2 text-xs text-[var(--vote-caption)] text-center">
           {total > 0 ? (
             <span>

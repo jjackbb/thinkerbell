@@ -236,6 +236,7 @@ export default function App() {
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
           avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
+          createdAt: session.user.created_at || new Date().toISOString(),
         });
       } else if (!wasBrowsingAsGuest) {
         /*
@@ -262,6 +263,7 @@ export default function App() {
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
           avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
+          createdAt: session.user.created_at || new Date().toISOString(),
         });
         loadMyVotes();
       } else if (event === 'PASSWORD_RECOVERY' && session) {
@@ -278,6 +280,7 @@ export default function App() {
           id: session.user.id,
           nickname: session.user.user_metadata?.nickname || '속뚫리는고구마',
           avatar: normalizeAvatarId(session.user.user_metadata?.avatar),
+          createdAt: session.user.created_at || new Date().toISOString(),
         });
         loadMyVotes();
       } else if (event === 'SIGNED_OUT') {
@@ -320,12 +323,13 @@ export default function App() {
     let alive = true;
     if (!authUserId) {
       aiNavigationGeneration.current++;
+    setAiQuotaUnknown(false);
     setAiQuotaUsed(0);
       return () => { alive = false; };
     }
     fetchAiQuotaUsed()
-      .then(used => { if (alive) setAiQuotaUsed(used); })
-      .catch(() => { if (alive) setAiQuotaUsed(DAILY_AI_QUOTA); });
+      .then(used => { if (alive) { setAiQuotaUnknown(false); setAiQuotaUsed(used); } })
+      .catch(() => { if (alive) { setAiQuotaUnknown(true); setAiQuotaUsed(DAILY_AI_QUOTA); } });
     return () => { alive = false; };
   }, [authUserId]);
 
@@ -658,6 +662,11 @@ export default function App() {
 
   /** 오늘 쓴 무료 AI 대화 횟수. 실제 판정은 열기 직전에 다시 조회한다 */
   const [aiQuotaUsed, setAiQuotaUsed] = useState<number>(0);
+  /**
+   * 남은 횟수를 서버에서 확인하지 못한 상태. 이때도 새 대화는 막지만(다 쓴 것으로 취급),
+   * 화면에는 "다 썼어요" 대신 확인하지 못했다는 사실을 알린다.
+   */
+  const [aiQuotaUnknown, setAiQuotaUnknown] = useState(false);
   const freeChatsLeft = Math.max(0, DAILY_AI_QUOTA - aiQuotaUsed);
 
   // 새 서버 제한이 전환되기 전에는 기존 대화방 생성 시 차감을 유지한다.
@@ -698,6 +707,7 @@ export default function App() {
     setLikedCommentIds([]);
     setLikedCommentOwnerId(null);
     aiNavigationGeneration.current++;
+    setAiQuotaUnknown(false);
     setAiQuotaUsed(0);
     setPremiumModalStory(null);
     setAiChatModeStory(null);
@@ -1268,6 +1278,8 @@ export default function App() {
     createAIPersona: boolean;
     requestId: string;
     visibility: 'public' | 'private';
+    sideLabelA: string;
+    sideLabelB: string;
   }) => {
     if (!authUserId) throw new Error('AUTH_REQUIRED');
     const ga4Context = captureGA4EventContext();
@@ -1291,6 +1303,8 @@ export default function App() {
         requestId: editingStory ? undefined : storyData.requestId,
         // 공개 범위는 새 사연에서만 보낸다. 수정 때는 아래에서 공개 상태 변경 경로를 쓴다.
         visibility: editingStory ? undefined : storyData.visibility,
+        sideLabelA: storyData.sideLabelA,
+        sideLabelB: storyData.sideLabelB,
       }),
     });
     const result = await response.json().catch(() => ({}));
@@ -1300,6 +1314,9 @@ export default function App() {
       throw new Error('STORY_SAVE_FAILED');
     }
     let privateSaveFailed = false;
+    // 역할을 적었는데 저장 결과에 하나도 없으면, DB에 역할 칸이 아직 없는 경우다
+    const labelsDropped = Boolean(storyData.sideLabelA || storyData.sideLabelB) &&
+      !savedStory.sideLabelA && !savedStory.sideLabelB;
 
     if (editingStory) {
       const updatedStory = { ...editingStory, ...savedStory };
@@ -1310,7 +1327,9 @@ export default function App() {
         // 내용 저장은 끝났다. 공개 범위만 따로 바꾸고, 결과 안내는 그 함수가 띄운다.
         await handleSetStoryVisibility(updatedStory.id, storyData.visibility);
       } else {
-        setToastMessage('사연이 성공적으로 수정되었습니다.');
+        setToastMessage(labelsDropped
+          ? '사연을 수정했어요. 니 편·내 편 역할은 아직 저장할 수 없어 빠졌어요.'
+          : '사연이 성공적으로 수정되었습니다.');
         setTimeout(() => setToastMessage(null), 3000);
       }
     } else {
@@ -1351,6 +1370,8 @@ export default function App() {
     if (!editingStory) {
       setToastMessage(privateSaveFailed
         ? '사연은 공개로 등록됐어요. 비공개로 저장하지 못했으니 사연 화면에서 비공개로 바꿔 주세요.'
+        : labelsDropped
+        ? '사연은 등록됐어요. 니 편·내 편 역할은 아직 저장할 수 없어 빠졌어요.'
         : result.recovered === true
         ? '이전에 저장된 사연을 확인했습니다. 내용이 다르면 수정하기에서 변경해 주세요.'
         : !personaSaved
@@ -1463,10 +1484,12 @@ export default function App() {
     } catch {
       quotaTask.finish('error');
       if (!targetAvailable()) return;
+      setAiQuotaUnknown(true);
       setToastMessage('AI 이용 횟수를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
       return;
     }
     if (!targetAvailable()) return;
+    setAiQuotaUnknown(false);
     setAiQuotaUsed(used);
 
     if (used < DAILY_AI_QUOTA || personas.some(p => p.storyId === story.id)) {
@@ -1522,6 +1545,7 @@ export default function App() {
           try {
             const quota = await fetchAiQuotaStatus();
             if (navigation !== aiNavigationGeneration.current || authUserIdRef.current !== authUserId) return;
+            setAiQuotaUnknown(false);
             setAiQuotaUsed(quota.used);
             if (story.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
               setPremiumModalStory(story);
@@ -1538,7 +1562,7 @@ export default function App() {
         }
         setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
         if (!recovered && quotaMode === 'legacy' && !isGuest && story.authorId !== user.id) {
-          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          if (legacyCharged) void fetchAiQuotaUsed().then(used => { setAiQuotaUnknown(false); setAiQuotaUsed(used); }).catch(() => {});
           else spendLegacyAiQuota(story.id);
         }
       }
@@ -1629,6 +1653,7 @@ export default function App() {
           try {
             const quota = await fetchAiQuotaStatus();
             if (navigation !== aiNavigationGeneration.current || authUserIdRef.current !== authUserId) return;
+            setAiQuotaUnknown(false);
             setAiQuotaUsed(quota.used);
             if (target.authorId !== user.id && quota.used >= DAILY_AI_QUOTA) {
               setPremiumModalStory(target);
@@ -1645,7 +1670,7 @@ export default function App() {
         }
         setPersonas(prev => prev.some(p => p.id === persona.id) ? prev : [persona, ...prev]);
         if (!recovered && quotaMode === 'legacy' && !isGuest && target.authorId !== user.id) {
-          if (legacyCharged) void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {});
+          if (legacyCharged) void fetchAiQuotaUsed().then(used => { setAiQuotaUnknown(false); setAiQuotaUsed(used); }).catch(() => {});
           else spendLegacyAiQuota(target.id);
         }
       }
@@ -1944,6 +1969,36 @@ export default function App() {
     return true;
   };
 
+  /**
+   * 마이페이지의 참여한 투표·작성한 댓글에서 사연을 연다. 목록에 없는 사연일 수 있으므로
+   * 서버에서 공개 상태를 다시 확인하고, 댓글에서 왔으면 그 댓글로 이동한다.
+   * 알림에서 사연을 여는 경로와 같은 조건을 쓴다.
+   */
+  const myPageNavigation = useRef(0);
+  const handleOpenStoryFromMyPage = async (storyId: string, commentId?: string): Promise<boolean> => {
+    const ga4Context = captureGA4EventContext();
+    if (!authUserId) return false;
+    const accountId = authUserId;
+    const navigation = ++myPageNavigation.current;
+    const [fresh, comments] = await Promise.all([fetchVisibleStory(storyId), fetchVisibleComments(storyId)]);
+    if (authUserIdRef.current !== accountId || myPageNavigation.current !== navigation) return false;
+    const story = fresh.data;
+    const current = aiTargetCurrent.current;
+    if (fresh.error || !story || story.isBlind || story.isHidden ||
+        (story.isAdult && story.authorId !== accountId) ||
+        (story.visibility === 'private' && story.authorId !== accountId) ||
+        !current.hiddenStoriesReady || current.hiddenStoryIds.includes(storyId)) {
+      setToastMessage('이 사연은 지금 열 수 없어요. 삭제되었거나 가려졌을 수 있어요.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return false;
+    }
+    if (!comments.error && comments.data) setCommentsMap(previous => ({ ...previous, [storyId]: comments.data ?? [] }));
+    openStoryDetail(story, 'my_page', ga4Context);
+    const commentVisible = !!commentId && !!comments.data?.some(c => c.id === commentId && !c.deletedAt && !c.isBlind);
+    setNotificationCommentId(commentVisible ? commentId! : null);
+    return true;
+  };
+
   const closeStoryDetail = () => {
     notificationNavigation.current++;
     setNotificationCommentId(null);
@@ -2021,7 +2076,7 @@ export default function App() {
           피드 탭에서도 감춘다 — 같은 일을 하는 플로팅 버튼이 이미 떠 있다.
           이름표는 Header가 isGuest만 보고 알아서 판단한다.
         */
-        showWriteButton={activeTab !== 'feed' && !isGuest}
+        showWriteButton={activeTab === 'mypage' && !isGuest}
         isGuest={isGuest}
       />
 
@@ -2124,7 +2179,7 @@ export default function App() {
                     onClick={openCreateStory}
                     className="mt-2 px-6 py-2.5 bg-[#FF6B5A] text-[#1C1C1C] font-mono font-bold text-xs rounded-lg hover:bg-[#FF6B5A]/90 cursor-pointer"
                   >
-                    사연 등록하기
+                    사연 올리기
                   </button>
                 </div>
               ) : (
@@ -2157,6 +2212,7 @@ export default function App() {
           <AIChatView
             isGuest={isGuest}
             onDeleteAllAiChats={handleDeleteAllAiChats}
+            onCreateStory={openCreateStory}
             /* 로그인 안내는 앱이 한 곳에서 띄운다 — 화면마다 다른 안내가 뜨면 안 된다 */
             onRequireLogin={(message) => {
               if (!blockedForGuest(message)) setLoginPromptMessage(message);
@@ -2179,7 +2235,7 @@ export default function App() {
             onUpdateSession={handleUpdateSession}
             onSaveTurn={saveCompletedTurn}
             onTurnPersisted={refreshSavedRoomRetention}
-            onQuotaChanged={() => { void fetchAiQuotaUsed().then(setAiQuotaUsed).catch(() => {}); }}
+            onQuotaChanged={() => { void fetchAiQuotaUsed().then(used => { setAiQuotaUnknown(false); setAiQuotaUsed(used); }).catch(() => {}); }}
             onOpenSettings={() => setIsExplainSettingsModalOpen(true)}
             onTogglePinPersona={handleTogglePinPersona}
             onDeletePersona={handleDeletePersona}
@@ -2209,6 +2265,7 @@ export default function App() {
             onRestoreStory={handleRestoreStory}
             myVotes={myVotes}
             myComments={myComments}
+            storyTitles={Object.fromEntries(stories.map(story => [story.id, story.title]))}
             onUpdateNickname={handleUpdateNickname}
             onUpdateAvatar={handleUpdateAvatar}
             onGenerateRandomNickname={handleGenerateRandomNickname}
@@ -2216,6 +2273,10 @@ export default function App() {
                setSelectedStory를 부르면 조회수·주소(?story=) 처리가 빠져,
                같은 사연인데 어디서 들어왔느냐에 따라 다르게 동작한다 */
             onSelectStory={(story) => openStoryDetail(story)}
+            onOpenStoryById={handleOpenStoryFromMyPage}
+            onEditStory={handleEditStory}
+            onDeleteStory={handleDeleteStory}
+            onDeleteComment={handleDeleteComment}
           />
         )}
       </main>
@@ -2234,7 +2295,7 @@ export default function App() {
         모바일의 플로팅 버튼처럼 홈 탭에서는 계속 떠 있게 한다.
       */}
       {activeTab === 'feed' && (
-        <div className="hidden md:block fixed bottom-20 left-0 right-0 z-30 bg-white border-t-2 border-[#FF6B5A] shadow-[0_-4px_16px_rgba(28,28,28,0.06)] px-8">
+        <div className="hidden md:block fixed bottom-16 left-0 right-0 z-30 bg-white border-t-2 border-[#FF6B5A] shadow-[0_-4px_16px_rgba(28,28,28,0.06)] px-8">
           <div className="max-w-3xl mx-auto py-4 flex items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div className="w-11 h-11 rounded-full bg-[#FF6B5A] flex items-center justify-center text-[#1C1C1C] shrink-0">
@@ -2258,9 +2319,9 @@ export default function App() {
       {activeTab === 'feed' && (
         <button data-button-id="app-button-07"
           onClick={openCreateStory}
-          aria-label="익명 사연 쓰기"
-          className="fixed bottom-24 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
-          title="익명 사연 쓰기"
+          aria-label="사연 올리기"
+          className="fixed bottom-20 right-5 z-30 w-14 h-14 rounded-full bg-[#FF6B5A] text-[#1C1C1C] flex items-center justify-center shadow-lg hover:bg-[#FF6B5A]/90 active:scale-95 transition-all cursor-pointer md:hidden"
+          title="사연 올리기"
         >
           <MessageSquareHeart className="w-7 h-7" aria-hidden="true" />
         </button>
@@ -2381,6 +2442,7 @@ export default function App() {
         onLikeComment={handleLikeComment}
         onStartAIChat={handleStartAIChatWithStory}
         freeChatsLeft={freeChatsLeft}
+        aiQuotaUnknown={aiQuotaUnknown}
         isGuest={isGuest}
         onRequireLogin={(message) => {
           if (!blockedForGuest(message)) setLoginPromptMessage(message);
@@ -2473,13 +2535,20 @@ export default function App() {
 
       {/* Global Toast */}
       {toastMessage && (
-        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-[#1C1C1C] text-white px-6 py-3 rounded-full shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2 text-sm font-bold">
-          <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A]" />
-          {toastMessage}
-          {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
-            <button data-analytics-exclude="true" data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
-              className="ml-2 text-[#FF6B5A] underline shrink-0">되돌리기</button>
-          )}
+        /*
+          예전에는 left-1/2로 띄워서 상자가 화면 오른쪽 절반 폭까지만 넓어졌고, 긴 안내가
+          좁게 여러 줄로 접혔다. 화면 전체 폭(양옆 16px 여백, 최대 448px·넓은 화면 576px) 안에서 가운데 정렬한다.
+          하단 메뉴 바·사연 작성 버튼(휴대폰)과 안내 바(넓은 화면) 위에 뜨도록 높이를 둔다.
+        */
+        <div className="fixed inset-x-0 bottom-36 md:bottom-40 z-[100] flex justify-center px-4 pointer-events-none">
+          <div role="status" className="pointer-events-auto w-fit max-w-md sm:max-w-xl bg-[#1C1C1C] text-white px-5 py-3 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-3 text-sm font-bold leading-snug">
+            <MessageSquareHeart className="w-4 h-4 text-[#FF6B5A] shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-keep">{toastMessage}</span>
+            {undoHiddenStoryId && toastMessage.startsWith('이 사연을 나에게만 숨겼습니다.') && (
+              <button data-analytics-exclude="true" data-button-id="app-button-10" type="button" onClick={() => void handleRestoreStory(undoHiddenStoryId)}
+                className="text-[#FF6B5A] underline shrink-0 whitespace-nowrap">되돌리기</button>
+            )}
+          </div>
         </div>
       )}
     </div>

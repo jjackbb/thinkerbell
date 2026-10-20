@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/*
+  고정폭 글꼴(JetBrains Mono)에는 한글이 없다. 예전에는 한글이 다른 고정폭 글꼴로
+  대신 그려져 "그 럴  수  있 지"처럼 띄엄띄엄 보였다. 영문·숫자는 고정폭 그대로 두고,
+  한글은 일반 글꼴로 이어서 그리도록 고정폭 글꼴 바로 뒤에 한글 글꼴을 둔다.
+  Tailwind의 font-mono와 아래 .font-label-* 가 같은 묶음을 쓴다.
+*/
+@theme {
+  --font-mono: 'JetBrains Mono', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @layer base {
   :root {
     --color-background: #f8f9fa;
@@ -47,7 +57,18 @@
 }
 
 .mono-text, .font-label-md, .font-label-sm {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
+}
+
+/* 띄어쓰기 칸은 고정폭 글꼴의 넓은 공백(0.6em)으로 그려진다. 한글 문장 사이가
+   벌어져 보이지 않도록 일반 글꼴 공백(약 0.3em)에 가깝게 줄인다 */
+.font-mono, .mono-text, .font-label-md, .font-label-sm {
+  word-spacing: -0.3em;
+}
+
+/* 브라우저 기본값이 버튼의 띄어쓰기 간격을 되돌리므로, 감싼 글씨 설정을 따르게 한다 */
+button {
+  word-spacing: inherit;
 }
 
 .font-headline-lg, .font-headline-md, .font-display-lg {
@@ -154,4 +175,34 @@
   --vote-track-empty: color-mix(in srgb, #ffffff 10%, transparent);
   --vote-seal-a: var(--vote-locked-me-onyx);
   --vote-seal-b: var(--vote-locked-you-onyx);
+}
+
+
+/* ── 랭킹 1위 금색 배지 ─────────────────────────────────────────────
+   금색 그라데이션 위로 빛줄기가 4초에 한 번 스쳐 간다.
+   transform·opacity만 움직여 화면을 다시 그리는 부담이 거의 없다.
+   움직임 줄이기를 켠 사람에게는 멈춘 금색 배지만 보여준다. */
+.rank-gold {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #F8DE8B 0%, #E4B43F 45%, #B87514 100%);
+  color: #3B2A06;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.rank-gold::after {
+  content: "";
+  position: absolute;
+  inset: -2px auto -2px 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.75) 50%, transparent 100%);
+  transform: translateX(-160%) skewX(-20deg);
+  animation: rank-gold-shine 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes rank-gold-shine {
+  0%, 60% { transform: translateX(-160%) skewX(-20deg); }
+  85%, 100% { transform: translateX(320%) skewX(-20deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rank-gold::after { animation: none; display: none; }
 }

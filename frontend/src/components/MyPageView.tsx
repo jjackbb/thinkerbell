@@ -4,7 +4,7 @@ import type { InAppNotification } from '../lib/notificationModel';
 import { beginTask, blockedAction } from '../lib/taskAnalytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Story, Comment } from '../types';
-import { RefreshCw, Check, ShieldCheck, LogOut, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock, Pencil } from 'lucide-react';
+import { RefreshCw, Check, LogOut, AlertCircle, ChevronRight, User, ChevronDown, ChevronUp, AlertTriangle, Trash2, Lock, Pencil } from 'lucide-react';
 import { PROFILE_AVATARS, PROFILE_AVATAR_IDS, ProfileAvatar, normalizeAvatarId, type ProfileAvatarId } from '../lib/profileAvatars';
 import { supabase } from '../lib/supabase';
 import { checkIsAdmin, fetchMyInquiries, submitInquiry, fetchAllInquiries, replyToInquiry, type Inquiry } from '../lib/inquiries';
@@ -20,10 +20,19 @@ interface MyPageViewProps {
   onRestoreStory: (storyId: string) => Promise<void>;
   myVotes: { storyId: string; title: string; option: 'A' | 'B' }[];
   myComments: Comment[];
+  /** 사연 id → 제목. 작성한 댓글에 어느 사연의 댓글인지 보여준다 */
+  storyTitles?: Record<string, string>;
   onUpdateNickname: (nickname: string) => Promise<boolean>;
   onUpdateAvatar: (avatar: ProfileAvatarId) => Promise<boolean>;
   onGenerateRandomNickname: () => Promise<string | null>;
   onSelectStory: (story: Story) => void;
+  /** 참여한 투표·작성한 댓글에서 사연을 연다. 댓글이면 그 댓글로 이동한다 */
+  onOpenStoryById?: (storyId: string, commentId?: string) => Promise<boolean>;
+  /** 내 사연 수정(작성 창을 연다)·삭제(확인 창을 연다) */
+  onEditStory?: (storyId: string) => void;
+  onDeleteStory?: (storyId: string) => void;
+  /** 내 댓글 삭제. 서버 삭제가 확인되면 true */
+  onDeleteComment?: (storyId: string, commentId: string) => Promise<boolean>;
   onOpenNotification: (item: InAppNotification, signal?: AbortSignal) => Promise<boolean>;
   /** 한도 안내에서 '내 사연 보기'를 눌렀을 때 작성한 사연 탭으로 이동한다. */
   storiesNavigationKey?: number;
@@ -54,10 +63,15 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   onRestoreStory,
   myVotes,
   myComments,
+  storyTitles = {},
   onUpdateNickname,
   onUpdateAvatar,
   onGenerateRandomNickname,
   onSelectStory,
+  onOpenStoryById,
+  onEditStory,
+  onDeleteStory,
+  onDeleteComment,
   onOpenNotification,
   storiesNavigationKey,
   isGuest = false,
@@ -201,9 +215,9 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   };
 
   const faqs = [
-    { q: '사연 등록은 어떻게 하나요?', a: '하단 + 버튼이나 피드 상단의 사연 등록 버튼을 눌러 작성하실 수 있습니다. 가입 이메일은 다른 이용자에게 공개되지 않습니다. 사연은 계정과 연결되어 관리되며, 본문에는 이름·연락처 등 식별 정보를 적지 마세요.' },
+    { q: '사연은 어떻게 올리나요?', a: '상단의 \'사연 올리기\' 버튼이나 홈 화면 오른쪽 아래의 말풍선 버튼을 눌러 작성하실 수 있습니다. 카테고리와 공개 범위(공개·비공개)를 고르고 제목과 내용을 적으면 됩니다. 비공개로 올린 사연은 나만 볼 수 있고 마이페이지에서 확인할 수 있습니다. 가입 이메일은 다른 이용자에게 공개되지 않습니다. 사연은 계정과 연결되어 관리되며, 본문에는 이름·연락처 등 식별 정보를 적지 마세요.' },
     { q: 'AI 페르소나는 어떻게 생성되나요?', a: '작성하신 사연 내용과 선택하신 상대방 성격 키워드를 바탕으로 최적화된 프롬프트가 자동 생성되어 AI에 주입됩니다.' },
-    { q: '투표 결과는 누가 볼 수 있나요?', a: '사연을 열람하는 모든 유저가 실시간 투표 비율을 볼 수 있지만, 누가 어디에 투표했는지는 비공개입니다.' }
+    { q: '투표 결과는 누가 볼 수 있나요?', a: '투표 결과는 직접 투표한 뒤에 열립니다. 남의 선택에 휩쓸리지 않고 내 생각대로 고를 수 있도록 투표 전에는 결과를 가려 둡니다. 내가 쓴 사연은 투표할 수 없는 대신 결과를 바로 볼 수 있습니다. 누가 어디에 투표했는지는 비공개입니다.' }
   ];
 
 
@@ -261,7 +275,118 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     setTimeout(() => setSuccessMessage(null), 2500);
   };
 
+  /*
+    나의 편 성향: 내가 투표한 사연에서 '내 편'(작성자 편)과 '니 편'(상대 편)을 고른 비율.
+    3표부터 성향을 붙이고, 한쪽이 60% 이상이면 그쪽 성향, 아니면 균형형으로 본다.
+  */
+  const myCount = myVotes.filter(v => v.option === 'A').length;
+  const yourCount = myVotes.filter(v => v.option === 'B').length;
+  const voteTotal = myCount + yourCount;
+  const myRatio = voteTotal > 0 ? Math.round((myCount / voteTotal) * 100) : 0;
+  const tendency = voteTotal < 3
+    ? null
+    : myRatio >= 60
+      ? { name: '공감형', desc: '작성자의 편을 자주 들어요' }
+      : myRatio <= 40
+        ? { name: '냉철형', desc: '상대방 입장도 자주 헤아려요' }
+        : { name: '균형형', desc: '양쪽을 고르게 살펴요' };
+
+  // 함께한 날: 가입일과, 가입한 날을 1일째로 센 날짜. 한국 시간 기준
+  const [showJoinInfo, setShowJoinInfo] = useState(false);
+  const joinInfoRef = useRef<HTMLDivElement>(null);
+  // 드롭다운이 프로필 사진 쪽으로 넘어가지 않도록, 닉네임 줄 안에서만 펼친다
+  const nicknameRowRef = useRef<HTMLDivElement>(null);
+  const [joinInfoPos, setJoinInfoPos] = useState<{ left: number; width: number; caret: number } | null>(null);
+  const toggleJoinInfo = () => {
+    if (showJoinInfo) { setShowJoinInfo(false); return; }
+    const anchor = joinInfoRef.current?.getBoundingClientRect();
+    const row = nicknameRowRef.current?.getBoundingClientRect();
+    if (anchor && row) {
+      const gutter = 16;
+      const width = Math.min(224, window.innerWidth - gutter - row.left);
+      // 아이콘 왼쪽에서 시작하되, 화면 오른쪽을 넘으면 왼쪽으로 당기고 닉네임 줄 시작보다 왼쪽으로는 가지 않는다
+      const start = Math.max(row.left, Math.min(anchor.left, window.innerWidth - gutter - width));
+      setJoinInfoPos({ left: start - anchor.left, width, caret: anchor.left - start + anchor.width / 2 });
+    } else {
+      setJoinInfoPos(null);
+    }
+    setShowJoinInfo(true);
+  };
+  useEffect(() => {
+    if (!showJoinInfo) return;
+    const close = (e: MouseEvent) => { if (!joinInfoRef.current?.contains(e.target as Node)) setShowJoinInfo(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowJoinInfo(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [showJoinInfo]);
+  const seoulDay = (iso: string | number) => new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const joinedDay = user.createdAt ? seoulDay(user.createdAt) : null;
+  const daysTogether = joinedDay
+    ? Math.max(1, Math.floor((Date.parse(seoulDay(Date.now())) - Date.parse(joinedDay)) / 86_400_000) + 1)
+    : null;
+
+  // 목록에서 사연을 여는 중에는 같은 항목을 다시 누르지 못하게 한다
+  const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const openStory = async (key: string, storyId: string, commentId?: string) => {
+    if (!onOpenStoryById || openingKey) return;
+    setOpeningKey(key);
+    try { await onOpenStoryById(storyId, commentId); } finally { setOpeningKey(null); }
+  };
+
+  /*
+    댓글 삭제: 목록 오른쪽 위 '삭제'를 누르면 고르는 상태가 된다.
+    고른 것만 지우거나(선택 삭제) 작성한 댓글을 모두 지울 수 있고(전체 삭제), 지우기 전에 한 번 더 묻는다.
+    한 건씩 서버 삭제를 확인하고, 실패한 건은 남겨 둔 채 몇 건이 실패했는지 알린다.
+  */
+  const [commentSelectMode, setCommentSelectMode] = useState(false);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<string[]>([]);
+  const [commentDeleteConfirm, setCommentDeleteConfirm] = useState<'selected' | 'all' | null>(null);
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentDeleteNote, setCommentDeleteNote] = useState<string | null>(null);
+
+  const exitCommentSelect = () => {
+    setCommentSelectMode(false);
+    setSelectedCommentIds([]);
+    setCommentDeleteConfirm(null);
+  };
+  const toggleCommentSelected = (id: string) => {
+    setCommentDeleteConfirm(null);
+    setSelectedCommentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const runCommentDelete = async () => {
+    if (!onDeleteComment || commentBusy || !commentDeleteConfirm) return;
+    const targets = commentDeleteConfirm === 'all'
+      ? myComments
+      : myComments.filter(c => selectedCommentIds.includes(c.id));
+    if (targets.length === 0) return;
+    setCommentBusy(true);
+    setCommentDeleteNote(null);
+    const failed: string[] = [];
+    for (const c of targets) {
+      let ok = false;
+      try { ok = await onDeleteComment(c.storyId, c.id); } catch { ok = false; }
+      if (!ok) failed.push(c.id);
+    }
+    setCommentBusy(false);
+    setCommentDeleteConfirm(null);
+    if (failed.length > 0) {
+      setSelectedCommentIds(failed);
+      setCommentDeleteNote(`${targets.length}개 중 ${failed.length}개를 삭제하지 못했어요. 남은 댓글을 다시 시도해 주세요.`);
+      return;
+    }
+    exitCommentSelect();
+    setCommentDeleteNote(`댓글 ${targets.length}개를 삭제했어요.`);
+    setTimeout(() => setCommentDeleteNote(null), 2500);
+  };
+
+  // 배경·테두리 색은 버튼마다 따로 준다(같은 속성을 두 번 주면 어느 쪽이 이길지 알 수 없다)
+  const itemAction = 'px-2.5 py-1 rounded-md border text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50';
+  const itemPlain = 'border-[#E5E7EB] bg-white';
+
   const handleTabChange = (tab: 'stories' | 'votes' | 'comments') => {
+    exitCommentSelect();
+    setCommentDeleteNote(null);
     setActiveTab(tab);
     setCurrentPage(1);
   };
@@ -273,9 +398,9 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
         <div data-action-id="my-page-view-action-01" data-analytics-exclude={s.visibility === "private" || s.isAdult || s.isBlind || s.isHidden ? "true" : undefined}
           key={s.id}
           onClick={() => onSelectStory(s)}
-          className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg cursor-pointer transition-colors flex justify-between items-center"
+          className="bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg cursor-pointer transition-colors flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center"
         >
-          <div>
+          <div className="min-w-0">
             <span className="font-mono text-[10px] px-2 py-0.5 bg-[#FF6B5A]/20 text-[#A32E1D] font-bold rounded mr-2">
               {s.category}
             </span>
@@ -283,9 +408,22 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             <h4 className="text-xs sm:text-sm font-bold text-[#1C1C1C] inline">{s.title}</h4>
             <p className="text-xs text-[#5f5e5e] mt-1 line-clamp-1">{s.body}</p>
           </div>
-          <span className="font-mono text-xs text-[#FF6B5A] font-bold whitespace-nowrap ml-3">
-            {s.votesA + s.votesB}표
-          </span>
+          {/* 좁은 화면에서는 제목 아래 줄 오른쪽으로 내린다 */}
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto sm:ml-3">
+            <span className="font-mono text-xs text-[#FF6B5A] font-bold whitespace-nowrap">
+              {s.votesA + s.votesB}표
+            </span>
+            {onEditStory && (
+              <button data-button-id="my-page-view-story-edit" type="button"
+                onClick={(e) => { e.stopPropagation(); onEditStory(s.id); }}
+                className={`${itemAction} ${itemPlain} text-[#1C1C1C] hover:bg-[#f3f4f5]`}>수정</button>
+            )}
+            {onDeleteStory && (
+              <button data-button-id="my-page-view-story-delete" type="button"
+                onClick={(e) => { e.stopPropagation(); onDeleteStory(s.id); }}
+                className={`${itemAction} ${itemPlain} text-[#ba1a1a] hover:bg-red-50`}>삭제</button>
+            )}
+          </div>
         </div>
       ));
     }
@@ -293,31 +431,108 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     if (activeTab === 'votes') {
       if (items.length === 0) return <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">참여한 투표가 없습니다.</p>;
       return items.map((v: any, i: number) => (
-        <div
-          key={i}
-          className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg flex justify-between items-center"
+        <button data-button-id="my-page-view-vote-open"
+          key={v.storyId ?? i}
+          type="button"
+          onClick={() => openStory(`vote:${v.storyId}`, v.storyId)}
+          disabled={!onOpenStoryById || !!openingKey}
+          aria-busy={openingKey === `vote:${v.storyId}`}
+          className="w-full text-left bg-[#f3f4f5] hover:bg-white border border-[#E5E7EB] p-4 rounded-lg flex justify-between items-center gap-2 cursor-pointer transition-colors disabled:cursor-default"
         >
-          <p className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-1 flex-1 pr-2">{v.title}</p>
+          <p className="text-xs sm:text-sm font-bold text-[#1C1C1C] line-clamp-1 flex-1">{v.title}</p>
           <span className={`font-mono text-xs font-bold px-3 py-1 rounded text-white ${
             v.option === 'A' ? 'bg-[#FF6B5A]' : 'bg-[#6C7BE8]'
           }`}>
             {v.option === 'A' ? '내 편' : '니 편'}
           </span>
-        </div>
+          <ChevronRight className="w-4 h-4 text-[#5f5e5e] shrink-0" aria-hidden="true" />
+        </button>
       ));
     }
     
     if (activeTab === 'comments') {
-      if (items.length === 0) return <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">작성한 댓글이 없습니다.</p>;
-      return (items as Comment[]).map((c) => (
-        <div
-          key={c.id}
-          className="bg-[#f3f4f5] border border-[#E5E7EB] p-4 rounded-lg space-y-1"
-        >
-          <span className="font-mono text-[10px] text-[#FF6B5A] font-bold">{c.anonymousId}</span>
-          <p className="text-xs text-[#1C1C1C] font-medium leading-relaxed">{c.content}</p>
-        </div>
-      ));
+      if (items.length === 0) return (
+        <>
+          {commentDeleteNote && <p role="status" className="text-[11px] font-bold text-[#5f5e5e]">{commentDeleteNote}</p>}
+          <p className="text-center py-8 font-mono text-xs text-[#5f5e5e]">작성한 댓글이 없습니다.</p>
+        </>
+      );
+      const comments = items as Comment[];
+      // 페이지를 넘겨 고른 것도 함께 센다
+      const selectedCount = myComments.filter(c => selectedCommentIds.includes(c.id)).length;
+      return (
+        <>
+          {onDeleteComment && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {!commentSelectMode ? (
+                <button data-button-id="my-page-view-comment-select" type="button"
+                  onClick={() => { setCommentDeleteNote(null); setCommentSelectMode(true); }}
+                  className={`${itemAction} ${itemPlain} text-[#ba1a1a] hover:bg-red-50`}>삭제</button>
+              ) : commentDeleteConfirm ? (
+                <>
+                  <span className="mr-auto text-[11px] font-bold text-[#ba1a1a]">
+                    {commentDeleteConfirm === 'all'
+                      ? `작성한 댓글 ${myComments.length}개를 모두 삭제할까요?`
+                      : `선택한 댓글 ${selectedCount}개를 삭제할까요?`}
+                  </span>
+                  <button data-button-id="my-page-view-comment-delete-cancel" type="button" disabled={commentBusy}
+                    onClick={() => setCommentDeleteConfirm(null)}
+                    className={`${itemAction} ${itemPlain} text-[#5f5e5e] hover:bg-[#f3f4f5]`}>취소</button>
+                  <button data-button-id="my-page-view-comment-delete-confirm" type="button" disabled={commentBusy}
+                    onClick={runCommentDelete}
+                    className={`${itemAction} border-[#ba1a1a] bg-[#ba1a1a] text-white hover:bg-[#9a1515]`}>{commentBusy ? '삭제 중…' : '삭제'}</button>
+                </>
+              ) : (
+                <>
+                  <span className="mr-auto text-[11px] text-[#5f5e5e]">{selectedCount}개 선택</span>
+                  <button data-button-id="my-page-view-comment-delete-selected" type="button" disabled={selectedCount === 0}
+                    onClick={() => setCommentDeleteConfirm('selected')}
+                    className={`${itemAction} ${itemPlain} text-[#ba1a1a] hover:bg-red-50`}>선택 삭제</button>
+                  <button data-button-id="my-page-view-comment-delete-all" type="button"
+                    onClick={() => setCommentDeleteConfirm('all')}
+                    className={`${itemAction} ${itemPlain} text-[#ba1a1a] hover:bg-red-50`}>전체 삭제</button>
+                  <button data-button-id="my-page-view-comment-select-cancel" type="button"
+                    onClick={exitCommentSelect}
+                    className={`${itemAction} ${itemPlain} text-[#5f5e5e] hover:bg-[#f3f4f5]`}>취소</button>
+                </>
+              )}
+            </div>
+          )}
+          {commentDeleteNote && <p role="status" className="text-[11px] font-bold text-[#5f5e5e]">{commentDeleteNote}</p>}
+          {/* 댓글은 상자 없이 가로줄로만 나눈다 */}
+          <div className="divide-y divide-[#E5E7EB]">
+          {comments.map((c) => {
+            const selected = selectedCommentIds.includes(c.id);
+            return commentSelectMode ? (
+              <label key={c.id}
+                className={`flex items-start gap-3 px-2 py-3 cursor-pointer transition-colors ${selected ? 'bg-red-50' : 'hover:bg-[#f9fafb]'}`}>
+                <input type="checkbox" checked={selected} disabled={commentBusy}
+                  onChange={() => toggleCommentSelected(c.id)}
+                  aria-label={`댓글 선택: ${c.content.slice(0, 20)}`}
+                  className="mt-0.5 w-4 h-4 accent-[#ba1a1a] shrink-0" />
+                <span className="min-w-0 space-y-0.5">
+                  <span className="block truncate text-[10px] text-[#FF6B5A] font-bold">{storyTitles[c.storyId] ?? '볼 수 없는 사연'}</span>
+                  <span className="block text-xs text-[#1C1C1C] font-medium leading-relaxed">{c.content}</span>
+                </span>
+              </label>
+            ) : (
+              <button data-button-id="my-page-view-comment-open" key={c.id} type="button"
+                onClick={() => openStory(`comment:${c.id}`, c.storyId, c.id)}
+                disabled={!onOpenStoryById || !!openingKey}
+                aria-busy={openingKey === `comment:${c.id}`}
+                className="w-full text-left px-2 py-3 flex items-center gap-2 hover:bg-[#f9fafb] cursor-pointer transition-colors disabled:cursor-default"
+              >
+                <span className="min-w-0 flex-1 space-y-0.5">
+                  <span className="block truncate text-[10px] text-[#FF6B5A] font-bold">{storyTitles[c.storyId] ?? '볼 수 없는 사연'}</span>
+                  <span className="block text-xs text-[#1C1C1C] font-medium leading-relaxed">{c.content}</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-[#5f5e5e] shrink-0" aria-hidden="true" />
+              </button>
+            );
+          })}
+          </div>
+        </>
+      );
     }
     return null;
   };
@@ -420,10 +635,47 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
     );
   }
 
+  /*
+    목록은 한 페이지에 10개씩. 10개가 넘으면 아래에 < 1 2 3 4 5 … > 를 둔다.
+    페이지 번호는 5개씩 묶어 보여주고, 화살표로 한 페이지씩 넘긴다.
+    지워서 목록이 줄면 마지막 페이지를 넘지 않게 맞춘다.
+  */
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.max(1, Math.ceil(currentList.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedItems = currentList.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    const blockStart = Math.floor((safePage - 1) / 5) * 5 + 1;
+    const blockEnd = Math.min(blockStart + 4, totalPages);
+    const pageButton = 'min-w-8 h-8 px-1 flex items-center justify-center rounded font-mono text-xs font-bold transition-colors';
+    return (
+      <nav aria-label="목록 페이지" className="flex justify-center items-center gap-1.5 pt-4">
+        <button data-button-id="my-page-view-page-prev" type="button" aria-label="이전 페이지"
+          disabled={safePage === 1} onClick={() => setCurrentPage(safePage - 1)}
+          className={`${pageButton} text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
+          <ChevronRight className="w-4 h-4 rotate-180" aria-hidden="true" />
+        </button>
+        {blockStart > 1 && <span className="px-1 text-xs text-[#5f5e5e]" aria-hidden="true">…</span>}
+        {Array.from({ length: blockEnd - blockStart + 1 }, (_, i) => blockStart + i).map(page => (
+          <button data-button-id="my-page-view-button-07" key={page} type="button"
+            onClick={() => setCurrentPage(page)}
+            aria-current={page === safePage ? 'page' : undefined}
+            className={`${pageButton} cursor-pointer ${page === safePage ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB]'}`}>
+            {page}
+          </button>
+        ))}
+        {blockEnd < totalPages && <span className="px-1 text-xs text-[#5f5e5e]" aria-hidden="true">…</span>}
+        <button data-button-id="my-page-view-page-next" type="button" aria-label="다음 페이지"
+          disabled={safePage === totalPages} onClick={() => setCurrentPage(safePage + 1)}
+          className={`${pageButton} text-[#5f5e5e] hover:bg-[#f3f4f5] cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
+          <ChevronRight className="w-4 h-4" aria-hidden="true" />
+        </button>
+      </nav>
+    );
+  };
+
   if (viewMode === 'more') {
-    const itemsPerPage = 10;
-    const totalPages = Math.max(1, Math.ceil(currentList.length / itemsPerPage));
-    const paginatedItems = currentList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
       <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-4 pb-28">
@@ -466,21 +718,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             {renderTabItems(paginatedItems)}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 pt-6">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button data-button-id="my-page-view-button-07"
-                  key={i}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 flex items-center justify-center rounded font-mono text-xs font-bold transition-colors cursor-pointer ${
-                    currentPage === i + 1 ? 'bg-[#1C1C1C] text-[#FF6B5A]' : 'bg-[#f3f4f5] text-[#5f5e5e] hover:bg-[#E5E7EB]'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-          )}
+          {renderPagination()}
         </section>
       </div>
     );
@@ -785,12 +1023,12 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
   }
 
   // Summary View
-  const summaryItems = currentList.slice(0, 3);
+  const summaryItems = paginatedItems;
 
   return (
     <div data-analytics-screen={viewMode === "support" || viewMode === "inquiryAdmin" || showDeleteModal || ((viewMode === "summary" || viewMode === "more") && activeTab === "stories" && storyVisibilityFilter === "private") ? "excluded" : viewMode === "more" ? "my_activity" : viewMode === "account" ? "account_settings" : viewMode === "notifications" ? "notifications" : "my_page"} data-analytics-layer="1" className="max-w-3xl mx-auto space-y-8 pb-28">
       {/* Profile Banner */}
-      <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C] relative overflow-hidden">
+      <section className="bg-[#1C1C1C] text-white p-6 sm:p-8 rounded-lg border border-[#1C1C1C] relative">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="relative shrink-0">
@@ -807,12 +1045,6 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-1 font-mono text-xs">
-                <span className="px-2 py-0.5 rounded bg-[#FF6B5A]/20 text-[#FF6B5A] font-bold border border-[#FF6B5A]/30 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                </span>
-              </div>
-
               {isEditingNickname ? (
                 <form onSubmit={handleSaveNickname} className="flex items-center gap-2 mt-2 font-mono">
                   <input
@@ -849,22 +1081,76 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
                   </button>
                 </form>
               ) : (
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl sm:text-2xl font-bold font-headline-lg">{user.nickname}</h2>
+                <div ref={nicknameRowRef} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold font-headline-lg break-keep">{user.nickname}</h2>
                   <button data-button-id="my-page-view-button-24"
                     onClick={() => {
                       setNicknameInput(user.nickname);
                       setIsEditingNickname(true);
                     }}
-                    className="px-4 py-1.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] rounded-lg font-mono text-xs font-bold transition-all cursor-pointer"
+                    className="shrink-0 whitespace-nowrap px-3 py-1.5 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] rounded-lg text-xs font-bold transition-all cursor-pointer"
                   >
-                    EDIT
+                    닉네임 변경
                   </button>
+                  {!isGuest && (
+                    <div ref={joinInfoRef} className="relative">
+                      <button data-button-id="my-page-view-join-info" type="button"
+                        onClick={toggleJoinInfo}
+                        aria-expanded={showJoinInfo}
+                        aria-label="함께한 날 보기"
+                        className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors cursor-pointer ${
+                          showJoinInfo ? 'bg-white text-[#1C1C1C]' : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        <AlertCircle className="w-5 h-5" aria-hidden="true" />
+                      </button>
+                      {showJoinInfo && (
+                        <div role="dialog" aria-label="함께한 날"
+                          style={joinInfoPos ? { left: joinInfoPos.left, width: joinInfoPos.width } : undefined}
+                          className="absolute left-0 w-56 top-full mt-2.5 z-20 rounded-lg bg-white text-[#1C1C1C] shadow-xl border border-[#E5E7EB] p-3 space-y-2 text-xs">
+                          {/* ! 아이콘을 가리키는 꼭지 */}
+                          <span aria-hidden="true"
+                            style={{ left: (joinInfoPos?.caret ?? 14) - 6 }}
+                            className="absolute -top-1.5 w-3 h-3 rotate-45 bg-white border-l border-t border-[#E5E7EB]" />
+                          <p className="font-bold text-[11px] text-[#5f5e5e]">니편내편과 함께한 날</p>
+                          <dl className="space-y-1.5">
+                            <div className="flex justify-between gap-3"><dt className="text-[#5f5e5e]">가입일</dt><dd className="font-bold tabular-nums">{joinedDay ? joinedDay.split('-').map(Number).join('. ') + '.' : '-'}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-[#5f5e5e]">함께한 날</dt><dd className="font-bold tabular-nums">{daysTogether ? `${daysTogether}일째` : '-'}</dd></div>
+                          </dl>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
+
+        {!isGuest && (
+          <div className="mt-5 pt-4 border-t border-white/10">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-xs font-bold text-white/80">나의 편 성향</p>
+              {tendency ? (
+                <p className="text-sm font-bold text-white">{tendency.name} <span className="text-[11px] font-medium text-white/60">{tendency.desc}</span></p>
+              ) : (
+                <p className="text-[11px] text-white/60">투표 3개부터 성향이 보여요 ({voteTotal}/3)</p>
+              )}
+            </div>
+            {voteTotal > 0 && (
+              <div className="mt-2.5 space-y-1.5">
+                <div className="flex w-full h-2 rounded-full overflow-hidden bg-white/10" aria-hidden="true">
+                  <div className="h-full bg-[var(--color-your-side)]" style={{ width: `${100 - myRatio}%` }} />
+                  <div className="h-full bg-[var(--color-my-side)]" style={{ width: `${myRatio}%` }} />
+                </div>
+                <div className="flex justify-between text-[11px] font-bold">
+                  <span className="text-[var(--color-your-side)]">니 편 {yourCount}</span>
+                  <span className="text-[var(--color-my-side)]">{myCount} 내 편</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {isEditingAvatar && (
           <div className="mt-6 pt-5 border-t border-white/10 space-y-4">
@@ -983,16 +1269,7 @@ export const MyPageView: React.FC<MyPageViewProps> = ({
           {renderTabItems(summaryItems)}
         </div>
 
-        {currentList.length > 3 && (
-          <div className="flex justify-end pt-2">
-            <button data-button-id="my-page-view-button-29"
-              onClick={() => setViewMode('more')}
-              className="text-[#5f5e5e] hover:text-[#1C1C1C] font-mono text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
-            >
-              더보기 <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        {renderPagination()}
       </section>
 
       <section className="bg-white border border-[#E5E7EB] rounded-lg p-6 space-y-4">

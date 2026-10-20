@@ -6,7 +6,7 @@ test.beforeEach(async({page})=>{
 });
 test('ranking keyboard entry, original vote wording and sharing remain visible at this viewport',async({page})=>{
  const visibleRank=page.locator('[data-action-id="weekly-top-banner-action-01"]:visible').first();
- await expect(visibleRank).toContainText('투표하면 결과가 열려요');
+ await expect(visibleRank).toContainText('열어서 투표');
  await expect(visibleRank).not.toContainText('??%');
  await expect(page.getByText('투표하면 결과를 볼 수 있어요',{exact:true})).toHaveCount(0);
  await expect(visibleRank).not.toContainText('80%');
@@ -67,6 +67,6 @@ test('native image share carries URL; repeat clicks and cancellation do not crea
  await expect.poll(()=>page.evaluate(()=>(window as any).shares)).toEqual([{url:'http://127.0.0.1:4178/ui.html?story=ui-synthetic',files:1}]);
  await page.evaluate(()=>{(document.querySelector('[data-button-id="share-result-bar-button-03"]') as HTMLButtonElement).click();(window as any).cancelShare();});
  await expect(share).toBeEnabled();expect(await page.evaluate(()=>(window as any).shares.length)).toBe(1);
- await page.getByRole('button',{name:/미리보기/}).click();await expect(page.getByRole('img',{name:'공유 카드 미리보기'})).toBeVisible();
+ await page.locator('[data-button-id="share-result-bar-button-02"]').click();await expect(page.getByRole('img',{name:'공유 카드 미리보기'})).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.getByRole('img',{name:'공유 카드 미리보기'})).toHaveCount(0);await expect(share).toBeVisible();
 });

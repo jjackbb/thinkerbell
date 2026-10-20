@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../types';
-import { User, PlusCircle } from 'lucide-react';
+import { MessageSquareHeart } from 'lucide-react';
+import { ProfileAvatar } from '../lib/profileAvatars';
 
 interface HeaderProps {
   user: UserProfile;
@@ -8,10 +9,10 @@ interface HeaderProps {
   onOpenCreateStory: () => void;
   onGoHome: () => void;
   /**
-   * '사연 등록' 버튼을 보일지.
+   * '사연 올리기' 버튼을 보일지.
    *
-   * 홈 탭에서는 감춘다. 화면 하단에 계속 떠 있는 안내 바(데스크톱)와
-   * 플로팅 버튼(모바일)이 이미 같은 일을 하고 있다.
+   * 마이페이지에서만 보인다. 홈은 하단의 안내 바(데스크톱)·플로팅 버튼(모바일),
+   * AI 대화는 목록 아래 '사연 올리기' 안내가 이미 같은 일을 하고 있다.
    */
   showWriteButton: boolean;
 
@@ -60,11 +61,12 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onOpenCreateStory}
           /* 좁은 화면에서는 옆의 '사연 등록' 글자가 숨겨져 아이콘만 남는다.
              그때 이름 없는 버튼이 되지 않도록 aria-label을 따로 준다 */
-          aria-label="사연 등록"
+          aria-label="사연 올리기"
           className="flex items-center gap-1.5 px-4 py-2 bg-[#FF6B5A] hover:bg-[#FF6B5A]/90 text-[#1C1C1C] font-mono text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer"
         >
-          <PlusCircle className="w-4 h-4" aria-hidden="true" />
-          <span className="hidden sm:inline">사연 등록</span>
+          {/* 홈의 사연 작성 버튼(하단 동그란 버튼·안내 바)과 같은 아이콘을 쓴다 */}
+          <MessageSquareHeart className="w-4 h-4" aria-hidden="true" />
+          <span className="hidden sm:inline">사연 올리기</span>
         </button>
         )}
 
@@ -75,7 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
           aria-label={`내 계정 (${user.nickname})`}
           className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 hover:border-[#FF6B5A] rounded-lg font-mono text-xs font-medium text-white transition-all cursor-pointer"
         >
-          <User className="w-4 h-4 text-[#FF6B5A]" aria-hidden="true" />
+          {/* 마이페이지에서 고른 프로필 표정을 그대로 보여준다 */}
+          <ProfileAvatar id={user.avatar} className="w-5 h-5" iconClassName="w-3 h-3" />
           <span className="max-w-[100px] truncate">
             {user.nickname}
           </span>

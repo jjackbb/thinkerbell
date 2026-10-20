@@ -339,6 +339,67 @@ a, button { font: inherit; }
   .compose-foot .byline { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ── 2026-10-20 갱신 ── */
+[hidden] { display: none !important; }
+/* 이용 방법 3단계 */
+.how { padding-block: var(--sec-y); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.step { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; display: grid; gap: 8px; align-content: start; }
+.step .ms { font-size: 28px; color: var(--me); margin-bottom: 4px; }
+.step-no { position: absolute; top: 20px; right: 22px; font-family: var(--f-mono); font-size: 13px; font-weight: 700; color: var(--grey); }
+.step h3 { font-size: 18px; }
+.step p { font-size: 14px; color: var(--grey); line-height: 1.65; word-break: keep-all; }
+/* AI 두 방식 축약 */
+.modes.compact .mode { grid-template-rows: none; gap: 12px; }
+.modes.compact .bubble { justify-self: start; }
+/* 안심 장치 한 줄 */
+.trust { border-block: 1px solid var(--line); background: var(--card); padding-block: 20px; }
+.trust .wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 24px; }
+.trust .wrap > span { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.trust .ms { font-size: 18px; color: var(--me); }
+@media (max-width: 860px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .trust .wrap { justify-content: flex-start; flex-direction: column; } .step { padding: 20px; } }
+.ico { width: 16px; height: 16px; flex-shrink: 0; }
+/* 투표 전 잠긴 막대: 실제 비율과 무관한 얇은 그라데이션 + 이름 줄 가운데 안내 */
+.seal-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.seal-row .l { color: var(--you-ink); }
+.seal-row .r { color: var(--me-ink); }
+.seal-row .mid { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; color: var(--grey); }
+.seal-row .mid .ms { font-size: 13px; }
+.bar.sealed-bar, .gauge.sealed-bar .fill { background: linear-gradient(90deg, color-mix(in srgb, var(--you) 45%, white), color-mix(in srgb, var(--me) 45%, white)); }
+/* 공개 범위 고르기 예시 */
+.vis { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vis span { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--grey); }
+.vis span.on { background: var(--onyx); color: #fff; border-color: var(--onyx); }
+.vis .ms { font-size: 14px; }
+/* 랭킹 예시: LIVE 점과 금색 1위 */
+.live-dot { position: relative; display: inline-flex; width: 8px; height: 8px; margin-right: 6px; vertical-align: middle; }
+.live-dot::before, .live-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--me); }
+.live-dot::before { animation: live-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: .6; }
+@keyframes live-ping { 75%, 100% { transform: scale(2.2); opacity: 0; } }
+.ri .no.gold { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; font-size: 15px; color: #3B2A06; background: linear-gradient(135deg, #F8DE8B 0%, #E4B43F 45%, #B87514 100%); }
+.ri .no.gold::after { content: ""; position: absolute; inset: -2px auto -2px 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent); transform: translateX(-160%) skewX(-20deg); animation: gold-shine 4s ease-in-out infinite; }
+@keyframes gold-shine { 0%, 60% { transform: translateX(-160%) skewX(-20deg); } 85%, 100% { transform: translateX(320%) skewX(-20deg); } }
+/* 마이페이지 예시 */
+.profile { background: var(--onyx); color: #fff; border-radius: 16px; padding: 20px; display: grid; gap: 16px; box-shadow: 0 12px 32px -20px rgba(0,0,0,.4); }
+.profile-top { display: flex; align-items: center; gap: 14px; }
+.face { width: 52px; height: 52px; border-radius: 50%; background: #fff; color: #D6452F; flex-shrink: 0; }
+.profile-name { font-size: 18px; font-weight: 800; }
+.profile-name small { display: block; font-size: 11px; font-weight: 500; color: var(--on-dark-dim); margin-top: 2px; }
+.tend { border-top: 1px solid var(--line-dark); padding-top: 12px; display: grid; gap: 8px; }
+.tend-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.8); }
+.tend-top b { color: #fff; font-size: 14px; }
+.tend-top b small { font-size: 11px; font-weight: 500; color: var(--on-dark-dim); margin-left: 4px; }
+.tend-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.1); }
+.tend-bar i { display: block; }
+.tend-legend { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; }
+.mylist { display: grid; gap: 0; background: #fff; color: var(--ink); border-radius: 12px; padding: 4px 14px; }
+.mylist div { display: flex; justify-content: space-between; gap: 10px; padding-block: 9px; font-size: 12px; }
+.mylist div + div { border-top: 1px solid var(--line); }
+.mylist span:first-child { color: var(--grey); }
+.mylist b { font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .live-dot::before, .ri .no.gold::after { animation: none; } .ri .no.gold::after { display: none; } }
 </style>
 </head>
 <body data-analytics-screen="landing" data-analytics-layer="0">
@@ -351,12 +412,12 @@ a, button { font: inherit; }
   <div class="wrap">
     <a data-action-id="landing-a-01" class="brand" href="#top"><span class="ms" aria-hidden="true">terminal</span>니편내편</a>
     <nav class="nav-links" aria-label="페이지 안내">
-      <a data-action-id="landing-a-02" href="#features">서비스 소개</a>
+      <a data-action-id="landing-a-02" href="#how">이용 방법</a>
       <a data-action-id="landing-a-03" href="#ai">AI 대화</a>
-      <a data-action-id="landing-a-04" href="#safe">안심 장치</a>
       <a data-action-id="landing-a-05" href="#faq">자주 묻는 질문</a>
     </nav>
-    <a data-action-id="landing-a-06" class="btn btn-coral btn-sm" data-landing-cta="write" href="/?action=write"><span class="ms" aria-hidden="true">edit</span><span class="btn-label">사연 올리기</span></a>
+    <!-- 홈으로 가는 버튼. 앱 하단 메뉴의 Home과 같은 아이콘을 쓴다 -->
+    <a data-action-id="landing-a-06" class="btn btn-coral btn-sm" data-landing-cta="browse" href="/?browse=1" aria-label="홈으로 가기"><span class="ms" aria-hidden="true">home_storage</span><span class="btn-label">홈</span></a>
   </div>
 </header>
 
@@ -367,12 +428,12 @@ a, button { font: inherit; }
       <div class="hero-copy">
         <span class="eyebrow">익명 사연 · 편 갈라 듣기</span>
         <h1><span class="you">니 편</span><span class="vs">VS</span><span class="me">내 편</span><br>속상한 마음을<br>털어놓으세요</h1>
-        <p class="hero-sub"><strong>사연으로 마음을 나누고, 공감을 받아보세요.</strong><br>못다 한 말은 AI에게 털어놓거나, 상대 역할의 AI와 대화해 보세요.</p>
+        <p class="hero-sub"><strong>사연으로 마음을 나누고, 공감을 받아보세요.</strong> <br>못다 한 말은 AI에게 털어놓거나, 상대 역할의 AI와 대화해 보세요.</p>
         <div class="cta-row">
           <a data-action-id="landing-a-07" class="btn btn-coral" data-landing-cta="browse" href="/?browse=1">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
-          <a data-action-id="landing-a-08" class="btn btn-ghost" data-landing-cta="write" href="/?action=write">내 사연 올리기</a>
+          <a data-action-id="landing-a-08" class="btn btn-ghost" data-landing-cta="write" data-auth-only hidden href="/?action=write">사연 올리기</a>
         </div>
-        <p class="hero-note">로그인 없이 둘러볼 수 있어요<br>다른 사연에 공감하고 싶다면 둘러보기 · 내 마음을 나누고 싶다면 사연 작성</p>
+        <p class="hero-note">로그인 없이 둘러볼 수 있어요<br>사연을 올리고 투표·댓글·AI 대화를 하려면 이메일로 가입해 주세요</p>
       </div>
       <div class="demo">
         <article class="story sealed" id="demo">
@@ -389,9 +450,10 @@ a, button { font: inherit; }
               <button data-button-id="landing-demo-button-01" type="button" class="vb you" id="v-you" aria-pressed="false">니 편<small>한 번 더 기회를</small></button>
               <button data-button-id="landing-demo-button-02" type="button" class="vb me" id="v-me" aria-pressed="false">내 편<small>당장 손절</small></button>
             </div>
-            <div class="gauge" aria-hidden="true"><div class="fill" id="fill"></div></div>
-            <div class="legend"><span class="l">니 편 <span class="pct num">8%</span></span><span class="r"><span class="pct num">92%</span> 내 편</span></div>
-            <p class="gauge-note" id="note">투표하면 결과가 열려요</p>
+            <div class="seal-row" id="seal-row"><span class="l">니 편</span><span class="mid"><span class="ms" aria-hidden="true">lock</span>투표 후 공개</span><span class="r">내 편</span></div>
+            <div class="legend" id="open-row" hidden><span class="l">니 편 <span class="num">8%</span></span><span class="r"><span class="num">92%</span> 내 편</span></div>
+            <div class="gauge sealed-bar" id="gauge" aria-hidden="true"><div class="fill" id="fill"></div></div>
+            <p class="gauge-note" id="note">벌써 892명이 편을 골랐어요</p>
           </div>
         </article>
       </div>
@@ -413,236 +475,71 @@ a, button { font: inherit; }
     </div>
   </section>
 
-  <!-- 기능 -->
-  <div class="features" id="features">
-    <section class="feature">
-      <div class="wrap">
-        <div class="text">
-          <span class="eyebrow">사연 쓰기</span>
-          <h2 class="h2">이름 없이,<br>있는 그대로 털어놓으세요</h2>
-          <p class="lede">글에는 닉네임만 보여요. 누가 썼는지 몰라도 되니까 더 솔직해질 수 있어요.</p>
-          <ul class="points">
-            <li><span class="ms" aria-hidden="true">category</span>직장·연애·친구·가족·기타 중에서 골라요</li>
-            <li><span class="ms" aria-hidden="true">verified_user</span>올리기 전에 내용을 한 번 검사해요</li>
-            <li><span class="ms" aria-hidden="true">edit_note</span>내 글은 언제든 고치거나 지울 수 있어요</li>
-          </ul>
-        </div>
-        <div class="visual">
-          <div class="visual-top"><span class="ex">예시 화면</span></div>
-          <div class="visual-body">
-            <div class="panel compose">
-              <div class="tabs"><span>직장</span><span class="on">연애</span><span>친구</span><span>가족</span><span>기타</span></div>
-              <div class="field title">남친의 여사친 문제, 제가 예민한가요?</div>
-              <div class="field body">둘이서만 심야 영화 보는 걸 이해해 달라는데… 제가 속이 좁은 건지 이게 정상인 건지 모르겠어요.</div>
-              <div class="compose-foot">
-                <span class="byline"><span class="avatar ms" aria-hidden="true">person</span>고민중인여친</span>
-                <span class="check"><span class="ms" aria-hidden="true">check_circle</span>내용 검사 통과</span>
-                <span class="mini-btn">등록하기</span>
-              </div>
-            </div>
-          </div>
-        </div>
+  <!-- 이용 방법: 핵심 흐름 3단계만 보여준다 -->
+  <section class="how" id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">이용 방법</span>
+        <h2 class="h2">올리고, 편 가르고,<br>못다 한 말까지</h2>
       </div>
-    </section>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-no">1</span>
+          <span class="ms" aria-hidden="true">edit_note</span>
+          <h3>익명으로 사연 올리기</h3>
+          <p>닉네임만 보여요. 공개로 올리거나 나만 보는 비공개로 남길 수 있어요.</p>
+        </li>
+        <li class="step">
+          <span class="step-no">2</span>
+          <span class="ms" aria-hidden="true">how_to_vote</span>
+          <h3>니 편 · 내 편 투표</h3>
+          <p>먼저 고르면 결과가 열려요. 댓글로 이유를 나누고 공감을 눌러요.</p>
+        </li>
+        <li class="step">
+          <span class="step-no">3</span>
+          <span class="ms" aria-hidden="true">forum</span>
+          <h3>AI와 이어서 대화</h3>
+          <p>사연 속 상대와 말을 연습하거나, 내 마음을 정리해요.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
 
-    <section class="feature flip">
-      <div class="wrap">
-        <div class="text">
-          <span class="eyebrow">편 가르기 투표</span>
-          <h2 class="h2">먼저 고르고,<br>그다음에 결과를 봐요</h2>
-          <p class="lede">투표 전에는 결과가 흐릿하게 가려져 있어요. 남의 선택에 휩쓸리지 않고 내 생각대로 고를 수 있어요.</p>
-          <ul class="points">
-            <li><span class="ms" aria-hidden="true">lock</span>투표해야 정확한 비율이 열려요</li>
-            <li><span class="ms" aria-hidden="true">swap_horiz</span>마음이 바뀌면 한 번만 바꿀 수 있어요</li>
-          </ul>
-        </div>
-        <div class="visual">
-          <div class="visual-top"><span class="ex">예시 화면</span></div>
-          <div class="visual-body">
-            <div class="compare">
-              <div class="panel cmp">
-                <div class="cmp-cap">투표 전<span>흐릿하게 가려져요</span></div>
-                <div class="bar locked"></div>
-                <div class="legend blur"><span class="l">니 편 32%</span><span class="r">68% 내 편</span></div>
-              </div>
-              <div class="arrow"><span class="ms" aria-hidden="true">arrow_downward</span>내 편에 투표</div>
-              <div class="panel cmp">
-                <div class="cmp-cap">투표 후<span>정확한 결과가 열려요</span></div>
-                <div class="bar open"></div>
-                <div class="legend"><span class="l">니 편 <span class="num">32%</span></span><span class="r"><span class="num">68%</span> 내 편</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="feature">
-      <div class="wrap">
-        <div class="text">
-          <span class="eyebrow">댓글</span>
-          <h2 class="h2">숫자 너머의 이유까지<br>들어보세요</h2>
-          <p class="lede">왜 그 편을 골랐는지 댓글로 남겨요. 마음에 와닿는 댓글에는 공감을 눌러요.</p>
-          <ul class="points">
-            <li><span class="ms" aria-hidden="true">favorite</span>공감은 한 사람당 한 번, 다시 누르면 취소돼요</li>
-            <li><span class="ms" aria-hidden="true">flag</span>불편한 댓글은 바로 신고할 수 있어요</li>
-          </ul>
-        </div>
-        <div class="visual">
-          <div class="visual-top"><span class="ex">예시 화면 · 눌러보세요</span></div>
-          <div class="visual-body">
-            <div class="panel comments">
-              <div class="cm">
-                <span class="who">퇴근희망자 <span class="side me">내 편</span></span>
-                <p>빌려간 사람이 먼저 말 꺼내야 하는 거 아닌가요? 치사한 거 아니에요.</p>
-                <button data-button-id="landing-demo-button-03" type="button" class="like" aria-pressed="true" data-n="24"><span class="ms" aria-hidden="true">favorite</span><span class="num">24</span></button>
-              </div>
-              <div class="cm">
-                <span class="who">평화주의자 <span class="side you">니 편</span></span>
-                <p>손절 전에 날짜 정해서 한 번만 딱 말해보세요. 그래도 안 주면 그때.</p>
-                <button data-button-id="landing-demo-button-04" type="button" class="like" aria-pressed="false" data-n="11"><span class="ms" aria-hidden="true">favorite</span><span class="num">11</span></button>
-              </div>
-              <div class="cm">
-                <span class="who">억울한야옹이 <span class="side me">내 편</span></span>
-                <p>저도 똑같은 일 있었는데 결국 연락 끊겼어요…</p>
-                <button data-button-id="landing-demo-button-05" type="button" class="like" aria-pressed="false" data-n="7"><span class="ms" aria-hidden="true">favorite</span><span class="num">7</span></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="feature flip">
-      <div class="wrap">
-        <div class="text">
-          <span class="eyebrow">랭킹</span>
-          <h2 class="h2">지금 가장 뜨겁게<br>갈리는 사연</h2>
-          <p class="lede">요즘 사람들이 가장 많이 이야기하는 사연을 랭킹으로 모아 봐요.</p>
-          <ul class="points">
-            <li><span class="ms" aria-hidden="true">calendar_month</span>주간 TOP 3: 이번 주 가장 화제였던 사연</li>
-            <li><span class="ms" aria-hidden="true">schedule</span>실시간 TOP 3: 매시 정각에 새로 집계</li>
-          </ul>
-        </div>
-        <div class="visual">
-          <div class="visual-top"><span class="ex">예시 화면 · 탭을 눌러보세요</span></div>
-          <div class="visual-body">
-            <div class="rank">
-              <div class="rank-tabs" role="tablist">
-                <button data-button-id="landing-demo-button-06" type="button" role="tab" aria-selected="true" data-tab="weekly">주간 TOP 3</button>
-                <button data-button-id="landing-demo-button-07" type="button" role="tab" aria-selected="false" data-tab="live">실시간 TOP 3</button>
-              </div>
-              <div id="rank-list"></div>
-              <span class="rank-time" id="rank-time">이번 주 기준</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="feature">
-      <div class="wrap">
-        <div class="text">
-          <span class="eyebrow">밸런스 게임</span>
-          <h2 class="h2">가볍게 한 판,<br>당신의 선택은?</h2>
-          <p class="lede">사연이 부담스러운 날엔 질문 하나에 한 표만 던져도 돼요.</p>
-        </div>
-        <div class="visual">
-          <div class="visual-top"><span class="ex">예시 화면 · 골라보세요</span></div>
-          <div class="visual-body">
-            <div class="bgame">
-              <div class="dark-top"><span>오늘의 질문</span></div>
-              <p class="q">주말에 팀장님이 개인 톡으로 가벼운 업무 지시를 내린다면?</p>
-              <div class="opts">
-                <button data-button-id="landing-demo-button-08" type="button" class="bo a" id="b-a" aria-pressed="false">일단 읽씹</button>
-                <button data-button-id="landing-demo-button-09" type="button" class="bo b" id="b-b" aria-pressed="false">바로 답장</button>
-              </div>
-              <div class="bres">
-                <div class="bar2"><i class="a" id="ba" style="width:50%"></i><i class="b" id="bb" style="width:50%"></i></div>
-                <div class="legend" id="bnums" style="visibility:hidden"><span class="a">읽씹 <span class="num">61%</span></span><span class="b"><span class="num">39%</span> 답장</span></div>
-                <p class="hint" id="bhint">골라야 결과가 보여요</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- AI -->
+  <!-- AI: 두 방식만 짧게 -->
   <section class="ai on-dark" id="ai">
     <div class="wrap">
       <div class="sec-head">
         <span class="eyebrow">AI 대화</span>
-        <h2 class="h2">투표로 끝나지 않아요.<br>못다 한 말을 해보세요</h2>
-        <p class="lede">사연을 바탕으로 AI와 대화할 수 있어요. 두 가지 방식 중에서 골라요.</p>
+        <h2 class="h2">투표로 끝나지 않아요</h2>
+        <p class="lede">사연을 바탕으로 AI와 1:1로 대화해요.</p>
       </div>
-      <div class="modes">
+      <div class="modes compact">
         <div class="mode">
-          <div class="mode-top">
-            <span class="tag">방식 1</span>
-            <h3>상대와 대화하기</h3>
-            <p class="d">AI가 사연 속 상대가 되어 대답해요. 실제로는 하기 어려운 말을 미리 연습해 보세요.</p>
-          </div>
-          <div class="pick">
-            <span class="pick-cap">시작 상황 고르기</span>
-            <div class="pick-row">
-              <div class="pp"><b>상대가 먼저 사과해 온 상황</b><span>누그러진 상태에서</span></div>
-              <div class="pp hl"><span class="rec">추천</span><b>아무 일 없다는 듯 구는 상황</b><span>가장 답답한 지점부터</span></div>
-              <div class="pp"><b>내가 먼저 말을 꺼내는 상황</b><span>내 첫 마디로</span></div>
-            </div>
-          </div>
-          <div class="chat" aria-label="대화 예시">
-            <div class="dark-top"><span>친구 역할 AI</span><span class="ex dark">예시</span></div>
-            <div class="bubble them">아 그거? 다음 달에 줄게~ 요즘 좀 바빠서 ㅎㅎ</div>
-            <div class="bubble mine">오마카세 갈 시간은 있던데?</div>
-            <div class="bubble them">…그건 선물받은 거야. 너 그렇게까지 말해야 돼?</div>
-          </div>
+          <h3>상대와 대화하기</h3>
+          <p class="d">AI가 사연 속 상대가 되어 대답해요. 하기 어려운 말을 미리 해 보세요.</p>
+          <div class="bubble them">아 그거? 다음 달에 줄게~ 요즘 좀 바빠서 ㅎㅎ</div>
         </div>
         <div class="mode">
-          <div class="mode-top">
-            <span class="tag">방식 2</span>
-            <h3>공감 대화</h3>
-            <p class="d">누구 입장에서 들어줄지 고르면, AI가 그 시선으로 함께 생각을 정리해 줘요.</p>
-          </div>
-          <div class="pick">
-            <span class="pick-cap">관점 고르기</span>
-            <div class="pick-row">
-              <div class="pp hl me"><b>내 입장</b><span>내 마음부터 들어줘요</span></div>
-              <div class="pp"><b>양쪽 다</b><span>균형 있게 봐요</span></div>
-              <div class="pp you"><b>상대 입장</b><span>상대 마음을 짐작해요</span></div>
-            </div>
-          </div>
-          <div class="chat" aria-label="대화 예시">
-            <div class="dark-top"><span>공감 대화 · 내 입장</span><span class="ex dark">예시</span></div>
-            <div class="bubble mine">제가 너무 쪼잔한 걸까요?</div>
-            <div class="bubble them">돈보다 '내가 가볍게 여겨진다'는 느낌이 더 서운하셨을 것 같아요.</div>
-            <div class="bubble them">그건 쪼잔한 게 아니에요. 어떤 순간에 제일 서운했어요?</div>
-          </div>
+          <h3>공감 대화</h3>
+          <p class="d">내 입장·양쪽·상대 입장 중 하나를 고르면, 그 시선으로 함께 생각을 정리해요.</p>
+          <div class="bubble them">그건 쪼잔한 게 아니에요. 어떤 순간에 제일 서운했어요?</div>
         </div>
       </div>
-      <p class="ai-note"><span class="ms" aria-hidden="true">info</span>AI 대화는 로그인 후 이용할 수 있어요. AI는 사연 내용을 바탕으로 역할을 연기할 뿐, 실제 그 사람이 아니에요.</p>
+      <p class="ai-note"><span class="ms" aria-hidden="true">info</span>내 사연은 횟수 제한 없이, 다른 사람의 사연은 하루 3번까지 새로 시작할 수 있어요. AI는 역할을 연기할 뿐 실제 그 사람이 아니에요.</p>
     </div>
   </section>
 
-  <!-- 안심 장치 -->
-  <section class="safe" id="safe">
+  <!-- 안심 장치: 한 줄 -->
+  <section class="trust" aria-label="안심 장치">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="eyebrow">안심 장치</span>
-        <h2 class="h2">솔직해도 괜찮은 곳이 되도록</h2>
-        <p class="lede">익명 공간일수록 지켜야 할 것이 많아요.</p>
-      </div>
-      <div class="safe-grid">
-        <div class="sg"><span class="ms" aria-hidden="true">verified_user</span><h3>올리기 전 검사</h3><p>사연과 댓글은 등록 전에 내용을 검사해요.</p></div>
-        <div class="sg"><span class="ms" aria-hidden="true">flag</span><h3>신고</h3><p>불편한 사연·댓글은 바로 신고하면 운영자가 확인해요.</p></div>
-        <div class="sg"><span class="ms" aria-hidden="true">visibility_off</span><h3>나에게만 숨기기</h3><p>보고 싶지 않은 글은 내 화면에서만 숨기고, 언제든 되돌릴 수 있어요.</p></div>
-        <div class="sg"><span class="ms" aria-hidden="true">support</span><h3>힘들 때 도움받을 곳</h3><p>위험한 상황이 보이면 도움받을 수 있는 곳을 안내해요.</p></div>
-      </div>
+      <span><span class="ms" aria-hidden="true">verified_user</span>올리기 전 내용 검사</span>
+      <span><span class="ms" aria-hidden="true">flag</span>신고하면 운영자 확인</span>
+      <span><span class="ms" aria-hidden="true">visibility_off</span>나에게만 숨기기</span>
+      <span><span class="ms" aria-hidden="true">support</span>힘들 때 도움받을 곳 안내</span>
     </div>
   </section>
 
-  <!-- FAQ -->
+  <!-- FAQ: 처음 온 사람이 가장 많이 묻는 3가지 -->
   <section class="faq" id="faq">
     <div class="wrap">
       <div class="sec-head">
@@ -652,9 +549,7 @@ a, button { font: inherit; }
       <div class="faq-list">
         <details><summary data-action-id="landing-summary-01">정말 익명인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">다른 사람에게는 내가 정한 닉네임만 보여요. 이메일 같은 개인 정보는 보이지 않아요.</p></details>
         <details><summary data-action-id="landing-summary-02">가입하지 않아도 쓸 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">사연은 로그인 없이 둘러볼 수 있어요. 사연 쓰기, 투표, 댓글, AI 대화는 이메일로 가입한 뒤 이용할 수 있어요.</p></details>
-        <details><summary data-action-id="landing-summary-03">투표를 바꿀 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">한 번 바꿀 수 있어요. 바꾼 뒤에는 그대로 확정되고, 투표 취소는 할 수 없어요.</p></details>
-        <details><summary data-action-id="landing-summary-04">AI 상대는 진짜 그 사람인가요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">아니요. 사연에 적힌 내용을 바탕으로 AI가 상대 역할을 연기해요. 실제 대화를 앞두고 연습하거나 마음을 정리하는 용도로 써주세요.</p></details>
-        <details><summary data-action-id="landing-summary-05">내가 쓴 글을 지울 수 있나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">네. 내 사연은 언제든 수정하거나 삭제할 수 있어요.</p></details>
+        <details><summary data-action-id="landing-summary-03">투표 결과는 언제 보이나요?<span class="ms" aria-hidden="true">add</span></summary><p class="a">직접 투표한 뒤에 열려요. 투표는 한 번만 바꿀 수 있고 취소는 할 수 없어요.</p></details>
       </div>
     </div>
   </section>
@@ -666,7 +561,7 @@ a, button { font: inherit; }
       <p class="lede">다른 사연에 공감하거나, 내 이야기를 나누며 마음을 풀어보세요.</p>
       <div class="cta-row">
         <a data-action-id="landing-a-09" class="btn btn-coral" data-landing-cta="browse" href="/?browse=1">사연 둘러보기 <span class="ms" aria-hidden="true">arrow_forward</span></a>
-        <a data-action-id="landing-a-10" class="btn btn-ghost" data-landing-cta="write" href="/?action=write">내 사연 올리기</a>
+        <a data-action-id="landing-a-10" class="btn btn-ghost" data-landing-cta="write" data-auth-only hidden href="/?action=write">사연 올리기</a>
       </div>
     </div>
   </section>
@@ -687,58 +582,20 @@ a, button { font: inherit; }
   const btnYou = document.getElementById('v-you');
   const btnMe = document.getElementById('v-me');
   const YOU = 8;
-  const lock = (c) => `color-mix(in srgb, ${c} 45%, white)`;
-  fill.style.background = `linear-gradient(90deg, ${lock(css('--you'))} 0%, ${lock(css('--me'))} ${YOU + 40}%, ${lock(css('--me'))} 100%)`;
+  // 투표 전에는 실제 비율과 무관한 중립 막대(.sealed-bar)와 '투표 후 공개' 줄만 보인다
   const vote = (side) => {
     btnYou.setAttribute('aria-pressed', side === 'you');
     btnMe.setAttribute('aria-pressed', side === 'me');
     card.classList.remove('sealed');
+    document.getElementById('seal-row').hidden = true;
+    document.getElementById('open-row').hidden = false;
+    document.getElementById('gauge').classList.remove('sealed-bar');
     fill.style.background = `linear-gradient(90deg, ${css('--you')} 0 ${YOU}%, ${css('--me')} ${YOU}% 100%)`;
     note.textContent = side === 'me' ? '예시 결과: 92%가 당신과 같은 편이에요' : '예시 결과: 8%만 이쪽이에요';
   };
   btnYou.addEventListener('click', () => vote('you'));
   btnMe.addEventListener('click', () => vote('me'));
 
-  // 댓글 공감 — 한 번 누르면 +1, 다시 누르면 취소
-  document.querySelectorAll('.like').forEach((b) => {
-    b.addEventListener('click', () => {
-      const on = b.getAttribute('aria-pressed') !== 'true';
-      const n = Number(b.dataset.n) + (on ? 1 : -1);
-      b.dataset.n = n;
-      b.setAttribute('aria-pressed', on);
-      b.lastElementChild.textContent = n;
-    });
-  });
-
-  // 랭킹 탭
-  const RANK = {
-    weekly: { time: '이번 주 기준', items: [['부장님이 또 갈궈요…', 28], ['남친의 여사친 문제, 제가 예민한가요?', 85], ['돈 안 갚는 친구, 손절할까요?', 8]] },
-    live: { time: `${new Date().getHours()}:00 기준`, items: [['결혼식 축의금 5만 원, 서운한 게 맞나요?', 41], ['단톡방에서 저만 빼고 약속 잡았어요', 22], ['엄마가 제 일기장을 읽었어요', 12]] },
-  };
-  const list = document.getElementById('rank-list');
-  const time = document.getElementById('rank-time');
-  const tabs = document.querySelectorAll('.rank-tabs button');
-  const render = (key) => {
-    const r = RANK[key];
-    list.innerHTML = r.items.map(([t, you], i) =>
-      `<div class="ri"><span class="no">${i + 1}</span><span class="t">${t}</span><span class="mbar"><i class="y" style="width:${you}%"></i><i class="m" style="width:${100 - you}%"></i></span></div>`).join('');
-    time.textContent = `${r.time} · 예시`;
-    tabs.forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === key));
-  };
-  tabs.forEach((b) => b.addEventListener('click', () => render(b.dataset.tab)));
-  render('weekly');
-
-  // 밸런스 게임 예시
-  const pick = (k) => {
-    document.getElementById('b-a').setAttribute('aria-pressed', k === 'a');
-    document.getElementById('b-b').setAttribute('aria-pressed', k === 'b');
-    document.getElementById('ba').style.width = '61%';
-    document.getElementById('bb').style.width = '39%';
-    document.getElementById('bnums').style.visibility = 'visible';
-    document.getElementById('bhint').textContent = '예시 결과예요';
-  };
-  document.getElementById('b-a').addEventListener('click', () => pick('a'));
-  document.getElementById('b-b').addEventListener('click', () => pick('b'));
 })();
 </script>
 <script type="module" src="/src/landing.ts"></script>

@@ -445,12 +445,58 @@ function readStoryInput(value: unknown) {
       typeof category !== "string" || !STORY_CATEGORIES.has(category) || opponentPersonality.length > 100) {
     throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
   }
+  // 니 편·내 편 역할 이름(선택). 예: 니 편 '직장동료', 내 편 '신입사원'.
+  // A는 '내 편'(votesA), B는 '니 편'(votesB)이다.
+  const sideLabelA = readSideLabel(input.sideLabelA);
+  const sideLabelB = readSideLabel(input.sideLabelB);
   // 공개 범위는 새 사연을 만들 때만 받는다. 값이 없으면 지금까지처럼 공개로 저장한다.
   const visibility = input.visibility === undefined ? "public" : input.visibility;
   if (visibility !== "public" && visibility !== "private") {
     throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
   }
-  return { title, body, category, opponentPersonality, visibility };
+  return { title, body, category, opponentPersonality, visibility, sideLabelA, sideLabelB };
+}
+
+const SIDE_LABEL_MAX = 10;
+
+function readSideLabel(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
+  const label = value.trim().replace(/\s+/g, " ");
+  if (label.length > SIDE_LABEL_MAX) throw new StoryRequestFailure(400, "INVALID_STORY_CONTENT");
+  return label;
+}
+
+/**
+ * 역할 이름도 투표 버튼에 그대로 보이므로 댓글과 같은 비속어 검사를 거친다.
+ * 입력한 칸만 검사한다(빈 칸은 공급자를 부르지 않는다). 검사 결과가 칸 길이를
+ * 넘으면 설명이 덧붙은 것이므로 실패로 처리한다 — 안전 판정으로 넘기지 않는다.
+ */
+async function checkSideLabels(userId: string, a: string, b: string) {
+  const check = async (label: string) => {
+    if (!label) return "";
+    let sanitized: string;
+    try {
+      sanitized = (await sanitizeCommentText(userId, label)).trim();
+    } catch (error) {
+      if (error instanceof StoryRequestFailure && error.code === "COMMENT_CHECK_UNAVAILABLE") {
+        throw new StoryRequestFailure(503, "CONTENT_CHECK_UNAVAILABLE");
+      }
+      if (error instanceof StoryRequestFailure && error.code.startsWith("COMMENT_CHECK")) {
+        throw new StoryRequestFailure(502, "CONTENT_CHECK_FAILED");
+      }
+      throw error;
+    }
+    if (!sanitized || sanitized.length > SIDE_LABEL_MAX) throw new StoryRequestFailure(502, "CONTENT_CHECK_FAILED");
+    return sanitized;
+  };
+  return { sideLabelA: await check(a), sideLabelB: await check(b) };
+}
+
+/** 역할 칸이 아직 DB에 없으면(마이그레이션 적용 전) 역할만 빼고 저장한다 */
+function isMissingSideLabelColumn(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(error && (error.code === "PGRST204" || error.code === "42703") &&
+    /sideLabel/.test(error.message ?? ""));
 }
 
 function readStoryRequestId(value: unknown): string {
@@ -927,6 +973,7 @@ app.post("/api/stories", async (req: Request, res: Response) => {
     const input = readStoryInput(req.body);
     const checked = await checkStoryContent(user.id, input.title, input.body);
     if (checked.isAdult) throw new StoryRequestFailure(422, "ADULT_CONTENT_BLOCKED");
+    const labels = await checkSideLabels(user.id, input.sideLabelA, input.sideLabelB);
 
     const nickname = typeof user.user_metadata?.nickname === "string"
       ? user.user_metadata.nickname.trim().slice(0, 12) : "";
@@ -951,7 +998,16 @@ app.post("/api/stories", async (req: Request, res: Response) => {
       // 공개는 열 기본값('public')에 맡겨, 비공개 열이 없는 예전 DB에서도 그대로 동작한다.
       ...(input.visibility === "private" ? { visibility: "private" } : {}),
     };
-    const { data, error } = await client.from("stories").insert(row).select("*").single();
+    // 역할은 입력했을 때만 보낸다. 역할 없는 사연은 예전 DB에서도 그대로 저장된다.
+    const labelFields = {
+      ...(labels.sideLabelA ? { sideLabelA: labels.sideLabelA } : {}),
+      ...(labels.sideLabelB ? { sideLabelB: labels.sideLabelB } : {}),
+    };
+    let { data, error } = await client.from("stories").insert({ ...row, ...labelFields }).select("*").single();
+    if (isMissingSideLabelColumn(error)) {
+      console.warn("Story side label columns are missing; saving without labels.");
+      ({ data, error } = await client.from("stories").insert(row).select("*").single());
+    }
     if (error?.code === "23505") {
       // 같은 요청이 동시에 들어오면 한 건만 저장하고 나머지는 그 결과를 돌려준다.
       const retry = await client.from("stories").select("*").eq("id", requestId).maybeSingle();
@@ -985,14 +1041,25 @@ app.put("/api/stories/:id", async (req: Request, res: Response) => {
     if (!existing || existing.authorId !== user.id) throw new StoryRequestFailure(404, "STORY_NOT_FOUND");
     const checked = await checkStoryContent(user.id, input.title, input.body);
     if (checked.isAdult) throw new StoryRequestFailure(422, "ADULT_CONTENT_BLOCKED");
+    const labels = await checkSideLabels(user.id, input.sideLabelA, input.sideLabelB);
 
-    const { data, error } = await client.from("stories").update({
+    const changes = {
       title: checked.sanitizedTitle.trim(),
       body: checked.sanitizedText.trim(),
       category: input.category,
       personaInstruction: input.opponentPersonality || null,
       isAdult: false,
-    }).eq("id", req.params.id).eq("authorId", user.id).select("*").maybeSingle();
+    };
+    // 역할을 비우면 null로 지운다. 역할 칸이 아직 없는 DB에서는 역할만 빼고 고친다.
+    const updateStory = (fields: Record<string, unknown>) => client.from("stories").update(fields)
+      .eq("id", req.params.id).eq("authorId", user.id).select("*").maybeSingle();
+    let { data, error } = await updateStory({
+      ...changes, sideLabelA: labels.sideLabelA || null, sideLabelB: labels.sideLabelB || null,
+    });
+    if (isMissingSideLabelColumn(error)) {
+      console.warn("Story side label columns are missing; updating without labels.");
+      ({ data, error } = await updateStory(changes));
+    }
     if (error) {
       console.error("Story update failed:", error.code);
       throw new StoryRequestFailure(500, "STORY_SAVE_FAILED");
